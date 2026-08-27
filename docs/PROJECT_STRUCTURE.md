@@ -53,6 +53,7 @@ Veritas/
 ├── .git/                       # main 分支，连接 private GitHub origin
 ├── .gitattributes              # 跨平台文本统一为 LF
 ├── .gitignore
+├── README.md                    # 项目首页、验证摘要与运行入口
 ├── pyproject.toml
 ├── Veritas-Initial-Design(2).md
 ├── src/veritas/
@@ -367,6 +368,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：在项目根目录初始化 `main` 分支，继续由项目 `.gitignore` 排除 SQLite 运行数据库、WAL/SHM 与 Python 缓存；将首次基线提交推送至 private GitHub 仓库 `Peter-Sherlock/Veritas`。
 - 原因：让后续阶段具备可审计 diff 和可回滚基线，同时保留用户对首次提交内容与时机的控制。
 
+### D-016：README 采用 Explorer-first 项目入口
+
+- 状态：Implemented
+- 日期：2026-08-27
+- 决策：README 先用具体变化场景回答“项目解决什么问题”，再提供 quick start 和按探索目标组织的入口；架构、实验结果与边界只保留理解项目所需的最小信息，详细阶段记录和 failure 规格下沉到双文档。
+- 原因：README 服务第一次探索项目的人，而不是承担项目内部总结；访客应先能运行、导航和形成心智模型，再决定是否深入阅读规格。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -437,6 +445,7 @@ P0-2B 已完成：
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-27 | README | 新增并重构为 Explorer-first 项目入口：具体示例、quick start、探索导航、机制图、实验与产物；登记 D-016 |
 | 2026-08-27 | Repository setup | 初始化本地 Git `main`，确认忽略规则，并把首次基线提交推送到 private `Peter-Sherlock/Veritas` |
 | 2026-08-27 | P0-2B | 落地 GS-002/003、suite manifest/runner、retract current-view、Snapshot Registry、failure records 与 D-014；24/24 tests 和 31/31 JSON hash 通过；P0-2C/Gate 未执行 |
 | 2026-08-27 | P0-2A | 冻结 GS-002/003、F01～F06、suite/Gate 口径、P0-2B 计划结构与 D-009～D-013；未修改代码 |

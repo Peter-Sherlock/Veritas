@@ -960,6 +960,10 @@ artifacts/
 
 项目根目录已经初始化为 Git 仓库，当前分支为 `main`，远程 `origin` 指向 private 仓库 [Peter-Sherlock/Veritas](https://github.com/Peter-Sherlock/Veritas)。项目 `.gitignore` 已验证会排除 `artifacts/**/*.sqlite3`、SQLite WAL/SHM、`__pycache__`、`.pyc`、`.coverage` 与 `.venv`；`.gitattributes` 将 Python、JSON、Markdown 与 TOML 固定为 LF。定向扫描未发现常见 API key、token 或 private-key 格式；首次基线提交已推送。
 
+### 14.8 README 项目入口
+
+根目录 [README](../README.md) 面向第一次探索项目的人：先用 GS-001 的具体变化展示输入、影响、修复与未影响结论，再提供 quick start、按目标组织的代码/fixture/artifact 导航、核心机制图、三个实验、输出契约和扩展场景入口。内部阶段历史、完整 failure 规格与详细指标继续保留在双文档；README 中出现的测试数量和重算比例来自当前测试与 suite summary。
+
 ## 15. 当前限制
 
 - 证据与 Claim 的关系由 fixture 显式声明，没有测试自动抽取；
@@ -980,6 +984,7 @@ artifacts/
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-27 | README | 建立 Explorer-first 项目入口；示例、运行命令、导航、链接和结果与 P0-2B 实现对齐 |
 | 2026-08-27 | Repository setup | 初始化 Git `main`、验证忽略规则，并将首次基线提交推送至 private `Peter-Sherlock/Veritas` |
 | 2026-08-27 | P0-2B | 实现 GS-002/003、retract current-view、compatibility rule、Snapshot Registry、F01～F06、显式 suite runner；24/24 tests 与 31/31 JSON hash 验证通过；P0-2C/Gate 未执行 |
 | 2026-08-27 | P0-2A | 冻结 GS-002 retract、GS-003 Python 分支变化、六类 Failure Taxonomy、suite 指标和 Gate 条件；未修改 runtime |
