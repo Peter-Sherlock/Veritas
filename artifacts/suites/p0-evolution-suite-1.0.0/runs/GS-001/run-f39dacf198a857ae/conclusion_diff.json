@@ -1,0 +1,30 @@
+{
+  "action_required": true,
+  "affected_claims": [
+    "default_retries_1",
+    "default_retries_3"
+  ],
+  "change_event_id": "CHG_API_1_0_TO_1_1",
+  "change_reason": "source_revision",
+  "changed_evidence": [
+    "EV_API_DEFAULT@1",
+    "EV_API_DEFAULT@2"
+  ],
+  "conclusion_key": "retry_policy_fit",
+  "input_snapshot_hash": "3b041967a5b4e78673c072d69d0bc15114a32c186bc86a846630e8723dfd6970",
+  "new_version": {
+    "conclusion_version_id": "retry_policy_fit@2",
+    "outcome": "fail",
+    "statement": "Atlas still supports automatic retry, but the default count is 1 and does not satisfy the team minimum of 3; explicit configuration is required."
+  },
+  "old_version": {
+    "conclusion_version_id": "retry_policy_fit@1",
+    "outcome": "pass",
+    "statement": "Atlas default retry policy satisfies the team requirement"
+  },
+  "output_hash": "e527972179017c08683de0d650e9c4521d7748eb7288f2c1a3acb3048c1f234b",
+  "rule_version": "p0-rules-1",
+  "run_id": "run-f39dacf198a857ae",
+  "scenario_id": "GS-001",
+  "scenario_version": "1.0.0"
+}

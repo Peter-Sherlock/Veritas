@@ -1,0 +1,167 @@
+{
+  "events": [
+    {
+      "entity_refs": [
+        "CHG_RUNTIME_1_0_TO_1_1"
+      ],
+      "event_seq": 1,
+      "event_type": "change_event_received",
+      "reason": {
+        "change_type": "revise"
+      },
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "timestamp": "2026-08-22T00:00:00.001000Z"
+    },
+    {
+      "entity_refs": [
+        "EV_RUNTIME_PY311@1",
+        "python_311_compatible",
+        "python_311_supported"
+      ],
+      "event_seq": 2,
+      "event_type": "candidate_impact_computed",
+      "reason": {
+        "source_snapshot": "GS-003:T0"
+      },
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "timestamp": "2026-08-22T00:00:00.002000Z"
+    },
+    {
+      "entity_refs": [
+        "SRC_RUNTIME_GUIDE@1.0",
+        "SRC_RUNTIME_GUIDE@1.1"
+      ],
+      "event_seq": 3,
+      "event_type": "source_version_activated",
+      "reason": {
+        "mode": "append_only_supersedes"
+      },
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "timestamp": "2026-08-22T00:00:00.003000Z"
+    },
+    {
+      "entity_refs": [
+        "EV_RUNTIME_PY311@1"
+      ],
+      "event_seq": 4,
+      "event_type": "old_evidence_expired",
+      "reason": {
+        "mode": "inactive_via_source_supersession"
+      },
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "timestamp": "2026-08-22T00:00:00.004000Z"
+    },
+    {
+      "entity_refs": [
+        "python_311_supported",
+        "python_311_supported@assessment-2"
+      ],
+      "event_seq": 5,
+      "event_type": "claim_reverified",
+      "reason": {
+        "new_state": "contradicted",
+        "old_state": "accepted"
+      },
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "timestamp": "2026-08-22T00:00:00.005000Z"
+    },
+    {
+      "entity_refs": [
+        "python_311_supported"
+      ],
+      "event_seq": 6,
+      "event_type": "claim_state_changed",
+      "reason": {
+        "new_state": "contradicted",
+        "old_state": "accepted"
+      },
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "timestamp": "2026-08-22T00:00:00.006000Z"
+    },
+    {
+      "entity_refs": [
+        "python_312_supported",
+        "python_312_supported@assessment-1"
+      ],
+      "event_seq": 7,
+      "event_type": "claim_reverified",
+      "reason": {
+        "new_state": "accepted",
+        "old_state": null
+      },
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "timestamp": "2026-08-22T00:00:00.007000Z"
+    },
+    {
+      "entity_refs": [
+        "python_312_supported"
+      ],
+      "event_seq": 8,
+      "event_type": "claim_state_created",
+      "reason": {
+        "new_state": "accepted"
+      },
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "timestamp": "2026-08-22T00:00:00.008000Z"
+    },
+    {
+      "entity_refs": [
+        "python_311_compatible",
+        "python_311_supported"
+      ],
+      "event_seq": 9,
+      "event_type": "conclusion_recomputed",
+      "reason": {
+        "new_state": "fail",
+        "old_state": "pass"
+      },
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "timestamp": "2026-08-22T00:00:00.009000Z"
+    },
+    {
+      "entity_refs": [
+        "python_311_compatible@1",
+        "python_311_compatible@2"
+      ],
+      "event_seq": 10,
+      "event_type": "conclusion_version_created",
+      "reason": {
+        "relation": "supersedes"
+      },
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "timestamp": "2026-08-22T00:00:00.010000Z"
+    },
+    {
+      "entity_refs": [
+        "run-046dcc6b4ed54440"
+      ],
+      "event_seq": 11,
+      "event_type": "evolution_run_committed",
+      "reason": {
+        "candidate_claim_count": 1,
+        "candidate_conclusion_count": 1,
+        "created_conclusion_count": 1,
+        "recomputed_conclusion_count": 1
+      },
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "timestamp": "2026-08-22T00:00:00.011000Z"
+    }
+  ],
+  "input_snapshot_hash": "e7bdbfd5166affcbfbc188a4851718f33600ffcba2a5da538a96a94e3f67e21d",
+  "output_hash": "b51e6c5c84a9526516b13ddd26c739dec1d91d51de8d502b0bbbfa62f5abb82e",
+  "rule_version": "p0-rules-2",
+  "run_id": "run-046dcc6b4ed54440",
+  "scenario_id": "GS-003",
+  "scenario_version": "1.0.0"
+}

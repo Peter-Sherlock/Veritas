@@ -1,0 +1,29 @@
+{
+  "action_required": true,
+  "affected_claims": [
+    "python_311_supported"
+  ],
+  "change_event_id": "CHG_RUNTIME_1_0_TO_1_1",
+  "change_reason": "source_revision",
+  "changed_evidence": [
+    "EV_RUNTIME_PY311@1",
+    "EV_RUNTIME_PY311@2"
+  ],
+  "conclusion_key": "python_311_compatible",
+  "input_snapshot_hash": "e7bdbfd5166affcbfbc188a4851718f33600ffcba2a5da538a96a94e3f67e21d",
+  "new_version": {
+    "conclusion_version_id": "python_311_compatible@2",
+    "outcome": "fail",
+    "statement": "Atlas cannot be deployed on Python 3.11"
+  },
+  "old_version": {
+    "conclusion_version_id": "python_311_compatible@1",
+    "outcome": "pass",
+    "statement": "Atlas can be deployed on Python 3.11"
+  },
+  "output_hash": "a426f1fd4e4e80d8f8b464f996c7dcae71447bed9c548b5519b4aad035b3ac4b",
+  "rule_version": "p0-rules-2",
+  "run_id": "run-046dcc6b4ed54440",
+  "scenario_id": "GS-003",
+  "scenario_version": "1.0.0"
+}

@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.coverage
+.venv/
+artifacts/**/*.sqlite3
+artifacts/**/*.sqlite3-shm
+artifacts/**/*.sqlite3-wal

@@ -1,0 +1,20 @@
+{
+  "change_event_id": "CHG_API_1_0_TO_1_1",
+  "claims": [
+    "default_retries_3",
+    "retry_supported"
+  ],
+  "conclusions": [
+    "retry_policy_fit"
+  ],
+  "evidence_spans": [
+    "EV_API_DEFAULT@1",
+    "EV_API_RETRY@1"
+  ],
+  "input_snapshot_hash": "3b041967a5b4e78673c072d69d0bc15114a32c186bc86a846630e8723dfd6970",
+  "output_hash": "5578b888e5c8e1cf87bc9da84d456199dcb61248e69859f162be3fb67eb2a86a",
+  "rule_version": "p0-rules-1",
+  "run_id": "run-f39dacf198a857ae",
+  "scenario_id": "GS-001",
+  "scenario_version": "1.0.0"
+}

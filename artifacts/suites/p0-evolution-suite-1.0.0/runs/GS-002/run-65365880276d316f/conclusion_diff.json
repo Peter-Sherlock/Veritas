@@ -1,0 +1,9 @@
+{
+  "conclusion_diffs": [],
+  "input_snapshot_hash": "e7bdbfd5166affcbfbc188a4851718f33600ffcba2a5da538a96a94e3f67e21d",
+  "output_hash": "1336d8c7c1081d14da1c20985bbb886d604a8d56333229f9c267748316002496",
+  "rule_version": "p0-rules-2",
+  "run_id": "run-65365880276d316f",
+  "scenario_id": "GS-002",
+  "scenario_version": "1.0.0"
+}

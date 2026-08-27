@@ -1,0 +1,160 @@
+{
+  "critical_failure_count": 0,
+  "evaluation_status": "P0-2B_IMPLEMENTATION_VERIFICATION",
+  "failure_taxonomy_counts": {
+    "F01_IMPACT_DETECTION": 0,
+    "F02_INVALIDATION_DECISION": 0,
+    "F03_REPAIR_CORRECTNESS": 0,
+    "F04_RECOMPUTE_SCOPE": 0,
+    "F05_PROVENANCE_INTEGRITY": 0,
+    "F06_REPLAY_REPRODUCIBILITY": 0
+  },
+  "failures": [],
+  "gate_p0_decision": "not_evaluated_in_p0_2b",
+  "macro_average": {
+    "candidate_impact_precision": 1.0,
+    "candidate_impact_recall": 1.0,
+    "event_idempotency_rate": 1.0,
+    "full_recompute_equivalent_rate": 1.0,
+    "full_recompute_ratio": 1.0,
+    "invalidation_precision": 1.0,
+    "invalidation_recall": 1.0,
+    "provenance_integrity_rate": 1.0,
+    "repair_success_rate": 1.0,
+    "replay_determinism_rate": 1.0,
+    "selective_recompute_ratio": 0.3333333333333333,
+    "unaffected_preservation": 1.0
+  },
+  "manifest_hash": "e2942642dc2a1a72e20c47ddd6a2549a9c523741c84f5c70bc275302a442bda5",
+  "micro_aggregate": {
+    "candidate_impact_precision": 1.0,
+    "candidate_impact_recall": 1.0,
+    "invalidation_precision": 1.0,
+    "invalidation_recall": 1.0,
+    "unaffected_preservation": 1.0
+  },
+  "output_hash": "db5c51289cd8f192582a0c2c8c20110464c43c74d130500161f660ff941fbeab",
+  "p0_2b_acceptance_candidate": true,
+  "per_scenario": {
+    "GS-001": {
+      "artifact_dir": "runs/GS-001/run-f39dacf198a857ae",
+      "artifact_hash_valid": true,
+      "ground_truth_hash": "a6965c710d7bad5836f8f3438a10b32810ce033f89025a1334fdf7be2137fc64",
+      "metrics": {
+        "candidate_impact_precision": 1.0,
+        "candidate_impact_recall": 1.0,
+        "critical_failure_count": 0,
+        "current_outcomes": {
+          "python_311_compatible": "pass",
+          "retry_policy_fit": "fail"
+        },
+        "event_idempotency": true,
+        "failures": [],
+        "full_recompute_equivalent": true,
+        "full_recompute_outcomes": {
+          "python_311_compatible": "pass",
+          "retry_policy_fit": "fail"
+        },
+        "full_recompute_ratio": 1.0,
+        "invalidation_precision": 1.0,
+        "invalidation_recall": 1.0,
+        "provenance_errors": [],
+        "provenance_integrity": true,
+        "repair_success": true,
+        "replay_determinism": true,
+        "selective_recompute_ratio": 0.5,
+        "unaffected_preservation": 1.0
+      },
+      "recomputed_conclusions": 1,
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "scenario_version": "1.0.0",
+      "total_conclusions": 2
+    },
+    "GS-002": {
+      "artifact_dir": "runs/GS-002/run-65365880276d316f",
+      "artifact_hash_valid": true,
+      "ground_truth_hash": "3f2b3ee96ecf5a9310aa6d7fef395ccbce79a1b315eb707a3ff9dbd0fa19162b",
+      "metrics": {
+        "candidate_impact_precision": 1.0,
+        "candidate_impact_recall": 1.0,
+        "critical_failure_count": 0,
+        "current_outcomes": {
+          "python_311_compatible": "pass",
+          "retry_policy_fit": "pass"
+        },
+        "event_idempotency": true,
+        "failures": [],
+        "full_recompute_equivalent": true,
+        "full_recompute_outcomes": {
+          "python_311_compatible": "pass",
+          "retry_policy_fit": "pass"
+        },
+        "full_recompute_ratio": 1.0,
+        "invalidation_precision": 1.0,
+        "invalidation_recall": 1.0,
+        "provenance_errors": [],
+        "provenance_integrity": true,
+        "repair_success": true,
+        "replay_determinism": true,
+        "selective_recompute_ratio": 0.0,
+        "unaffected_preservation": 1.0
+      },
+      "recomputed_conclusions": 0,
+      "rule_version": "p0-rules-2",
+      "run_id": "run-65365880276d316f",
+      "scenario_version": "1.0.0",
+      "total_conclusions": 2
+    },
+    "GS-003": {
+      "artifact_dir": "runs/GS-003/run-046dcc6b4ed54440",
+      "artifact_hash_valid": true,
+      "ground_truth_hash": "914e0e8567d70fd85ceb8b5299a0f1d1006f1dfbc1131c5ac7b12e72770c2e58",
+      "metrics": {
+        "candidate_impact_precision": 1.0,
+        "candidate_impact_recall": 1.0,
+        "critical_failure_count": 0,
+        "current_outcomes": {
+          "python_311_compatible": "fail",
+          "retry_policy_fit": "pass"
+        },
+        "event_idempotency": true,
+        "failures": [],
+        "full_recompute_equivalent": true,
+        "full_recompute_outcomes": {
+          "python_311_compatible": "fail",
+          "retry_policy_fit": "pass"
+        },
+        "full_recompute_ratio": 1.0,
+        "invalidation_precision": 1.0,
+        "invalidation_recall": 1.0,
+        "provenance_errors": [],
+        "provenance_integrity": true,
+        "repair_success": true,
+        "replay_determinism": true,
+        "selective_recompute_ratio": 0.5,
+        "unaffected_preservation": 1.0
+      },
+      "recomputed_conclusions": 1,
+      "rule_version": "p0-rules-2",
+      "run_id": "run-046dcc6b4ed54440",
+      "scenario_version": "1.0.0",
+      "total_conclusions": 2
+    }
+  },
+  "recompute_totals": {
+    "full_recompute_ratio": 1.0,
+    "full_recomputed_conclusions": 6,
+    "full_total_conclusions": 6,
+    "selective_recompute_ratio": 0.3333333333333333,
+    "selective_recomputed_conclusions": 2,
+    "selective_total_conclusions": 6
+  },
+  "scenario_order": [
+    "GS-001",
+    "GS-002",
+    "GS-003"
+  ],
+  "suite_id": "p0-evolution-suite",
+  "suite_version": "1.0.0"
+}

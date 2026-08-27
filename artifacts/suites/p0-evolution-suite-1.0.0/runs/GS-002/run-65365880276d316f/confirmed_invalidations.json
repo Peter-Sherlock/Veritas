@@ -1,0 +1,34 @@
+{
+  "confirmed_invalidations": [],
+  "created_claim_assessments": [
+    "retry_supported@assessment-2"
+  ],
+  "created_claims": [],
+  "created_conclusions": [],
+  "input_snapshot_hash": "e7bdbfd5166affcbfbc188a4851718f33600ffcba2a5da538a96a94e3f67e21d",
+  "output_hash": "53368cb0db58c83e5e51dd8e295b792a049658c43e664cc1ba3b19e54e6ea2aa",
+  "rechecked_unchanged": [
+    "retry_supported"
+  ],
+  "reverification_results": [
+    {
+      "assessment_id": "retry_supported@assessment-2",
+      "new_state": "accepted",
+      "node_key": "retry_supported",
+      "old_state": "accepted",
+      "reason_refs": [
+        "EDGE_API_RETRY_SUPPORT@1"
+      ]
+    }
+  ],
+  "rule_version": "p0-rules-2",
+  "run_id": "run-65365880276d316f",
+  "scenario_id": "GS-002",
+  "scenario_version": "1.0.0",
+  "untouched_nodes": [
+    "default_retries_3",
+    "policy_min_retries_3",
+    "python_311_compatible",
+    "python_311_supported"
+  ]
+}

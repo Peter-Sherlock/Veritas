@@ -1,0 +1,28 @@
+{
+  "suite_id": "p0-evolution-suite",
+  "suite_version": "1.0.0",
+  "description": "Frozen P0 evidence-evolution evaluation suite. Scenarios are explicit and order-stable.",
+  "scenarios": [
+    {
+      "scenario_id": "GS-001",
+      "scenario_version": "1.0.0",
+      "rule_version": "p0-rules-1",
+      "ground_truth_hash": "a6965c710d7bad5836f8f3438a10b32810ce033f89025a1334fdf7be2137fc64",
+      "path": "../scenarios/GS-001/scenario.json"
+    },
+    {
+      "scenario_id": "GS-002",
+      "scenario_version": "1.0.0",
+      "rule_version": "p0-rules-2",
+      "ground_truth_hash": "3f2b3ee96ecf5a9310aa6d7fef395ccbce79a1b315eb707a3ff9dbd0fa19162b",
+      "path": "../scenarios/GS-002/scenario.json"
+    },
+    {
+      "scenario_id": "GS-003",
+      "scenario_version": "1.0.0",
+      "rule_version": "p0-rules-2",
+      "ground_truth_hash": "914e0e8567d70fd85ceb8b5299a0f1d1006f1dfbc1131c5ac7b12e72770c2e58",
+      "path": "../scenarios/GS-003/scenario.json"
+    }
+  ]
+}

@@ -1,0 +1,240 @@
+{
+  "scenario_id": "GS-001",
+  "scenario_version": "1.0.0",
+  "project_id": "atlas-architecture-review",
+  "rule_version": "p0-rules-1",
+  "input_snapshot_id": "GS-001:T0",
+  "t0_reasoned_at": "2026-08-03T00:00:00Z",
+  "t0": {
+    "sources": [
+      {
+        "source_id": "SRC_API",
+        "version_id": "SRC_API@1.0",
+        "version_label": "1.0",
+        "canonical_uri": "fixture://atlas/api-reference",
+        "content": "Retry capability: Atlas automatically retries transient failures. Retry defaults: max_retries defaults to 3.",
+        "published_at": "2026-08-01T00:00:00Z",
+        "observed_at": "2026-08-02T00:00:00Z",
+        "valid_from": "2026-08-01T00:00:00Z"
+      },
+      {
+        "source_id": "SRC_RETRY_GUIDE",
+        "version_id": "SRC_RETRY_GUIDE@1.0",
+        "version_label": "1.0",
+        "canonical_uri": "fixture://atlas/retry-guide",
+        "content": "Atlas provides automatic retry handling for transient failures.",
+        "published_at": "2026-08-01T00:00:00Z",
+        "observed_at": "2026-08-02T00:00:00Z",
+        "valid_from": "2026-08-01T00:00:00Z"
+      },
+      {
+        "source_id": "SRC_RUNTIME_GUIDE",
+        "version_id": "SRC_RUNTIME_GUIDE@1.0",
+        "version_label": "1.0",
+        "canonical_uri": "fixture://atlas/runtime-guide",
+        "content": "Atlas supports Python 3.11.",
+        "published_at": "2026-08-01T00:00:00Z",
+        "observed_at": "2026-08-02T00:00:00Z",
+        "valid_from": "2026-08-01T00:00:00Z"
+      },
+      {
+        "source_id": "SRC_TEAM_POLICY",
+        "version_id": "SRC_TEAM_POLICY@1.0",
+        "version_label": "1.0",
+        "canonical_uri": "fixture://team/retry-policy",
+        "content": "Approved SDKs must retry transient failures at least 3 times by default.",
+        "published_at": "2026-07-15T00:00:00Z",
+        "observed_at": "2026-08-02T00:00:00Z",
+        "valid_from": "2026-07-15T00:00:00Z"
+      }
+    ],
+    "evidence": [
+      {
+        "evidence_id": "EV_API_RETRY@1",
+        "source_version_id": "SRC_API@1.0",
+        "locator": {"section": "retry-capability"},
+        "text": "Atlas automatically retries transient failures.",
+        "normalized_assertion": "Atlas supports automatic retry",
+        "valid_from": "2026-08-01T00:00:00Z"
+      },
+      {
+        "evidence_id": "EV_API_DEFAULT@1",
+        "source_version_id": "SRC_API@1.0",
+        "locator": {"section": "retry-default"},
+        "text": "max_retries defaults to 3.",
+        "normalized_assertion": "Atlas default retries equal 3",
+        "valid_from": "2026-08-01T00:00:00Z"
+      },
+      {
+        "evidence_id": "EV_GUIDE_RETRY@1",
+        "source_version_id": "SRC_RETRY_GUIDE@1.0",
+        "locator": {"section": "automatic-retry"},
+        "text": "Atlas provides automatic retry handling for transient failures.",
+        "normalized_assertion": "Atlas supports automatic retry",
+        "valid_from": "2026-08-01T00:00:00Z"
+      },
+      {
+        "evidence_id": "EV_RUNTIME_PY311@1",
+        "source_version_id": "SRC_RUNTIME_GUIDE@1.0",
+        "locator": {"section": "python-compatibility"},
+        "text": "Atlas supports Python 3.11.",
+        "normalized_assertion": "Atlas supports Python 3.11",
+        "valid_from": "2026-08-01T00:00:00Z"
+      },
+      {
+        "evidence_id": "EV_POLICY_MIN_RETRY@1",
+        "source_version_id": "SRC_TEAM_POLICY@1.0",
+        "locator": {"section": "minimum-retries"},
+        "text": "Approved SDKs must retry transient failures at least 3 times by default.",
+        "normalized_assertion": "Team policy requires at least 3 retries by default",
+        "valid_from": "2026-07-15T00:00:00Z"
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "retry_supported",
+        "statement": "Atlas supports automatic retry",
+        "canonical_key": "atlas.retry_supported",
+        "created_at": "2026-08-03T00:00:00Z"
+      },
+      {
+        "claim_id": "default_retries_3",
+        "statement": "Atlas default retry count is 3",
+        "canonical_key": "atlas.default_retries=3",
+        "created_at": "2026-08-03T00:00:00Z"
+      },
+      {
+        "claim_id": "python_311_supported",
+        "statement": "Atlas supports Python 3.11",
+        "canonical_key": "atlas.python=3.11",
+        "created_at": "2026-08-03T00:00:00Z"
+      },
+      {
+        "claim_id": "policy_min_retries_3",
+        "statement": "Team policy requires at least 3 retries by default",
+        "canonical_key": "team.minimum_default_retries=3",
+        "created_at": "2026-08-03T00:00:00Z"
+      }
+    ],
+    "edges": [
+      {"edge_id": "EDGE_API_RETRY_SUPPORT@1", "edge_type": "supports", "from_id": "EV_API_RETRY@1", "to_id": "retry_supported"},
+      {"edge_id": "EDGE_API_DEFAULT_SUPPORT@1", "edge_type": "supports", "from_id": "EV_API_DEFAULT@1", "to_id": "default_retries_3"},
+      {"edge_id": "EDGE_GUIDE_RETRY_SUPPORT@1", "edge_type": "supports", "from_id": "EV_GUIDE_RETRY@1", "to_id": "retry_supported"},
+      {"edge_id": "EDGE_RUNTIME_PY311_SUPPORT@1", "edge_type": "supports", "from_id": "EV_RUNTIME_PY311@1", "to_id": "python_311_supported"},
+      {"edge_id": "EDGE_POLICY_MIN_RETRY_SUPPORT@1", "edge_type": "supports", "from_id": "EV_POLICY_MIN_RETRY@1", "to_id": "policy_min_retries_3"}
+    ],
+    "assessments": [
+      {"assessment_id": "retry_supported@assessment-1", "claim_id": "retry_supported", "assessment": "accepted", "reason_refs": ["EDGE_API_RETRY_SUPPORT@1", "EDGE_GUIDE_RETRY_SUPPORT@1"]},
+      {"assessment_id": "default_retries_3@assessment-1", "claim_id": "default_retries_3", "assessment": "accepted", "reason_refs": ["EDGE_API_DEFAULT_SUPPORT@1"]},
+      {"assessment_id": "python_311_supported@assessment-1", "claim_id": "python_311_supported", "assessment": "accepted", "reason_refs": ["EDGE_RUNTIME_PY311_SUPPORT@1"]},
+      {"assessment_id": "policy_min_retries_3@assessment-1", "claim_id": "policy_min_retries_3", "assessment": "accepted", "reason_refs": ["EDGE_POLICY_MIN_RETRY_SUPPORT@1"]}
+    ],
+    "conclusions": [
+      {
+        "conclusion_key": "retry_policy_fit",
+        "conclusion_version_id": "retry_policy_fit@1",
+        "version_number": 1,
+        "statement": "Atlas default retry policy satisfies the team requirement",
+        "outcome": "pass",
+        "dependency_rule": {
+          "kind": "numeric_threshold",
+          "capability_claim_id": "retry_supported",
+          "value_claim_prefix": "atlas.default_retries=",
+          "minimum": 3,
+          "policy_claim_id": "policy_min_retries_3",
+          "pass_statement": "Atlas default retry policy satisfies the team requirement",
+          "fail_statement": "Atlas still supports automatic retry, but the default count is 1 and does not satisfy the team minimum of 3; explicit configuration is required."
+        },
+        "reason_refs": ["retry_supported@assessment-1", "default_retries_3@assessment-1", "policy_min_retries_3@assessment-1"]
+      },
+      {
+        "conclusion_key": "python_311_compatible",
+        "conclusion_version_id": "python_311_compatible@1",
+        "version_number": 1,
+        "statement": "Atlas can be deployed on Python 3.11",
+        "outcome": "pass",
+        "dependency_rule": {
+          "kind": "all_accepted",
+          "claim_ids": ["python_311_supported"],
+          "pass_statement": "Atlas can be deployed on Python 3.11",
+          "fail_statement": "Atlas cannot currently be confirmed for Python 3.11"
+        },
+        "reason_refs": ["python_311_supported@assessment-1"]
+      }
+    ],
+    "conclusion_edges": [
+      {"edge_id": "EDGE_RETRY_TO_POLICY_FIT@1", "edge_type": "depends_on", "from_id": "retry_supported", "to_id": "retry_policy_fit@1"},
+      {"edge_id": "EDGE_DEFAULT3_TO_POLICY_FIT@1", "edge_type": "depends_on", "from_id": "default_retries_3", "to_id": "retry_policy_fit@1"},
+      {"edge_id": "EDGE_POLICY_TO_POLICY_FIT@1", "edge_type": "depends_on", "from_id": "policy_min_retries_3", "to_id": "retry_policy_fit@1"},
+      {"edge_id": "EDGE_PY311_TO_COMPAT@1", "edge_type": "depends_on", "from_id": "python_311_supported", "to_id": "python_311_compatible@1"}
+    ]
+  },
+  "change": {
+    "event": {
+      "change_event_id": "CHG_API_1_0_TO_1_1",
+      "external_event_id": "atlas-api-release-1.1",
+      "change_type": "revise",
+      "old_source_version_id": "SRC_API@1.0",
+      "new_source_version_id": "SRC_API@1.1",
+      "changed_locators": [
+        {"section": "retry-capability"},
+        {"section": "retry-default"}
+      ],
+      "observed_at": "2026-08-16T00:00:00Z",
+      "effective_at": "2026-08-15T00:00:00Z"
+    },
+    "new_source": {
+      "source_id": "SRC_API",
+      "version_id": "SRC_API@1.1",
+      "version_label": "1.1",
+      "canonical_uri": "fixture://atlas/api-reference",
+      "content": "Retry capability: Atlas automatically retries transient failures. Retry defaults: max_retries defaults to 1.",
+      "published_at": "2026-08-15T00:00:00Z",
+      "observed_at": "2026-08-16T00:00:00Z",
+      "valid_from": "2026-08-15T00:00:00Z",
+      "supersedes_version_id": "SRC_API@1.0"
+    },
+    "new_claims": [
+      {
+        "claim_id": "default_retries_1",
+        "statement": "Atlas default retry count is 1",
+        "canonical_key": "atlas.default_retries=1",
+        "created_at": "2026-08-16T00:00:00Z"
+      }
+    ],
+    "new_evidence": [
+      {
+        "evidence_id": "EV_API_RETRY@2",
+        "source_version_id": "SRC_API@1.1",
+        "locator": {"section": "retry-capability"},
+        "text": "Atlas automatically retries transient failures.",
+        "normalized_assertion": "Atlas supports automatic retry",
+        "valid_from": "2026-08-15T00:00:00Z"
+      },
+      {
+        "evidence_id": "EV_API_DEFAULT@2",
+        "source_version_id": "SRC_API@1.1",
+        "locator": {"section": "retry-default"},
+        "text": "max_retries defaults to 1.",
+        "normalized_assertion": "Atlas default retries equal 1",
+        "valid_from": "2026-08-15T00:00:00Z"
+      }
+    ],
+    "new_edges": [
+      {"edge_id": "EDGE_API_RETRY_SUPPORT@2", "edge_type": "supports", "from_id": "EV_API_RETRY@2", "to_id": "retry_supported"},
+      {"edge_id": "EDGE_API_DEFAULT1_SUPPORT@2", "edge_type": "supports", "from_id": "EV_API_DEFAULT@2", "to_id": "default_retries_1"},
+      {"edge_id": "EDGE_API_DEFAULT3_CONTRADICT@2", "edge_type": "contradicts", "from_id": "EV_API_DEFAULT@2", "to_id": "default_retries_3"}
+    ]
+  },
+  "ground_truth": {
+    "reverify": ["retry_supported", "default_retries_3", "retry_policy_fit"],
+    "semantic_change": ["default_retries_3", "retry_policy_fit"],
+    "untouched": ["python_311_supported", "policy_min_retries_3", "python_311_compatible"],
+    "expected_outcomes": {
+      "retry_policy_fit": "fail",
+      "python_311_compatible": "pass"
+    },
+    "expected_new_conclusion_id": "retry_policy_fit@2",
+    "total_conclusions": 2
+  }
+}
