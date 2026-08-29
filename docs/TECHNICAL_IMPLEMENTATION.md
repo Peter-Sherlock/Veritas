@@ -1,38 +1,40 @@
 # Veritas 技术实现文档
 
 > 文档职责：记录可执行技术规格、数据契约、算法、测试与实际验证结果。  
-> 当前阶段：M1-1 协议与语料（M1+M2 合并推进，第一切片）  
-> 当前状态：M1-1 complete; Gate P0 附条件通过  
+> 当前阶段：M1-1R 跨平台语料与 CI 收口
+> 当前状态：M1-1R complete；Ready for M1-2
 > 更新日期：2026-08-29  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[项目结构与设计文档](PROJECT_STRUCTURE.md)
 
 ## 1. 当前阶段目标
 
-P0-2C 对 P0-2B 已实现的三个场景、聚合指标、全量重算基线和 Failure Taxonomy 进行正式评估：
+M1-1R 关闭 M1-1 暴露出的跨平台可复现性缺口，不改变 P0 evidence-evolution runtime 的领域语义：
 
-> 当一个来源发布新版本时，系统如何找到需要重新验证的节点，如何确认真正失效的主张，如何只更新必要结论，并保留完整版本谱系。
+- 把语料内容定义为 canonical UTF-8 + LF，并让采集器、加载器和 manifest 使用同一 hash 契约；
+- 增加 LF/CRLF 等价回归，证明 Windows 工作树与 Git/Linux checkout 对同一文档得到相同内容和 SHA-256；
+- CI 同时运行 Python 3.11/3.14 单元测试，以及 suite 1.0.0/2.0.0 两套确定性评测；
+- 同步 README、技术实现文档和项目结构文档中的阶段状态与验证证据。
 
-当前已有 GS-001～003 三个独立场景、显式 suite manifest、逐场景失败记录、Snapshot Registry 和聚合运行器。P0-2C 已完成正式聚合评估、F01～F06 负向校准和覆盖边界分析；结论是证据足以进入 Gate P0 评审，但 Gate 尚未作出通过或不通过决定。
+收口完成后，项目可以进入 M1-2 抽取 pipeline 与校准 harness；“可以进入”不等于该 pipeline、真实 LLM 调用或检索质量 benchmark 已经实现。
 
 ## 2. 本阶段非目标
 
-P0-2C 不包含：
+M1-1R 不包含：
 
 - Web Search；
-- LLM 抽取或推理；
+- Evidence/Claim 自动抽取 pipeline 与真实 LLM smoke test；
 - 向量检索；
 - 动态规划；
 - 多 Agent 或并行 Worker；
 - PostgreSQL、图数据库或服务部署；
 - 自由文本报告生成；
-- 对真实互联网内容的自动变化检测；
-- `expire` 与多来源 `conflict` 场景；
-- storage protocol 的全面重构；
-- Gate P0 的最终通过/不通过结论；
-- 现有 GS-001 scenario 与历史逐运行 artifacts 的重写。
+- TF-IDF 排序调优、语义检索或检索质量 benchmark；
+- 对真实互联网内容的自动变化检测与抓取；
+- Research Runtime、checkpoint、预算控制与动态重规划；
+- 多进程、规模、性能或成本收益验证。
 
-这些能力不能作为 P0 核心机制通过验收的前提。
+这些能力属于 M1-2 及后续阶段，不能从 M1-1R 的跨平台验证结果中外推。
 
 ## 3. 核心不变量
 
@@ -1145,7 +1147,44 @@ M1 的第一切片只建立两条可替换边界与一份冻结语料，不修�
 - TF-IDF 是词面检索，不做语义匹配；httpx 的 `advanced` 文档在 0.27 后改名路径，只有 3 个版本——语料忠实保留这一真实历史；
 - `OpenAICompatibleClient` 未接流式、未做 token 计费持久化（预算跟踪在 M1-3）。
 
-## 18. 当前限制
+## 18. M1-1R 跨平台语料与 CI 收口
+
+### 18.1 故障根因与修复契约
+
+M1-1 的初次 GitHub Actions 在 Linux 上失败：Windows 工作树中的 48 个 Markdown 快照为 CRLF，旧 manifest 对工作树原始字节计算 SHA-256；`.gitattributes` 又要求 `*.md` 在 Git checkout 时规范为 LF，因此 Linux 读取到的已提交字节与 manifest 不一致。
+
+M1-1R 将语料契约冻结为 **UTF-8 解码后把 CRLF/CR 统一为 LF，再计算 SHA-256**：
+
+- `src/veritas/search/local_corpus.py` 以 canonical 文本校验 hash，`fetch()` 也返回同一 canonical 内容；
+- `scripts/harvest_corpus.py` 在写文件和计算 hash 前执行相同规范化，并以显式 LF 字节写出语料与 manifest；
+- 48 条 manifest hash 全部重算为 Git/Linux checkout 可复现的 LF 内容 hash；
+- `test_hash_verification_is_newline_stable` 分别写入 LF 与 CRLF，验证两者都通过且返回相同内容；真实语料测试同时锁定 10 个文档、48 个快照；
+- `OpenAICompatibleClient` 在处理 `HTTPError` 后显式关闭 response，消除严格 `ResourceWarning` 检查下的资源泄漏。
+
+### 18.2 CI 与验证结果
+
+GitHub Actions 现有两个正交矩阵：
+
+- 单元/场景测试：Python 3.11 与 3.14，`fail-fast: false`；
+- suite 回归：`p0-evolution-suite.json` 与 `p0-evolution-suite-2.json`。
+
+本地收口验证结果：
+
+- Python 3.11.15：`Ran 73 tests OK`，并把 `ResourceWarning` 视为错误；
+- Python 3.14.7：`Ran 73 tests OK`，并把 `ResourceWarning` 视为错误；
+- 语料定向测试：12/12 通过；
+- suite 1.0.0：16 个 JSON 与已提交 artifacts 逐字节一致，critical failures 为 0；
+- suite 2.0.0：26 个 JSON 与已提交 artifacts 逐字节一致，critical failures 为 0；
+- artifacts：67/67 content hash 有效；
+- corpus：48/48 本地 canonical hash 有效，48/48 manifest hash 与 Git 中 LF 字节一致。
+
+远程 GitHub Actions 结果只在本次提交推送并完成运行后确认，不由本地结果代替。
+
+### 18.3 退出边界
+
+M1-1R 只证明 provider/search 边界、冻结语料和 CI 在目标 Python/操作系统换行差异下可复现。它没有把检索结果接入 Evidence/Claim 抽取，也没有验证真实 LLM、检索质量、研究循环或生产规模。
+
+## 19. 当前限制
 
 - 证据与 Claim 的关系由 fixture 显式声明，没有测试自动抽取；
 - 没有来源质量权重；
@@ -1158,12 +1197,13 @@ M1 的第一切片只建立两条可替换边界与一份冻结语料，不修�
 - 没有并发、多进程、规模或性能结果。
 - Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
-因此，目前可以确认的是“三个受控离线场景上的确定性 Evidence Evolution、撤回 current-view、选择性结论重算和可复现 suite 执行已实现并通过测试”；不能外推为真实 Web Research、通用冲突推理、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线场景上的确定性 Evidence Evolution、追加式 current-view、选择性结论重算，以及 M1-1 provider/search 协议与冻结本地语料已经通过可复现验证”；不能外推为检索到 Evidence/Claim 的端到端 pipeline、真实 Web Research、通用冲突推理、Agent 自主研究或生产规模能力。
 
-## 19. 变更记录
+## 20. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-29 | M1-1R | 统一语料 canonical UTF-8/LF hash 契约，重算 48 条 manifest hash，增加换行回归与严格资源检查；CI 扩展为 Python 3.11/3.14 和 suite 1.0.0/2.0.0 双矩阵；两版本均 73/73 tests、67/67 artifact hashes 与 48/48 corpus hashes 通过 |
 | 2026-08-29 | M1-1 | 新增 providers 与 search 模块、httpx 版本化语料（10 文档 48 快照）、21 项新测试；72/72 通过 |
 | 2026-08-29 | P0-3 | 实现 GS-004 expire 与 GS-005 conflict 场景、conflict 传播模式、manifest 声明式验收与 suite 2.0.0；51/51 tests、67/67 JSON hash 通过，suite 1.0.0 零 diff；Gate P0 评审结论见项目结构文档 |
 | 2026-08-27 | P0-2C | 完成三场景聚合评估、full-recompute 对照、F01～F06 负向校准与覆盖分析；30/30 tests、31/31 JSON hash 通过；状态推进为 Ready for Gate P0 review |

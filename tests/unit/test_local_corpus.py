@@ -17,7 +17,9 @@ def _write_doc(root: Path, doc_id: str, version: str, content: str) -> dict:
         "version_id": version,
         "path": f"{doc_id}/{version}.md",
         "published_at": f"2026-0{version[-1]}-01T00:00:00Z",
-        "content_hash": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "content_hash": hashlib.sha256(
+            content.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+        ).hexdigest(),
     }
 
 
@@ -84,6 +86,24 @@ class LocalCorpusProviderTests(unittest.TestCase):
         target.write_text("tampered content", encoding="utf-8")
         with self.assertRaises(ValueError):
             LocalCorpusProvider(self.root)
+
+    def test_hash_verification_is_newline_stable(self) -> None:
+        target = self.root / "retry_guide" / "v2.md"
+        canonical = "first line\nsecond line\n"
+        manifest_path = self.root / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["documents"][0]["versions"][1]["content_hash"] = hashlib.sha256(
+            canonical.encode("utf-8")
+        ).hexdigest()
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        for payload in (
+            canonical.encode("utf-8"),
+            canonical.replace("\n", "\r\n").encode("utf-8"),
+        ):
+            target.write_bytes(payload)
+            corpus = LocalCorpusProvider(self.root)
+            self.assertEqual(canonical, corpus.fetch("retry_guide", "v2").content)
 
     def test_duplicate_document_id_is_rejected(self) -> None:
         manifest_path = self.root / "manifest.json"

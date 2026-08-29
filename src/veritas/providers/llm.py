@@ -162,7 +162,9 @@ class OpenAICompatibleClient:
                     return response.read().decode("utf-8")
             except urllib.error.HTTPError as exc:
                 last_error = exc
-                if exc.code not in (408, 409, 429) and exc.code < 500:
+                retryable = exc.code in (408, 409, 429) or exc.code >= 500
+                exc.close()
+                if not retryable:
                     raise
             except urllib.error.URLError as exc:
                 last_error = exc

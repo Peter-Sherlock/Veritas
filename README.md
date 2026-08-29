@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-72%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-73%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -107,6 +107,8 @@ Choose the path that matches what you want to explore:
 | Understand selective repair | [`repair.py`](src/veritas/invalidation/repair.py) |
 | Inspect failure-detector calibration | [`test_failure_taxonomy.py`](tests/unit/test_failure_taxonomy.py) |
 | Inspect persistence and current-view semantics | [`sqlite.py`](src/veritas/storage/sqlite.py) |
+| Explore the frozen HTTPX corpus | [corpus manifest](datasets/corpus/httpx-docs/manifest.json) and [`LocalCorpusProvider`](src/veritas/search/local_corpus.py) |
+| Inspect the LLM boundary | [`LLMProvider`, fixture replay and compatible client](src/veritas/providers/llm.py) |
 | Read the full technical specification | [Technical implementation](docs/TECHNICAL_IMPLEMENTATION.md) |
 | Understand design decisions and boundaries | [Project structure and design](docs/PROJECT_STRUCTURE.md) |
 
@@ -181,11 +183,14 @@ src/veritas/
 ├── evidence/        dependency graph and deterministic rules
 ├── invalidation/    impact analysis and selective repair
 ├── storage/         SQLite persistence, lineage and current views
-└── evaluation/      scenarios, metrics, artifacts and suite runner
+├── evaluation/      scenarios, metrics, artifacts and suite runner
+├── search/          retrieval protocol and frozen-corpus TF-IDF baseline
+└── providers/       LLM protocol, fixture replay and compatible client
 
 datasets/
 ├── scenarios/       executable fixtures plus ground truth
-└── suites/          explicit, version-locked suite manifests
+├── suites/          explicit, version-locked suite manifests
+└── corpus/          versioned HTTPX documentation snapshots
 
 tests/               unit invariants and end-to-end scenarios
 docs/                detailed implementation and design decisions
@@ -214,15 +219,19 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas is currently at **P0-3: expire and multi-source conflict scenarios complete; Gate P0 passed with conditions** and is cleared to enter M1 (initial research and search).
+Veritas is currently at **M1-1R: cross-platform corpus and CI hardening complete** and is ready for M1-2 extraction calibration.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
-- 51 automated tests, including independent negative calibration for F01–F06
+- 73 automated tests on Python 3.11 and 3.14
 - five frozen scenarios covering revision, retraction, branch isolation, expiry, and multi-source conflict
 - provenance, snapshot-drift, idempotency, replay, and artifact-integrity checks
 - selective execution matches full recomputation in all scenarios while evaluating 4 of 11 conclusions instead of 11 of 11
+- replaceable search/LLM protocols and a local HTTPX corpus with 10 documents and 48 version snapshots
+- canonical LF corpus hashes, with CI covering both Python versions and both frozen suite manifests
 
 Gate P0 was reviewed on 2026-08-29 and **passed with conditions** (see [D-021](docs/PROJECT_STRUCTURE.md)): the mechanism is validated on controlled graphs; LLM extraction must be calibrated against deterministic fixtures in M1, and no cost claim may be extrapolated from the 4/11 ratio without a scaled benchmark.
+
+The next slice is **M1-2**: connect retrieval to deterministic extraction fixtures, run a real-provider calibration record, and establish the first 10-question benchmark. The provider and corpus modules are foundations for that work; they are not yet an end-to-end research pipeline.
 
 > [!WARNING]
 > This repository does not yet perform web search, LLM extraction, autonomous planning, or production-scale concurrent execution. The current numbers come from small controlled graphs and should not be treated as real-world cost estimates.

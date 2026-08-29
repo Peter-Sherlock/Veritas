@@ -20,6 +20,13 @@ class HarvestedCorpusIntegrityTests(unittest.TestCase):
     def test_manifest_shape(self) -> None:
         self.assertEqual("httpx-docs", self.corpus.corpus_id)
         self.assertEqual(10, len(self.corpus.document_ids()))
+        self.assertEqual(
+            48,
+            sum(
+                len(self.corpus.versions(doc_id))
+                for doc_id in self.corpus.document_ids()
+            ),
+        )
         for doc_id in self.corpus.document_ids():
             self.assertGreaterEqual(len(self.corpus.versions(doc_id)), 3)
 

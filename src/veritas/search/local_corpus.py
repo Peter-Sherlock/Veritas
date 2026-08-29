@@ -18,6 +18,15 @@ def _tokens(text: str) -> list[str]:
     return _TOKEN_PATTERN.findall(text.lower())
 
 
+def _canonical_text(text: str) -> str:
+    """Normalize text payloads before hashing or returning corpus content."""
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _read_canonical_text(path: Path) -> str:
+    return _canonical_text(path.read_bytes().decode("utf-8"))
+
+
 class LocalCorpusProvider:
     """TF-IDF retrieval over a frozen, versioned local corpus.
 
@@ -48,7 +57,8 @@ class LocalCorpusProvider:
                 if not path.is_file():
                     raise ValueError(f"corpus file missing: {path}")
                 if verify_hashes:
-                    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+                    canonical_content = _read_canonical_text(path).encode("utf-8")
+                    actual = hashlib.sha256(canonical_content).hexdigest()
                     if actual != version["content_hash"]:
                         raise ValueError(
                             f"corpus hash mismatch for {doc_id}@{version_id}: "
@@ -84,7 +94,7 @@ class LocalCorpusProvider:
     def fetch(self, doc_id: str, version_id: str) -> VersionedDocument:
         document = self._documents[doc_id]
         meta = document["versions"][version_id]
-        content = meta["abspath"].read_text(encoding="utf-8")
+        content = _read_canonical_text(meta["abspath"])
         return VersionedDocument(
             doc_id=doc_id,
             version_id=version_id,

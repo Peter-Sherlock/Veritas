@@ -9,6 +9,7 @@ jobs:
   unit-and-scenario-tests:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ['3.11', '3.14']
     steps:
@@ -24,13 +25,19 @@ jobs:
 
   suite-evaluation:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        manifest:
+          - datasets/suites/p0-evolution-suite.json
+          - datasets/suites/p0-evolution-suite-2.json
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
       - name: Run frozen P0 evolution suite
-        run: python -m veritas.evaluation.suite_runner --manifest datasets/suites/p0-evolution-suite.json --artifacts-root artifacts
+        run: python -m veritas.evaluation.suite_runner --manifest ${{ matrix.manifest }} --artifacts-root artifacts
         env:
           PYTHONPATH: src
           PYTHONDONTWRITEBYTECODE: '1'

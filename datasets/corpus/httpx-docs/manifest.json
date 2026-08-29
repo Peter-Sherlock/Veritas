@@ -9,21 +9,21 @@
           "version_id": "0.24.1",
           "path": "advanced/0.24.1.md",
           "published_at": "2023-05-18T12:03:21+01:00",
-          "content_hash": "04ecd717f3ba2e184d26e8e146284c26af4d72cf961fce117f38c8c4ad2e2bbf",
+          "content_hash": "8e1719df640f1cf5c732c598be8e33ce00829a949c999715c6f0f651ebf1d324",
           "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/advanced.md"
         },
         {
           "version_id": "0.25.2",
           "path": "advanced/0.25.2.md",
           "published_at": "2023-11-24T16:33:18+04:00",
-          "content_hash": "e90c590b93be7313c52d1f2037c911d1676f2a86208c8aed34e18b895d38a29b",
+          "content_hash": "63681f2181e6a2836891778a820f7b69d7118dd013ca3b918db5658bb293e338",
           "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/advanced.md"
         },
         {
           "version_id": "0.26.0",
           "path": "advanced/0.26.0.md",
           "published_at": "2023-12-20T14:52:22+04:00",
-          "content_hash": "bf9792b69932314d78ac0510f809dc69488f6b8f2aade1e641a6e49439d2f057",
+          "content_hash": "42ff73dbefc8f4860b4c92da7c63680a2033b7b364e64db143f70508925d4bd4",
           "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/advanced.md"
         }
       ]
@@ -36,35 +36,35 @@
           "version_id": "0.24.1",
           "path": "api/0.24.1.md",
           "published_at": "2023-05-18T12:03:21+01:00",
-          "content_hash": "cad8130752c44ac1b1a0d81380df2a87ac5693a461cbb00f44cdbc2c018e4828",
+          "content_hash": "adc41f6861c40ee5590f02c29f354a7ea06adeb3450445388301e100d5290c58",
           "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/api.md"
         },
         {
           "version_id": "0.25.2",
           "path": "api/0.25.2.md",
           "published_at": "2023-11-24T16:33:18+04:00",
-          "content_hash": "2d8d738f5c12f011282f86c840f278e04c93e055762b2f3d1e71c62a42c904cb",
+          "content_hash": "d4f1c6bcd9292e7e1463af631b9bb00a073cb2d956e2d1cc9bcbe3c73cffef12",
           "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/api.md"
         },
         {
           "version_id": "0.26.0",
           "path": "api/0.26.0.md",
           "published_at": "2023-12-20T14:52:22+04:00",
-          "content_hash": "2d8d738f5c12f011282f86c840f278e04c93e055762b2f3d1e71c62a42c904cb",
+          "content_hash": "d4f1c6bcd9292e7e1463af631b9bb00a073cb2d956e2d1cc9bcbe3c73cffef12",
           "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/api.md"
         },
         {
           "version_id": "0.27.2",
           "path": "api/0.27.2.md",
           "published_at": "2024-08-27T13:52:05+01:00",
-          "content_hash": "9d821ddadca0bdc0f4156ede3413021c425488aab96ee07b48d68ae76baef911",
+          "content_hash": "125c23b40867cea7c40da59d129515e0964b4ea80e2994293e850f12fb067a6e",
           "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/api.md"
         },
         {
           "version_id": "0.28.1",
           "path": "api/0.28.1.md",
           "published_at": "2024-12-06T15:35:41Z",
-          "content_hash": "9d821ddadca0bdc0f4156ede3413021c425488aab96ee07b48d68ae76baef911",
+          "content_hash": "125c23b40867cea7c40da59d129515e0964b4ea80e2994293e850f12fb067a6e",
           "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/api.md"
         }
       ]
@@ -77,35 +77,35 @@
           "version_id": "0.24.1",
           "path": "async/0.24.1.md",
           "published_at": "2023-05-18T12:03:21+01:00",
-          "content_hash": "75bef7bec07d7d5617bf3dee3aa70c33da00d02feeac6f9ae56b0a334766f208",
+          "content_hash": "5ecfd9d6195bc1ebb551a829a6abad05b175a360a156f40df09c0993442e70c0",
           "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/async.md"
         },
         {
           "version_id": "0.25.2",
           "path": "async/0.25.2.md",
           "published_at": "2023-11-24T16:33:18+04:00",
-          "content_hash": "bd8af66b5f5579ab2c515f6f777f6eb958e62030615e40956415a7802844b822",
+          "content_hash": "c76c9fa2f2e6faafc0ed07a7705bc5d81d26e04b34ed32a71ab1a29ac53ead56",
           "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/async.md"
         },
         {
           "version_id": "0.26.0",
           "path": "async/0.26.0.md",
           "published_at": "2023-12-20T14:52:22+04:00",
-          "content_hash": "bd8af66b5f5579ab2c515f6f777f6eb958e62030615e40956415a7802844b822",
+          "content_hash": "c76c9fa2f2e6faafc0ed07a7705bc5d81d26e04b34ed32a71ab1a29ac53ead56",
           "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/async.md"
         },
         {
           "version_id": "0.27.2",
           "path": "async/0.27.2.md",
           "published_at": "2024-08-27T13:52:05+01:00",
-          "content_hash": "116e25b59253c565ed1089374b95ddbd74fedea9374a5fc71ca53301a48818e6",
+          "content_hash": "dd32e675ef994bb136e5414e5a2636db6e75418ce557ee6f731fddb924e47e4e",
           "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/async.md"
         },
         {
           "version_id": "0.28.1",
           "path": "async/0.28.1.md",
           "published_at": "2024-12-06T15:35:41Z",
-          "content_hash": "116e25b59253c565ed1089374b95ddbd74fedea9374a5fc71ca53301a48818e6",
+          "content_hash": "dd32e675ef994bb136e5414e5a2636db6e75418ce557ee6f731fddb924e47e4e",
           "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/async.md"
         }
       ]
@@ -118,35 +118,35 @@
           "version_id": "0.24.1",
           "path": "compatibility/0.24.1.md",
           "published_at": "2023-05-18T12:03:21+01:00",
-          "content_hash": "06fe51ddf969d5d15de6f0a160c0bf4f2f285c47226a03484e61bc9af3e164d5",
+          "content_hash": "78553006630cb97be7c047b93fefffa8a29f6c0e58e834d530ae7be6897b8565",
           "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/compatibility.md"
         },
         {
           "version_id": "0.25.2",
           "path": "compatibility/0.25.2.md",
           "published_at": "2023-11-24T16:33:18+04:00",
-          "content_hash": "6d8547e662e0c30e8449099bd969deb0977088d350f9226e2a8e0abf54c17900",
+          "content_hash": "c48d2dae585ec34fad9c46caeb300cd60371bac35ec063a29038a66a22bd903c",
           "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/compatibility.md"
         },
         {
           "version_id": "0.26.0",
           "path": "compatibility/0.26.0.md",
           "published_at": "2023-12-20T14:52:22+04:00",
-          "content_hash": "0a8b5033d9965abe65c20d94cf80232ceec054fc8e7a60f6cdaa9fe68cb00295",
+          "content_hash": "aa1cbe2aea5e0b2a92ed68527c4a345fa188ddec5fd3a23cc4a2a4edef92317f",
           "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/compatibility.md"
         },
         {
           "version_id": "0.27.2",
           "path": "compatibility/0.27.2.md",
           "published_at": "2024-08-27T13:52:05+01:00",
-          "content_hash": "e677fba840eb79f83e31e14f99e9794582999cd0bf124fb562eec05ac5e35775",
+          "content_hash": "27757d0b50b32469b109f263b75df939782175981ca67020a66d5900deb41b5f",
           "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/compatibility.md"
         },
         {
           "version_id": "0.28.1",
           "path": "compatibility/0.28.1.md",
           "published_at": "2024-12-06T15:35:41Z",
-          "content_hash": "7349c2d78009663af080e9d04eef5160a7683f5aa1a4bc65a671ecf0ca6eb9f6",
+          "content_hash": "e30d0a254fc89e5a891739607e289432b48930ac68be285810dd4e540f304776",
           "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/compatibility.md"
         }
       ]
@@ -159,35 +159,35 @@
           "version_id": "0.24.1",
           "path": "contributing/0.24.1.md",
           "published_at": "2023-05-18T12:03:21+01:00",
-          "content_hash": "d619ad6ef68ded35a202be8730e02563637d005ce3c299141cdb9abab1c30aab",
+          "content_hash": "48aa712e18e7452c991b699f0d882e8dfa080f0338451eea798e39e5ca35f0eb",
           "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/contributing.md"
         },
         {
           "version_id": "0.25.2",
           "path": "contributing/0.25.2.md",
           "published_at": "2023-11-24T16:33:18+04:00",
-          "content_hash": "d619ad6ef68ded35a202be8730e02563637d005ce3c299141cdb9abab1c30aab",
+          "content_hash": "48aa712e18e7452c991b699f0d882e8dfa080f0338451eea798e39e5ca35f0eb",
           "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/contributing.md"
         },
         {
           "version_id": "0.26.0",
           "path": "contributing/0.26.0.md",
           "published_at": "2023-12-20T14:52:22+04:00",
-          "content_hash": "4f4264eca5854f65cb03b1ff5bfd11ad65af440e7152f419b42e3b849c10adf4",
+          "content_hash": "125057c64cb1eef7e634cd888d02d0fdc6a1a1b4d404a6d2753447688a14a7b3",
           "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/contributing.md"
         },
         {
           "version_id": "0.27.2",
           "path": "contributing/0.27.2.md",
           "published_at": "2024-08-27T13:52:05+01:00",
-          "content_hash": "e26f5c67ed740680da7008891f1fe375a8053648b977df501d5ac9af259072a2",
+          "content_hash": "378630936e8976d0a677747ac5c8b6e744d9ce5692a7f67cbd549cc2a32bff09",
           "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/contributing.md"
         },
         {
           "version_id": "0.28.1",
           "path": "contributing/0.28.1.md",
           "published_at": "2024-12-06T15:35:41Z",
-          "content_hash": "74674c9243d64e61484a57c08d73f74e6ac4bd54fb228701f3bed56b80c7ef52",
+          "content_hash": "88182650dd83fc38ac39de2fa8cadbee937ff72afdbdd7d4721f4e84aef2f520",
           "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/contributing.md"
         }
       ]
@@ -200,35 +200,35 @@
           "version_id": "0.24.1",
           "path": "environment_variables/0.24.1.md",
           "published_at": "2023-05-18T12:03:21+01:00",
-          "content_hash": "811ac457773be86866dfac9c7646b8ab943099ddbd071bb5d0af0270e00ce7f9",
+          "content_hash": "302b326c28895ede6b439d9686d3139a00dfaf75b7b9383f0b139031b79c0b2e",
           "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/environment_variables.md"
         },
         {
           "version_id": "0.25.2",
           "path": "environment_variables/0.25.2.md",
           "published_at": "2023-11-24T16:33:18+04:00",
-          "content_hash": "811ac457773be86866dfac9c7646b8ab943099ddbd071bb5d0af0270e00ce7f9",
+          "content_hash": "302b326c28895ede6b439d9686d3139a00dfaf75b7b9383f0b139031b79c0b2e",
           "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/environment_variables.md"
         },
         {
           "version_id": "0.26.0",
           "path": "environment_variables/0.26.0.md",
           "published_at": "2023-12-20T14:52:22+04:00",
-          "content_hash": "811ac457773be86866dfac9c7646b8ab943099ddbd071bb5d0af0270e00ce7f9",
+          "content_hash": "302b326c28895ede6b439d9686d3139a00dfaf75b7b9383f0b139031b79c0b2e",
           "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/environment_variables.md"
         },
         {
           "version_id": "0.27.2",
           "path": "environment_variables/0.27.2.md",
           "published_at": "2024-08-27T13:52:05+01:00",
-          "content_hash": "b0932317c80e5a15530a6ecd15509871163a1ed8e6d0bf230ca0429f286c7dab",
+          "content_hash": "04bb341c864d81df5578e55d3ce3d28d31058081d2b65b3833c3f91e8a5953e0",
           "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/environment_variables.md"
         },
         {
           "version_id": "0.28.1",
           "path": "environment_variables/0.28.1.md",
           "published_at": "2024-12-06T15:35:41Z",
-          "content_hash": "458a9521693dd8cf53582b5e018d3afc025b3620122fe3c9219d8216ecb34587",
+          "content_hash": "d0cdf4d740dc3ed8b21c4ee45735551e05d4e57d0fda05a2f18c4684197a27eb",
           "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/environment_variables.md"
         }
       ]
@@ -241,35 +241,35 @@
           "version_id": "0.24.1",
           "path": "http2/0.24.1.md",
           "published_at": "2023-05-18T12:03:21+01:00",
-          "content_hash": "7f831222801ac25c014f2b8622ae0e7d24ac65e7046f75797a7f568c4049be76",
+          "content_hash": "51010101b5aff566dcdfdf94cb5e0ef644caf5411b84749753a9da79d28caaf7",
           "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/http2.md"
         },
         {
           "version_id": "0.25.2",
           "path": "http2/0.25.2.md",
           "published_at": "2023-11-24T16:33:18+04:00",
-          "content_hash": "7f831222801ac25c014f2b8622ae0e7d24ac65e7046f75797a7f568c4049be76",
+          "content_hash": "51010101b5aff566dcdfdf94cb5e0ef644caf5411b84749753a9da79d28caaf7",
           "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/http2.md"
         },
         {
           "version_id": "0.26.0",
           "path": "http2/0.26.0.md",
           "published_at": "2023-12-20T14:52:22+04:00",
-          "content_hash": "7f831222801ac25c014f2b8622ae0e7d24ac65e7046f75797a7f568c4049be76",
+          "content_hash": "51010101b5aff566dcdfdf94cb5e0ef644caf5411b84749753a9da79d28caaf7",
           "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/http2.md"
         },
         {
           "version_id": "0.27.2",
           "path": "http2/0.27.2.md",
           "published_at": "2024-08-27T13:52:05+01:00",
-          "content_hash": "d7871782aeb54e068e58618a61c406d8bd2bebf9a28a3bd6a061b89cc5c701ce",
+          "content_hash": "fb6a33c1844b7b1b6ae50526ffe138feb48551449217e64045e7dc8c0b8d5c30",
           "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/http2.md"
         },
         {
           "version_id": "0.28.1",
           "path": "http2/0.28.1.md",
           "published_at": "2024-12-06T15:35:41Z",
-          "content_hash": "7f831222801ac25c014f2b8622ae0e7d24ac65e7046f75797a7f568c4049be76",
+          "content_hash": "51010101b5aff566dcdfdf94cb5e0ef644caf5411b84749753a9da79d28caaf7",
           "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/http2.md"
         }
       ]
@@ -282,35 +282,35 @@
           "version_id": "0.24.1",
           "path": "index/0.24.1.md",
           "published_at": "2023-05-18T12:03:21+01:00",
-          "content_hash": "8d98063fd39ca6f73a94124184cc1b8541e1626949f2fb9af0cc96b608d1308a",
+          "content_hash": "e584fbf09686f138eaac0b1484e84bf915fa5b4c2bb61f1babef854ea10e4a56",
           "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/index.md"
         },
         {
           "version_id": "0.25.2",
           "path": "index/0.25.2.md",
           "published_at": "2023-11-24T16:33:18+04:00",
-          "content_hash": "2c9e633dd11e5ebb71f13dd782aa96236d0f65210b9da46061826a37e665aa5c",
+          "content_hash": "88efe01bbc368f764f42d83fc9490a287ba653aa1ebec284a0937d70ba4489c9",
           "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/index.md"
         },
         {
           "version_id": "0.26.0",
           "path": "index/0.26.0.md",
           "published_at": "2023-12-20T14:52:22+04:00",
-          "content_hash": "2c9e633dd11e5ebb71f13dd782aa96236d0f65210b9da46061826a37e665aa5c",
+          "content_hash": "88efe01bbc368f764f42d83fc9490a287ba653aa1ebec284a0937d70ba4489c9",
           "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/index.md"
         },
         {
           "version_id": "0.27.2",
           "path": "index/0.27.2.md",
           "published_at": "2024-08-27T13:52:05+01:00",
-          "content_hash": "cde4814df829a32932c64a8b71546e444df6e146711cc74ca54952052a9c8b5a",
+          "content_hash": "921fcd21a5ae8ee6b6621d891ec6fefcae08918e5dacba2cd6d8744b80faaa06",
           "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/index.md"
         },
         {
           "version_id": "0.28.1",
           "path": "index/0.28.1.md",
           "published_at": "2024-12-06T15:35:41Z",
-          "content_hash": "d8297c1d1f4bbc9a2385421d472562992dd96d2fa1d8e6d124f44b84b1a23d6e",
+          "content_hash": "07edc3ef5d9d5c5e404b25abe5762f83c6c25a68cf7e556e5c52f4c86387c36b",
           "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/index.md"
         }
       ]
@@ -323,35 +323,35 @@
           "version_id": "0.24.1",
           "path": "quickstart/0.24.1.md",
           "published_at": "2023-05-18T12:03:21+01:00",
-          "content_hash": "d2ca4b62237202b9b4c3b2a80fed21b093075c2d8eff2a70f19fba950101fccc",
+          "content_hash": "a301c84f3024191eb0b3dd953a3f1a436584d0536b416bf4924d65fa612b383a",
           "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/quickstart.md"
         },
         {
           "version_id": "0.25.2",
           "path": "quickstart/0.25.2.md",
           "published_at": "2023-11-24T16:33:18+04:00",
-          "content_hash": "43335d90aa41e8a3928525fcbfa5b85c86eef1a4d3cb3c00fccf661995022034",
+          "content_hash": "041079e555461c4cf936ed4303f1c114e9e7fe7586c7fbd91eee4fffe91bb926",
           "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/quickstart.md"
         },
         {
           "version_id": "0.26.0",
           "path": "quickstart/0.26.0.md",
           "published_at": "2023-12-20T14:52:22+04:00",
-          "content_hash": "43335d90aa41e8a3928525fcbfa5b85c86eef1a4d3cb3c00fccf661995022034",
+          "content_hash": "041079e555461c4cf936ed4303f1c114e9e7fe7586c7fbd91eee4fffe91bb926",
           "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/quickstart.md"
         },
         {
           "version_id": "0.27.2",
           "path": "quickstart/0.27.2.md",
           "published_at": "2024-08-27T13:52:05+01:00",
-          "content_hash": "25ea01dbb253153701babd673cb5b15b6cdc0a84c3b0350904fc5ee5a8b33bca",
+          "content_hash": "9f8351551dd18be0ed7e40dea2f1c231523a2e8833a0bb5c471630178ec2aea8",
           "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/quickstart.md"
         },
         {
           "version_id": "0.28.1",
           "path": "quickstart/0.28.1.md",
           "published_at": "2024-12-06T15:35:41Z",
-          "content_hash": "25ea01dbb253153701babd673cb5b15b6cdc0a84c3b0350904fc5ee5a8b33bca",
+          "content_hash": "9f8351551dd18be0ed7e40dea2f1c231523a2e8833a0bb5c471630178ec2aea8",
           "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/quickstart.md"
         }
       ]
@@ -364,35 +364,35 @@
           "version_id": "0.24.1",
           "path": "troubleshooting/0.24.1.md",
           "published_at": "2023-05-18T12:03:21+01:00",
-          "content_hash": "d9d642494c0ae83745725061453bd4ab9200765cd1defa3c814d655277046366",
+          "content_hash": "f4c4f343a77f250cdd3f1605d53f39097c87f3b163b82710e4c383f73bc3a441",
           "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/troubleshooting.md"
         },
         {
           "version_id": "0.25.2",
           "path": "troubleshooting/0.25.2.md",
           "published_at": "2023-11-24T16:33:18+04:00",
-          "content_hash": "d9d642494c0ae83745725061453bd4ab9200765cd1defa3c814d655277046366",
+          "content_hash": "f4c4f343a77f250cdd3f1605d53f39097c87f3b163b82710e4c383f73bc3a441",
           "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/troubleshooting.md"
         },
         {
           "version_id": "0.26.0",
           "path": "troubleshooting/0.26.0.md",
           "published_at": "2023-12-20T14:52:22+04:00",
-          "content_hash": "90b6601e03f233957c43354d95a767720421af40bf7583443adb9d78fc1ac640",
+          "content_hash": "19f21140bafff1b2d0b664ce3b82dad534c8a08ad8358403f15338ab049df464",
           "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/troubleshooting.md"
         },
         {
           "version_id": "0.27.2",
           "path": "troubleshooting/0.27.2.md",
           "published_at": "2024-08-27T13:52:05+01:00",
-          "content_hash": "16b4efce5020ba3e62af4eb6762ed8c174c423273f576684e6748e135aace041",
+          "content_hash": "3a9f68c58a03575ac88ce94da22d2f7c93d2e88df54e7f9be1061ca6fafd3c96",
           "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/troubleshooting.md"
         },
         {
           "version_id": "0.28.1",
           "path": "troubleshooting/0.28.1.md",
           "published_at": "2024-12-06T15:35:41Z",
-          "content_hash": "16b4efce5020ba3e62af4eb6762ed8c174c423273f576684e6748e135aace041",
+          "content_hash": "3a9f68c58a03575ac88ce94da22d2f7c93d2e88df54e7f9be1061ca6fafd3c96",
           "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/troubleshooting.md"
         }
       ]

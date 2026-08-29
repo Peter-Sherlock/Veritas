@@ -1,8 +1,8 @@
 # Veritas 项目结构与设计文档
 
 > 文档职责：记录项目边界、设计思路、目录演进、阶段状态和关键决策。  
-> 当前阶段：M1-1 协议与语料（M1+M2 合并推进，第一切片）  
-> 当前状态：M1-1 complete; Gate P0 附条件通过  
+> 当前阶段：M1-1R 跨平台语料与 CI 收口
+> 当前状态：M1-1R complete；Ready for M1-2
 > 更新日期：2026-08-29  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[技术实现文档](TECHNICAL_IMPLEMENTATION.md)
@@ -51,7 +51,7 @@ Veritas 的首要研究对象不是搜索质量，而是证据变化后的研究
 ```text
 Veritas/
 ├── .git/                       # main 分支，连接 private GitHub origin
-├── .github/workflows/tests.yml # CI：3.11/3.14 双版本测试 + 1.0.0 suite 回归
+├── .github/workflows/tests.yml # CI：3.11/3.14 测试 + suite 1.0.0/2.0.0 双矩阵
 ├── .gitattributes              # 跨平台文本统一为 LF
 ├── .gitignore
 ├── README.md                    # 项目首页、验证摘要与运行入口
@@ -133,12 +133,14 @@ Veritas/
 
 当前仍没有：
 
-- Web Search、LLM 或真实来源抓取；
+- Web Search 或真实来源抓取；
+- 检索结果到 Evidence/Claim 的抽取 pipeline，以及经验证的真实 LLM 调用；
 - 产品化 CLI 或服务接口；
-- 并发 Runtime；
+- Research Runtime、checkpoint、预算控制或并发执行；
+- 经过 benchmark 的检索质量结论；
 - 生产规模 benchmark 结果。
 
-当前已有的是三个受控场景上的确定性 evidence-evolution runtime 与 evaluation suite，不是会自主搜索、规划、调用工具和生成研究报告的完整 Deep Research Agent。
+当前已有的是五个受控场景上的确定性 evidence-evolution runtime、两套 evaluation suite、可替换的 LLM/检索协议与冻结本地语料；这些模块尚未组成会自主搜索、抽取、规划、调用工具和生成研究报告的完整 Deep Research Agent。
 
 ## 4. P0-0 阶段边界
 
@@ -451,6 +453,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：一次性脚本 `scripts/harvest_corpus.py` 从 httpx 仓库 git tags 抽取 10 篇文档共 48 个版本快照，落地为 `datasets/corpus/httpx-docs/`（manifest 钉住每个文件的 SHA-256，加载时校验）；检索用 stdlib TF-IDF，支持 `as_of` 版本视图。
 - 原因：真实开源文档的 git 历史提供免费的版本演进数据（后续 evolution benchmark 的 ChangeEvent 来源），同时满足"评测先于集成"——语料冻结后检索结果完全可复现。
 
+### D-024：语料内容哈希采用 canonical UTF-8/LF
+
+- 状态：Implemented for M1-1R
+- 日期：2026-08-29
+- 决策：语料在 hash 与 `fetch()` 前先把 CRLF/CR 统一为 LF；采集器以 LF 字节写出文件和 manifest；CI 的 Python 3.11/3.14 与 suite 1.0.0/2.0.0 矩阵均关闭 fail-fast，保留完整失败证据。
+- 原因：Git 的 EOL 规范化会使同一 Markdown 在 Windows 工作树和 Linux checkout 中具有不同原始字节。以原始工作树字节定义内容身份会制造与语义无关的跨平台 hash 漂移；canonical 文本契约让采集、版本控制和运行时校验一致。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -463,15 +472,16 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | P0-3 | expire 与 conflict 场景 | Gate 风险清单 | GS-004/005、suite 2.0.0、声明式验收通过 | 已完成：51/51 tests，67/67 JSON hashes |
 | Gate P0 | 判断机制是否有价值 | P0-2 结果完整 | 正确性不低于全量重算且重算范围更小 | 已评审：附条件通过（D-021） |
 | M1-1 | LLM/检索协议与本地版本化语料 | Gate P0 通过 | 协议、Fixture/真实客户端、语料与测试落地 | 已完成：72/72 tests |
-| M1-2 | 抽取 pipeline 与校准 harness | M1-1 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 未开始 |
+| M1-1R | 跨平台语料与 CI 收口 | M1-1 完成 | canonical hash、双 Python/双 suite CI、双文档同步 | 已完成：73/73 tests；待本次远程 CI 确认 |
+| M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 未开始 |
 | M1-3 | Research Runtime（状态/队列/checkpoint/预算） | M1-2 完成 | 中断恢复与预算测试通过 | 未开始 |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
 | M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 未开始 |
-| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-1 已完成） |
+| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-1R 已完成） |
 
 如果 Gate P0 不通过，不进入 Web Search 集成；先分析图粒度、规则语义和 benchmark 是否支持项目假设。
 
-## 11. P0-2C 完成情况与 Gate 边界
+## 11. P0-2C 与 Gate P0 历史记录
 
 P0-2C 已完成：
 
@@ -484,7 +494,7 @@ P0-2C 已完成：
 - [x] `30/30` 自动测试、`31/31` JSON content hash 验证通过；
 - [x] 技术实现文档与项目结构文档同步记录正式分析和边界。
 
-下一步是 Gate P0 评审，而不是直接开始 M1。Gate 需要把两类判断分开：
+P0-2C 结束时的下一步是 Gate P0 评审，而不是直接开始 M1。当时 Gate 需要把两类判断分开：
 
 1. **机制判断**：三个冻结场景中，选择性执行与 full-recompute 等价，并减少 4/6 次结论重算，这一项已具备通过证据；
 2. **证据充分性判断**：场景均为小型人工图，尚无 `expire`、多来源 `conflict`、真实抽取噪声或规模数据，是否接受这些风险进入 M1 仍需明确决策。
@@ -499,6 +509,17 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 2. **证据充分性判断：附条件接受。** 场景仍为小型人工图，真实抽取噪声与规模风险未消除；这些风险不作为进入 M1 的阻塞项，但转化为 D-021 的三条附加条件（LLM 组件以确定性 fixture 校准、成本声明必须有规模化 benchmark、真实来源接入前先冻结本地语料 adapter）。
 
 正式结论：**Gate P0 附条件通过，允许启动 M1**（决策全文见 D-021）。
+
+### 11.2 M1-1R 收口记录（2026-08-29）
+
+- [x] 定位首次 Linux CI 失败为 Windows CRLF 原始字节 hash 与 Git LF checkout 不一致；
+- [x] 采集器与运行时统一 canonical UTF-8/LF 内容及 hash 契约；
+- [x] 重算并验证 48/48 corpus manifest hash；
+- [x] 增加 LF/CRLF 等价回归，并锁定真实语料为 10 个文档、48 个快照；
+- [x] Python 3.11.15 与 3.14.7 均以严格 `ResourceWarning` 模式通过 73/73 tests；
+- [x] suite 1.0.0/2.0.0 均重跑且与 67 个已提交 JSON artifacts 一致；
+- [x] README、技术实现文档和项目结构文档同步更新；
+- [ ] 推送后的 GitHub Actions 四路任务全部成功（在远程运行完成后勾选）。
 
 ## 12. 文档更新检查表
 
@@ -532,14 +553,18 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - storage protocol 尚未覆盖读取和图查询，当前并非真正可替换存储；
 - `expire` 与 `retract` 在 P0 共享追加式 current-view 机制，as-of 历史查询与基于 `valid_to` 的自动过期尚未实现；多来源 `conflict` 只验证保留冲突、不做消解仲裁；
 - Gate P0 已附条件通过（D-021）；附加条件要求在 M1 中用确定性 fixture 校准 LLM 组件，并在规模声明前补规模化 benchmark；
+- M1-1R 已消除语料 hash 的 CRLF/LF 平台漂移；后续新增语料必须继续遵守 canonical UTF-8/LF 契约；
+- 本地 TF-IDF 仍是未校准的词面基线，长文档原始词频可能影响排序，M1-2 benchmark 前不能宣称检索质量；
+- LLM provider 尚未完成真实端点 smoke test，检索输出也尚未接入 Evidence/Claim 抽取 pipeline；
 - Suite 2.0.0 的 `4 / 11` 重算比例来自受控图结构，不能外推到真实研究任务；
 - 空 semantic-change 场景需要严格遵守空集合指标约定，否则容易产生误导性的 precision；
-- 已配置 GitHub Actions CI（3.11/3.14 双版本测试 + suite 1.0.0 回归），但尚无分支保护或 release 策略。
+- 已配置 GitHub Actions CI（3.11/3.14 测试 + suite 1.0.0/2.0.0 回归），但尚无分支保护或 release 策略。
 
 ## 14. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-29 | M1-1R | 将 corpus hash 冻结为 canonical UTF-8/LF，重算 48 条 manifest hash；新增 LF/CRLF 回归和 HTTPError 资源关闭；CI 扩展为 Python 3.11/3.14、suite 1.0.0/2.0.0 双矩阵；两版本均 73/73 tests、67/67 artifact hashes 与 48/48 corpus hashes 通过；登记 D-024 |
 | 2026-08-29 | M1-1 | 新增 providers（LLM 协议/OpenAI 兼容零依赖客户端/FixtureLLM/RecordingLLM）与 search（检索协议/本地语料 TF-IDF）模块；`scripts/harvest_corpus.py` 采集 httpx 文档语料（10 文档、48 版本快照、hash 钉住）；72/72 tests 通过；登记 D-022～D-023 |
 | 2026-08-29 | P0-3 + Gate P0 | 实现 GS-004 expire、GS-005 conflict、conflict 传播模式与 manifest 声明式验收；新增 suite 2.0.0；51/51 tests、67/67 JSON hash 通过，suite 1.0.0 重跑零 diff；登记 D-018～D-021，Gate P0 附条件通过，允许启动 M1 |
 | 2026-08-29 | CI | 新增 GitHub Actions（Python 3.11/3.14 测试矩阵 + suite 1.0.0 回归）；README 补充 Python 版本要求与 Windows launcher 说明 |

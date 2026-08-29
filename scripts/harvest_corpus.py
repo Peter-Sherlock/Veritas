@@ -38,6 +38,11 @@ DEFAULT_DOCS = [
 ]
 
 
+def _canonical_text(text: str) -> str:
+    """Use LF as the corpus byte contract on every operating system."""
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def _git(repo_dir: Path, *args: str) -> str:
     result = subprocess.run(
         ["git", "-C", str(repo_dir), *args],
@@ -76,7 +81,7 @@ def harvest(repo: str, corpus_id: str, tags: list[str], docs: list[str], out: Pa
                 continue
             for doc_path in docs:
                 try:
-                    content = _git(repo_dir, "show", f"{tag}:{doc_path}")
+                    content = _canonical_text(_git(repo_dir, "show", f"{tag}:{doc_path}"))
                 except subprocess.CalledProcessError:
                     continue
                 doc_id = _doc_id(doc_path)
@@ -84,8 +89,9 @@ def harvest(repo: str, corpus_id: str, tags: list[str], docs: list[str], out: Pa
                 version_id = tag
                 target = out / doc_id / f"{version_id}.md"
                 target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(content, encoding="utf-8")
-                digest = hashlib.sha256(target.read_bytes()).hexdigest()
+                canonical_bytes = content.encode("utf-8")
+                target.write_bytes(canonical_bytes)
+                digest = hashlib.sha256(canonical_bytes).hexdigest()
                 entry = manifest_documents.setdefault(
                     doc_id, {"doc_id": doc_id, "title": title, "versions": []}
                 )
@@ -107,8 +113,8 @@ def harvest(repo: str, corpus_id: str, tags: list[str], docs: list[str], out: Pa
         documents.append(entry)
 
     manifest = {"corpus_id": corpus_id, "documents": documents}
-    (out / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    (out / "manifest.json").write_bytes(
+        (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     )
     print(f"harvested {harvested} versioned documents into {out}")
     print(f"documents: {len(documents)}")
