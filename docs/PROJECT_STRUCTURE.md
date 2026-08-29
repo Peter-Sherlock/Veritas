@@ -1,8 +1,8 @@
 # Veritas 项目结构与设计文档
 
 > 文档职责：记录项目边界、设计思路、目录演进、阶段状态和关键决策。  
-> 当前阶段：P0-3 expire / conflict 场景实现  
-> 当前状态：Suite 2.0.0 evaluation complete v0.6; Gate P0 附条件通过，M1 待启动  
+> 当前阶段：M1-1 协议与语料（M1+M2 合并推进，第一切片）  
+> 当前状态：M1-1 complete; Gate P0 附条件通过  
 > 更新日期：2026-08-29  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[技术实现文档](TECHNICAL_IMPLEMENTATION.md)
@@ -70,12 +70,21 @@ Veritas/
 │   ├── storage/
 │   │   ├── protocol.py
 │   │   └── sqlite.py
-│   └── evaluation/
-│       ├── scenario.py
-│       ├── metrics.py
-│       ├── runner.py
-│       └── suite_runner.py
+│   ├── evaluation/
+│   │   ├── scenario.py
+│   │   ├── metrics.py
+│   │   ├── runner.py
+│   │   └── suite_runner.py
+│   ├── providers/
+│   │   └── llm.py            # LLM 协议、OpenAI 兼容客户端、Fixture/Recording
+│   └── search/
+│       ├── provider.py       # 检索协议
+│       └── local_corpus.py   # 本地版本化语料 TF-IDF
+├── scripts/
+│   └── harvest_corpus.py     # 一次性语料采集工具（非 runtime）
 ├── datasets/
+│   ├── corpus/
+│   │   └── httpx-docs/       # 10 篇文档 × 48 版本快照 + manifest.json（hash 钉住）
 │   ├── scenarios/
 │   │   ├── GS-001/scenario.json
 │   │   ├── GS-002/scenario.json
@@ -90,6 +99,9 @@ Veritas/
 │   │   ├── test_domain_and_graph.py
 │   │   ├── test_expire_and_conflict.py
 │   │   ├── test_failure_taxonomy.py
+│   │   ├── test_httpx_corpus.py
+│   │   ├── test_local_corpus.py
+│   │   ├── test_providers.py
 │   │   └── test_snapshot_registry.py
 │   └── scenarios/
 │       ├── test_gs001.py
@@ -425,6 +437,20 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 附加条件：进入 M1 后（1）LLM 抽取与语义判断必须以确定性 fixture 为回归基准校准，图谱系、幂等与版本机制保持确定性；（2）任何成本收益声明必须来自规模化 benchmark，不得外推受控小图的 4/11；（3）真实来源接入前先冻结本地版本化语料 adapter。
 - 未覆盖风险（明确接受进入 M1）：真实抽取噪声、大图与并发性能、多进程初始化、storage 可替换性。
 
+### D-022：LLM 通过协议接入，客户端保持零依赖
+
+- 状态：Implemented for M1-1
+- 日期：2026-08-29
+- 决策：`providers/llm.py` 定义最小 `LLMProvider` 协议（structured completion + token 计量）；`OpenAICompatibleClient` 只用标准库 urllib 实现 OpenAI 兼容 chat completions（temperature=0、JSON mode、429/5xx 指数退避）；`FixtureLLM` 以 prompt 哈希重放预录响应，未知 prompt 直接拒绝；`RecordingLLM` 把真实调用录制成 fixture。
+- 原因：LLM 必须可替换且默认不进测试关键路径（D-002/D-021 的延续）；引入 SDK 依赖换来的便利小于可复现性损失。
+
+### D-023：首个检索源为 httpx 文档的本地版本化语料
+
+- 状态：Implemented for M1-1
+- 日期：2026-08-29
+- 决策：一次性脚本 `scripts/harvest_corpus.py` 从 httpx 仓库 git tags 抽取 10 篇文档共 48 个版本快照，落地为 `datasets/corpus/httpx-docs/`（manifest 钉住每个文件的 SHA-256，加载时校验）；检索用 stdlib TF-IDF，支持 `as_of` 版本视图。
+- 原因：真实开源文档的 git 历史提供免费的版本演进数据（后续 evolution benchmark 的 ChangeEvent 来源），同时满足"评测先于集成"——语料冻结后检索结果完全可复现。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -436,7 +462,12 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | P0-2C | 聚合评估与 Failure Analysis | P0-2B 通过 | Suite 指标、full baseline、failure records 完整 | 已完成：30/30 tests，F01～F06 校准，31/31 JSON hashes |
 | P0-3 | expire 与 conflict 场景 | Gate 风险清单 | GS-004/005、suite 2.0.0、声明式验收通过 | 已完成：51/51 tests，67/67 JSON hashes |
 | Gate P0 | 判断机制是否有价值 | P0-2 结果完整 | 正确性不低于全量重算且重算范围更小 | 已评审：附条件通过（D-021） |
-| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 待启动 |
+| M1-1 | LLM/检索协议与本地版本化语料 | Gate P0 通过 | 协议、Fixture/真实客户端、语料与测试落地 | 已完成：72/72 tests |
+| M1-2 | 抽取 pipeline 与校准 harness | M1-1 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 未开始 |
+| M1-3 | Research Runtime（状态/队列/checkpoint/预算） | M1-2 完成 | 中断恢复与预算测试通过 | 未开始 |
+| M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
+| M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 未开始 |
+| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-1 已完成） |
 
 如果 Gate P0 不通过，不进入 Web Search 集成；先分析图粒度、规则语义和 benchmark 是否支持项目假设。
 
@@ -509,6 +540,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-29 | M1-1 | 新增 providers（LLM 协议/OpenAI 兼容零依赖客户端/FixtureLLM/RecordingLLM）与 search（检索协议/本地语料 TF-IDF）模块；`scripts/harvest_corpus.py` 采集 httpx 文档语料（10 文档、48 版本快照、hash 钉住）；72/72 tests 通过；登记 D-022～D-023 |
 | 2026-08-29 | P0-3 + Gate P0 | 实现 GS-004 expire、GS-005 conflict、conflict 传播模式与 manifest 声明式验收；新增 suite 2.0.0；51/51 tests、67/67 JSON hash 通过，suite 1.0.0 重跑零 diff；登记 D-018～D-021，Gate P0 附条件通过，允许启动 M1 |
 | 2026-08-29 | CI | 新增 GitHub Actions（Python 3.11/3.14 测试矩阵 + suite 1.0.0 回归）；README 补充 Python 版本要求与 Windows launcher 说明 |
 | 2026-08-27 | P0-2C | 完成正式 suite/full-recompute 评估、F01～F06 负向校准和覆盖缺口分析；30/30 tests、31/31 JSON hash 通过；登记 D-017，进入 Gate P0 待评审状态 |

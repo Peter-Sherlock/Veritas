@@ -1,8 +1,8 @@
 # Veritas 技术实现文档
 
 > 文档职责：记录可执行技术规格、数据契约、算法、测试与实际验证结果。  
-> 当前阶段：P0-3 expire / conflict 场景实现  
-> 当前状态：Suite 2.0.0 evaluation complete v0.6; Gate P0 review recorded  
+> 当前阶段：M1-1 协议与语料（M1+M2 合并推进，第一切片）  
+> 当前状态：M1-1 complete; Gate P0 附条件通过  
 > 更新日期：2026-08-29  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[项目结构与设计文档](PROJECT_STRUCTURE.md)
@@ -1124,7 +1124,28 @@ ARTIFACT_HASH_MISMATCHES=0
 
 新增 21 项测试覆盖：expire 候选集合精确性、unsupported→unknown 状态迁移、过期证据退出 current-view、conflict 双边同时 active 且不仲裁、conflict 谱系形状被 provenance 校验接受、expire/conflict 非法包拒绝（夹带新来源/新证据、superseding 来源、同 source_id、缺新边）、suite 2.0.0 manifest 声明验收与聚合契约、suite 1.0.0 行为不变回归。原有 30 项测试全部保持通过。
 
-## 17. 当前限制
+## 17. M1-1 协议与语料
+
+### 17.1 范围
+
+M1 的第一切片只建立两条可替换边界与一份冻结语料，不修改 P0 内核：
+
+- `providers/`：`LLMProvider` 协议、`OpenAICompatibleClient`（stdlib urllib、JSON mode、temperature=0、429/5xx 退避重试、token 计量）、`FixtureLLM`（prompt 哈希重放，未知 prompt 拒绝）、`RecordingLLM`（真实调用录制为 fixture）；
+- `search/`：`SearchProvider` 协议（search/fetch）、`LocalCorpusProvider`（manifest + TF-IDF，支持 `as_of` 版本视图，加载时校验全部文件 SHA-256）；
+- `datasets/corpus/httpx-docs/`：`scripts/harvest_corpus.py`（一次性工具，不进 runtime）从 httpx 仓库 git tags（0.24.1～0.28.1）抽取的 10 篇文档、48 个版本快照。
+
+### 17.2 验证结果
+
+- 新增 21 项测试：provider 重放/录制/重试/错误语义、语料检索排序、as_of 版本选择、hash 篡改拒绝、manifest 重复拒绝、真实语料形状与检索；
+- 全部测试：`Ran 72 tests OK`（含 P0 既有 51 项，零回归）；
+- 真实 LLM smoke test 未在本切片运行（需要 `VERITAS_LLM_API_KEY`，留待 M1-2 校准时执行）。
+
+### 17.3 已知边界
+
+- TF-IDF 是词面检索，不做语义匹配；httpx 的 `advanced` 文档在 0.27 后改名路径，只有 3 个版本——语料忠实保留这一真实历史；
+- `OpenAICompatibleClient` 未接流式、未做 token 计费持久化（预算跟踪在 M1-3）。
+
+## 18. 当前限制
 
 - 证据与 Claim 的关系由 fixture 显式声明，没有测试自动抽取；
 - 没有来源质量权重；
@@ -1139,10 +1160,11 @@ ARTIFACT_HASH_MISMATCHES=0
 
 因此，目前可以确认的是“三个受控离线场景上的确定性 Evidence Evolution、撤回 current-view、选择性结论重算和可复现 suite 执行已实现并通过测试”；不能外推为真实 Web Research、通用冲突推理、Agent 自主研究或生产规模能力。
 
-## 18. 变更记录
+## 19. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-29 | M1-1 | 新增 providers 与 search 模块、httpx 版本化语料（10 文档 48 快照）、21 项新测试；72/72 通过 |
 | 2026-08-29 | P0-3 | 实现 GS-004 expire 与 GS-005 conflict 场景、conflict 传播模式、manifest 声明式验收与 suite 2.0.0；51/51 tests、67/67 JSON hash 通过，suite 1.0.0 零 diff；Gate P0 评审结论见项目结构文档 |
 | 2026-08-27 | P0-2C | 完成三场景聚合评估、full-recompute 对照、F01～F06 负向校准与覆盖分析；30/30 tests、31/31 JSON hash 通过；状态推进为 Ready for Gate P0 review |
 | 2026-08-27 | README | 建立 Explorer-first 项目入口；示例、运行命令、导航、链接和结果与 P0-2B 实现对齐 |

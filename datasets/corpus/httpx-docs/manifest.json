@@ -1,0 +1,401 @@
+{
+  "corpus_id": "httpx-docs",
+  "documents": [
+    {
+      "doc_id": "advanced",
+      "title": "advanced",
+      "versions": [
+        {
+          "version_id": "0.24.1",
+          "path": "advanced/0.24.1.md",
+          "published_at": "2023-05-18T12:03:21+01:00",
+          "content_hash": "04ecd717f3ba2e184d26e8e146284c26af4d72cf961fce117f38c8c4ad2e2bbf",
+          "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/advanced.md"
+        },
+        {
+          "version_id": "0.25.2",
+          "path": "advanced/0.25.2.md",
+          "published_at": "2023-11-24T16:33:18+04:00",
+          "content_hash": "e90c590b93be7313c52d1f2037c911d1676f2a86208c8aed34e18b895d38a29b",
+          "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/advanced.md"
+        },
+        {
+          "version_id": "0.26.0",
+          "path": "advanced/0.26.0.md",
+          "published_at": "2023-12-20T14:52:22+04:00",
+          "content_hash": "bf9792b69932314d78ac0510f809dc69488f6b8f2aade1e641a6e49439d2f057",
+          "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/advanced.md"
+        }
+      ]
+    },
+    {
+      "doc_id": "api",
+      "title": "api",
+      "versions": [
+        {
+          "version_id": "0.24.1",
+          "path": "api/0.24.1.md",
+          "published_at": "2023-05-18T12:03:21+01:00",
+          "content_hash": "cad8130752c44ac1b1a0d81380df2a87ac5693a461cbb00f44cdbc2c018e4828",
+          "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/api.md"
+        },
+        {
+          "version_id": "0.25.2",
+          "path": "api/0.25.2.md",
+          "published_at": "2023-11-24T16:33:18+04:00",
+          "content_hash": "2d8d738f5c12f011282f86c840f278e04c93e055762b2f3d1e71c62a42c904cb",
+          "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/api.md"
+        },
+        {
+          "version_id": "0.26.0",
+          "path": "api/0.26.0.md",
+          "published_at": "2023-12-20T14:52:22+04:00",
+          "content_hash": "2d8d738f5c12f011282f86c840f278e04c93e055762b2f3d1e71c62a42c904cb",
+          "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/api.md"
+        },
+        {
+          "version_id": "0.27.2",
+          "path": "api/0.27.2.md",
+          "published_at": "2024-08-27T13:52:05+01:00",
+          "content_hash": "9d821ddadca0bdc0f4156ede3413021c425488aab96ee07b48d68ae76baef911",
+          "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/api.md"
+        },
+        {
+          "version_id": "0.28.1",
+          "path": "api/0.28.1.md",
+          "published_at": "2024-12-06T15:35:41Z",
+          "content_hash": "9d821ddadca0bdc0f4156ede3413021c425488aab96ee07b48d68ae76baef911",
+          "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/api.md"
+        }
+      ]
+    },
+    {
+      "doc_id": "async",
+      "title": "async",
+      "versions": [
+        {
+          "version_id": "0.24.1",
+          "path": "async/0.24.1.md",
+          "published_at": "2023-05-18T12:03:21+01:00",
+          "content_hash": "75bef7bec07d7d5617bf3dee3aa70c33da00d02feeac6f9ae56b0a334766f208",
+          "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/async.md"
+        },
+        {
+          "version_id": "0.25.2",
+          "path": "async/0.25.2.md",
+          "published_at": "2023-11-24T16:33:18+04:00",
+          "content_hash": "bd8af66b5f5579ab2c515f6f777f6eb958e62030615e40956415a7802844b822",
+          "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/async.md"
+        },
+        {
+          "version_id": "0.26.0",
+          "path": "async/0.26.0.md",
+          "published_at": "2023-12-20T14:52:22+04:00",
+          "content_hash": "bd8af66b5f5579ab2c515f6f777f6eb958e62030615e40956415a7802844b822",
+          "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/async.md"
+        },
+        {
+          "version_id": "0.27.2",
+          "path": "async/0.27.2.md",
+          "published_at": "2024-08-27T13:52:05+01:00",
+          "content_hash": "116e25b59253c565ed1089374b95ddbd74fedea9374a5fc71ca53301a48818e6",
+          "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/async.md"
+        },
+        {
+          "version_id": "0.28.1",
+          "path": "async/0.28.1.md",
+          "published_at": "2024-12-06T15:35:41Z",
+          "content_hash": "116e25b59253c565ed1089374b95ddbd74fedea9374a5fc71ca53301a48818e6",
+          "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/async.md"
+        }
+      ]
+    },
+    {
+      "doc_id": "compatibility",
+      "title": "compatibility",
+      "versions": [
+        {
+          "version_id": "0.24.1",
+          "path": "compatibility/0.24.1.md",
+          "published_at": "2023-05-18T12:03:21+01:00",
+          "content_hash": "06fe51ddf969d5d15de6f0a160c0bf4f2f285c47226a03484e61bc9af3e164d5",
+          "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/compatibility.md"
+        },
+        {
+          "version_id": "0.25.2",
+          "path": "compatibility/0.25.2.md",
+          "published_at": "2023-11-24T16:33:18+04:00",
+          "content_hash": "6d8547e662e0c30e8449099bd969deb0977088d350f9226e2a8e0abf54c17900",
+          "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/compatibility.md"
+        },
+        {
+          "version_id": "0.26.0",
+          "path": "compatibility/0.26.0.md",
+          "published_at": "2023-12-20T14:52:22+04:00",
+          "content_hash": "0a8b5033d9965abe65c20d94cf80232ceec054fc8e7a60f6cdaa9fe68cb00295",
+          "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/compatibility.md"
+        },
+        {
+          "version_id": "0.27.2",
+          "path": "compatibility/0.27.2.md",
+          "published_at": "2024-08-27T13:52:05+01:00",
+          "content_hash": "e677fba840eb79f83e31e14f99e9794582999cd0bf124fb562eec05ac5e35775",
+          "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/compatibility.md"
+        },
+        {
+          "version_id": "0.28.1",
+          "path": "compatibility/0.28.1.md",
+          "published_at": "2024-12-06T15:35:41Z",
+          "content_hash": "7349c2d78009663af080e9d04eef5160a7683f5aa1a4bc65a671ecf0ca6eb9f6",
+          "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/compatibility.md"
+        }
+      ]
+    },
+    {
+      "doc_id": "contributing",
+      "title": "contributing",
+      "versions": [
+        {
+          "version_id": "0.24.1",
+          "path": "contributing/0.24.1.md",
+          "published_at": "2023-05-18T12:03:21+01:00",
+          "content_hash": "d619ad6ef68ded35a202be8730e02563637d005ce3c299141cdb9abab1c30aab",
+          "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/contributing.md"
+        },
+        {
+          "version_id": "0.25.2",
+          "path": "contributing/0.25.2.md",
+          "published_at": "2023-11-24T16:33:18+04:00",
+          "content_hash": "d619ad6ef68ded35a202be8730e02563637d005ce3c299141cdb9abab1c30aab",
+          "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/contributing.md"
+        },
+        {
+          "version_id": "0.26.0",
+          "path": "contributing/0.26.0.md",
+          "published_at": "2023-12-20T14:52:22+04:00",
+          "content_hash": "4f4264eca5854f65cb03b1ff5bfd11ad65af440e7152f419b42e3b849c10adf4",
+          "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/contributing.md"
+        },
+        {
+          "version_id": "0.27.2",
+          "path": "contributing/0.27.2.md",
+          "published_at": "2024-08-27T13:52:05+01:00",
+          "content_hash": "e26f5c67ed740680da7008891f1fe375a8053648b977df501d5ac9af259072a2",
+          "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/contributing.md"
+        },
+        {
+          "version_id": "0.28.1",
+          "path": "contributing/0.28.1.md",
+          "published_at": "2024-12-06T15:35:41Z",
+          "content_hash": "74674c9243d64e61484a57c08d73f74e6ac4bd54fb228701f3bed56b80c7ef52",
+          "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/contributing.md"
+        }
+      ]
+    },
+    {
+      "doc_id": "environment_variables",
+      "title": "environment variables",
+      "versions": [
+        {
+          "version_id": "0.24.1",
+          "path": "environment_variables/0.24.1.md",
+          "published_at": "2023-05-18T12:03:21+01:00",
+          "content_hash": "811ac457773be86866dfac9c7646b8ab943099ddbd071bb5d0af0270e00ce7f9",
+          "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/environment_variables.md"
+        },
+        {
+          "version_id": "0.25.2",
+          "path": "environment_variables/0.25.2.md",
+          "published_at": "2023-11-24T16:33:18+04:00",
+          "content_hash": "811ac457773be86866dfac9c7646b8ab943099ddbd071bb5d0af0270e00ce7f9",
+          "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/environment_variables.md"
+        },
+        {
+          "version_id": "0.26.0",
+          "path": "environment_variables/0.26.0.md",
+          "published_at": "2023-12-20T14:52:22+04:00",
+          "content_hash": "811ac457773be86866dfac9c7646b8ab943099ddbd071bb5d0af0270e00ce7f9",
+          "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/environment_variables.md"
+        },
+        {
+          "version_id": "0.27.2",
+          "path": "environment_variables/0.27.2.md",
+          "published_at": "2024-08-27T13:52:05+01:00",
+          "content_hash": "b0932317c80e5a15530a6ecd15509871163a1ed8e6d0bf230ca0429f286c7dab",
+          "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/environment_variables.md"
+        },
+        {
+          "version_id": "0.28.1",
+          "path": "environment_variables/0.28.1.md",
+          "published_at": "2024-12-06T15:35:41Z",
+          "content_hash": "458a9521693dd8cf53582b5e018d3afc025b3620122fe3c9219d8216ecb34587",
+          "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/environment_variables.md"
+        }
+      ]
+    },
+    {
+      "doc_id": "http2",
+      "title": "http2",
+      "versions": [
+        {
+          "version_id": "0.24.1",
+          "path": "http2/0.24.1.md",
+          "published_at": "2023-05-18T12:03:21+01:00",
+          "content_hash": "7f831222801ac25c014f2b8622ae0e7d24ac65e7046f75797a7f568c4049be76",
+          "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/http2.md"
+        },
+        {
+          "version_id": "0.25.2",
+          "path": "http2/0.25.2.md",
+          "published_at": "2023-11-24T16:33:18+04:00",
+          "content_hash": "7f831222801ac25c014f2b8622ae0e7d24ac65e7046f75797a7f568c4049be76",
+          "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/http2.md"
+        },
+        {
+          "version_id": "0.26.0",
+          "path": "http2/0.26.0.md",
+          "published_at": "2023-12-20T14:52:22+04:00",
+          "content_hash": "7f831222801ac25c014f2b8622ae0e7d24ac65e7046f75797a7f568c4049be76",
+          "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/http2.md"
+        },
+        {
+          "version_id": "0.27.2",
+          "path": "http2/0.27.2.md",
+          "published_at": "2024-08-27T13:52:05+01:00",
+          "content_hash": "d7871782aeb54e068e58618a61c406d8bd2bebf9a28a3bd6a061b89cc5c701ce",
+          "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/http2.md"
+        },
+        {
+          "version_id": "0.28.1",
+          "path": "http2/0.28.1.md",
+          "published_at": "2024-12-06T15:35:41Z",
+          "content_hash": "7f831222801ac25c014f2b8622ae0e7d24ac65e7046f75797a7f568c4049be76",
+          "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/http2.md"
+        }
+      ]
+    },
+    {
+      "doc_id": "index",
+      "title": "index",
+      "versions": [
+        {
+          "version_id": "0.24.1",
+          "path": "index/0.24.1.md",
+          "published_at": "2023-05-18T12:03:21+01:00",
+          "content_hash": "8d98063fd39ca6f73a94124184cc1b8541e1626949f2fb9af0cc96b608d1308a",
+          "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/index.md"
+        },
+        {
+          "version_id": "0.25.2",
+          "path": "index/0.25.2.md",
+          "published_at": "2023-11-24T16:33:18+04:00",
+          "content_hash": "2c9e633dd11e5ebb71f13dd782aa96236d0f65210b9da46061826a37e665aa5c",
+          "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/index.md"
+        },
+        {
+          "version_id": "0.26.0",
+          "path": "index/0.26.0.md",
+          "published_at": "2023-12-20T14:52:22+04:00",
+          "content_hash": "2c9e633dd11e5ebb71f13dd782aa96236d0f65210b9da46061826a37e665aa5c",
+          "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/index.md"
+        },
+        {
+          "version_id": "0.27.2",
+          "path": "index/0.27.2.md",
+          "published_at": "2024-08-27T13:52:05+01:00",
+          "content_hash": "cde4814df829a32932c64a8b71546e444df6e146711cc74ca54952052a9c8b5a",
+          "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/index.md"
+        },
+        {
+          "version_id": "0.28.1",
+          "path": "index/0.28.1.md",
+          "published_at": "2024-12-06T15:35:41Z",
+          "content_hash": "d8297c1d1f4bbc9a2385421d472562992dd96d2fa1d8e6d124f44b84b1a23d6e",
+          "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/index.md"
+        }
+      ]
+    },
+    {
+      "doc_id": "quickstart",
+      "title": "quickstart",
+      "versions": [
+        {
+          "version_id": "0.24.1",
+          "path": "quickstart/0.24.1.md",
+          "published_at": "2023-05-18T12:03:21+01:00",
+          "content_hash": "d2ca4b62237202b9b4c3b2a80fed21b093075c2d8eff2a70f19fba950101fccc",
+          "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/quickstart.md"
+        },
+        {
+          "version_id": "0.25.2",
+          "path": "quickstart/0.25.2.md",
+          "published_at": "2023-11-24T16:33:18+04:00",
+          "content_hash": "43335d90aa41e8a3928525fcbfa5b85c86eef1a4d3cb3c00fccf661995022034",
+          "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/quickstart.md"
+        },
+        {
+          "version_id": "0.26.0",
+          "path": "quickstart/0.26.0.md",
+          "published_at": "2023-12-20T14:52:22+04:00",
+          "content_hash": "43335d90aa41e8a3928525fcbfa5b85c86eef1a4d3cb3c00fccf661995022034",
+          "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/quickstart.md"
+        },
+        {
+          "version_id": "0.27.2",
+          "path": "quickstart/0.27.2.md",
+          "published_at": "2024-08-27T13:52:05+01:00",
+          "content_hash": "25ea01dbb253153701babd673cb5b15b6cdc0a84c3b0350904fc5ee5a8b33bca",
+          "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/quickstart.md"
+        },
+        {
+          "version_id": "0.28.1",
+          "path": "quickstart/0.28.1.md",
+          "published_at": "2024-12-06T15:35:41Z",
+          "content_hash": "25ea01dbb253153701babd673cb5b15b6cdc0a84c3b0350904fc5ee5a8b33bca",
+          "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/quickstart.md"
+        }
+      ]
+    },
+    {
+      "doc_id": "troubleshooting",
+      "title": "troubleshooting",
+      "versions": [
+        {
+          "version_id": "0.24.1",
+          "path": "troubleshooting/0.24.1.md",
+          "published_at": "2023-05-18T12:03:21+01:00",
+          "content_hash": "d9d642494c0ae83745725061453bd4ab9200765cd1defa3c814d655277046366",
+          "source_ref": "https://github.com/encode/httpx.git@0.24.1:docs/troubleshooting.md"
+        },
+        {
+          "version_id": "0.25.2",
+          "path": "troubleshooting/0.25.2.md",
+          "published_at": "2023-11-24T16:33:18+04:00",
+          "content_hash": "d9d642494c0ae83745725061453bd4ab9200765cd1defa3c814d655277046366",
+          "source_ref": "https://github.com/encode/httpx.git@0.25.2:docs/troubleshooting.md"
+        },
+        {
+          "version_id": "0.26.0",
+          "path": "troubleshooting/0.26.0.md",
+          "published_at": "2023-12-20T14:52:22+04:00",
+          "content_hash": "90b6601e03f233957c43354d95a767720421af40bf7583443adb9d78fc1ac640",
+          "source_ref": "https://github.com/encode/httpx.git@0.26.0:docs/troubleshooting.md"
+        },
+        {
+          "version_id": "0.27.2",
+          "path": "troubleshooting/0.27.2.md",
+          "published_at": "2024-08-27T13:52:05+01:00",
+          "content_hash": "16b4efce5020ba3e62af4eb6762ed8c174c423273f576684e6748e135aace041",
+          "source_ref": "https://github.com/encode/httpx.git@0.27.2:docs/troubleshooting.md"
+        },
+        {
+          "version_id": "0.28.1",
+          "path": "troubleshooting/0.28.1.md",
+          "published_at": "2024-12-06T15:35:41Z",
+          "content_hash": "16b4efce5020ba3e62af4eb6762ed8c174c423273f576684e6748e135aace041",
+          "source_ref": "https://github.com/encode/httpx.git@0.28.1:docs/troubleshooting.md"
+        }
+      ]
+    }
+  ]
+}
