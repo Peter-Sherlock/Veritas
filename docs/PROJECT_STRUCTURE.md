@@ -1,9 +1,9 @@
 # Veritas 项目结构与设计文档
 
 > 文档职责：记录项目边界、设计思路、目录演进、阶段状态和关键决策。  
-> 当前阶段：P0-2C Aggregate Evaluation and Failure Analysis
-> 当前状态：Evaluation complete v0.5; Gate P0 review pending
-> 更新日期：2026-08-27  
+> 当前阶段：P0-3 expire / conflict 场景实现  
+> 当前状态：Suite 2.0.0 evaluation complete v0.6; Gate P0 附条件通过，M1 待启动  
+> 更新日期：2026-08-29  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[技术实现文档](TECHNICAL_IMPLEMENTATION.md)
 
@@ -46,11 +46,12 @@ Veritas 的首要研究对象不是搜索质量，而是证据变化后的研究
 
 ## 3. 当前实际结构
 
-截至 2026-08-27，工作区实际存在：
+截至 2026-08-29，工作区实际存在：
 
 ```text
 Veritas/
 ├── .git/                       # main 分支，连接 private GitHub origin
+├── .github/workflows/tests.yml # CI：3.11/3.14 双版本测试 + 1.0.0 suite 回归
 ├── .gitattributes              # 跨平台文本统一为 LF
 ├── .gitignore
 ├── README.md                    # 项目首页、验证摘要与运行入口
@@ -78,27 +79,39 @@ Veritas/
 │   ├── scenarios/
 │   │   ├── GS-001/scenario.json
 │   │   ├── GS-002/scenario.json
-│   │   └── GS-003/scenario.json
-│   └── suites/p0-evolution-suite.json
+│   │   ├── GS-003/scenario.json
+│   │   ├── GS-004/scenario.json
+│   │   └── GS-005/scenario.json
+│   └── suites/
+│       ├── p0-evolution-suite.json        # 冻结 1.0.0
+│       └── p0-evolution-suite-2.json      # 2.0.0：五场景 + 声明式验收
 ├── tests/
 │   ├── unit/
 │   │   ├── test_domain_and_graph.py
+│   │   ├── test_expire_and_conflict.py
 │   │   ├── test_failure_taxonomy.py
 │   │   └── test_snapshot_registry.py
 │   └── scenarios/
 │       ├── test_gs001.py
 │       ├── test_gs002.py
 │       ├── test_gs003.py
-│       └── test_p0_suite.py
+│       ├── test_gs004.py
+│       ├── test_gs005.py
+│       ├── test_p0_suite.py
+│       └── test_p0_suite_2.py
 ├── artifacts/
 │   ├── GS-001/run-f39dacf198a857ae/<five JSON artifacts>
 │   ├── GS-002/run-65365880276d316f/<five JSON artifacts>
 │   ├── GS-003/run-046dcc6b4ed54440/<five JSON artifacts>
-│   └── suites/p0-evolution-suite-1.0.0/
-│       ├── runs/GS-001/<run-id>/<five JSON artifacts>
-│       ├── runs/GS-002/<run-id>/<five JSON artifacts>
-│       ├── runs/GS-003/<run-id>/<five JSON artifacts>
-│       └── summary.json
+│   ├── GS-004/run-eb6622de84727a41/<five JSON artifacts>
+│   ├── GS-005/run-16ba47710b6847fb/<five JSON artifacts>
+│   └── suites/
+│       ├── p0-evolution-suite-1.0.0/
+│       │   ├── runs/GS-001..003/<run-id>/<five JSON artifacts>
+│       │   └── summary.json
+│       └── p0-evolution-suite-2.0.0/
+│           ├── runs/GS-001..005/<run-id>/<five JSON artifacts>
+│           └── summary.json
 └── docs/
     ├── PROJECT_STRUCTURE.md
     └── TECHNICAL_IMPLEMENTATION.md
@@ -111,7 +124,6 @@ Veritas/
 - Web Search、LLM 或真实来源抓取；
 - 产品化 CLI 或服务接口；
 - 并发 Runtime；
-- `expire` 与多来源 `conflict` 场景；
 - 生产规模 benchmark 结果。
 
 当前已有的是三个受控场景上的确定性 evidence-evolution runtime 与 evaluation suite，不是会自主搜索、规划、调用工具和生成研究报告的完整 Deep Research Agent。
@@ -383,6 +395,36 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：正式 suite 的 F01～F06 计数为零，只能与六类独立负向校准共同作为 failure detection 证据；校准基于真实 EvolutionRun 改变期望或验证信号，不改写冻结 fixture 与正式 artifacts。
 - 原因：正向场景零失败不能证明 detector 可触发；把 detector calibration 纳入回归测试可以区分“系统没有失败”与“系统看不见失败”。
 
+### D-018：expire 与 retract 共享追加式 current-view 机制
+
+- 状态：Implemented for P0-3
+- 日期：2026-08-29
+- 决策：`expire` 事件与 `retract` 一样通过 append-only ChangeEvent 把来源版本排除出 current view，不改写旧行；两者区别只保留在语义层（expire 断言来源在 `effective_at` 前有效、之后失效；retract 断言内容被撤回）。
+- 原因：P0 没有 as-of 历史查询需求，引入独立的 valid_to 驱动过期只会增加机制而不增加可验证行为；change_type、effective_at 与 trace/diff reason 已保留语义区分，未来需要 as-of 语义时可在此基础上扩展。
+
+### D-019：conflict 以新增证据边为传播种子
+
+- 状态：Implemented for P0-3
+- 日期：2026-08-29
+- 决策：`conflict` 事件引入独立来源（不同 `source_id`、`supersedes_version_id` 必须为 NULL）的证据；候选影响以新增 supports/contradicts 边的目标 Claim 为种子，沿 input snapshot 的 depends_on 边下行到结论；旧来源保持 active，系统不仲裁、不选边。
+- 原因：conflict 的触发证据在 input snapshot 中尚不存在，不能沿用"从旧来源证据出发"的传播模式；从新增边出发保持 input-snapshot 语义且不需要把新实体提前写入图。
+
+### D-020：suite 聚合验收由 manifest 显式声明
+
+- 状态：Implemented for P0-3
+- 日期：2026-08-29
+- 决策：suite manifest 可携带 `acceptance` 块（验收字段名、evaluation_status、gate 状态、期望 recompute totals）；无该块的 manifest 保持 P0-2B 硬编码行为不变。新增场景通过新的 suite version（2.0.0）表达，冻结的 1.0.0 manifest 不修改。
+- 原因：验收口径属于评测契约的一部分，应随 suite 版本显式冻结，而不是埋在 runner 常量里随代码漂移。
+
+### D-021：Gate P0 评审结论为附条件通过
+
+- 状态：Accepted
+- 日期：2026-08-29
+- 决策：Gate P0 **附条件通过**，允许进入 M1。
+- 机制判断证据：五个冻结场景（revise/retract/分支隔离/expire/conflict）中选择性执行与 full-recompute 完全等价，全部 correctness 指标 1.0，critical failures 为 0，selective 重算 4/11 对比 full 11/11；F01～F06 探测器经负向校准确认可触发。
+- 附加条件：进入 M1 后（1）LLM 抽取与语义判断必须以确定性 fixture 为回归基准校准，图谱系、幂等与版本机制保持确定性；（2）任何成本收益声明必须来自规模化 benchmark，不得外推受控小图的 4/11；（3）真实来源接入前先冻结本地版本化语料 adapter。
+- 未覆盖风险（明确接受进入 M1）：真实抽取噪声、大图与并发性能、多进程初始化、storage 可替换性。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -392,8 +434,9 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | P0-2A | 冻结扩展场景与失败口径 | P0-1 通过 | GS-002/003、failure taxonomy、suite gate 完整 | 已完成：仅文档 |
 | P0-2B | 实现场景与 suite runner | P0-2A 通过 | GS-002/003 自动测试和逐场景 artifacts 通过 | 已完成：24/24 tests，31/31 JSON hashes |
 | P0-2C | 聚合评估与 Failure Analysis | P0-2B 通过 | Suite 指标、full baseline、failure records 完整 | 已完成：30/30 tests，F01～F06 校准，31/31 JSON hashes |
-| Gate P0 | 判断机制是否有价值 | P0-2 结果完整 | 正确性不低于全量重算且重算范围更小 | 待评审 |
-| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 未开始 |
+| P0-3 | expire 与 conflict 场景 | Gate 风险清单 | GS-004/005、suite 2.0.0、声明式验收通过 | 已完成：51/51 tests，67/67 JSON hashes |
+| Gate P0 | 判断机制是否有价值 | P0-2 结果完整 | 正确性不低于全量重算且重算范围更小 | 已评审：附条件通过（D-021） |
+| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 待启动 |
 
 如果 Gate P0 不通过，不进入 Web Search 集成；先分析图粒度、规则语义和 benchmark 是否支持项目假设。
 
@@ -415,7 +458,16 @@ P0-2C 已完成：
 1. **机制判断**：三个冻结场景中，选择性执行与 full-recompute 等价，并减少 4/6 次结论重算，这一项已具备通过证据；
 2. **证据充分性判断**：场景均为小型人工图，尚无 `expire`、多来源 `conflict`、真实抽取噪声或规模数据，是否接受这些风险进入 M1 仍需明确决策。
 
-Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说明进入 M1 前必须补的场景；在该决定形成前，项目只标记为 **Ready for Gate P0 review**。
+Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说明进入 M1 前必须补的场景。
+
+### 11.1 Gate P0 评审记录（2026-08-29）
+
+评审输入：suite 1.0.0（GS-001～003）与 suite 2.0.0（GS-001～005）的正式 summary、F01～F06 负向校准、覆盖缺口分析（技术实现文档 15.4 与第 16 节）。
+
+1. **机制判断：通过。** 五个冻结场景中选择性执行与 full-recompute 完全等价，全部 correctness 指标 1.0，critical failures 为 0，selective 重算 4/11 对比 full 11/11；`revise`/`retract`/`expire`/`conflict` 四类变化与规则表四象限（accepted/contradicted/unsupported/conflict）均有场景覆盖。
+2. **证据充分性判断：附条件接受。** 场景仍为小型人工图，真实抽取噪声与规模风险未消除；这些风险不作为进入 M1 的阻塞项，但转化为 D-021 的三条附加条件（LLM 组件以确定性 fixture 校准、成本声明必须有规模化 benchmark、真实来源接入前先冻结本地语料 adapter）。
+
+正式结论：**Gate P0 附条件通过，允许启动 M1**（决策全文见 D-021）。
 
 ## 12. 文档更新检查表
 
@@ -441,22 +493,24 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 ## 13. 当前风险
 
-- GS-001～003 都是人工设计的模拟场景，可能过于规整；
+- GS-001～005 都是人工设计的模拟场景，可能过于规整；
 - Claim 评估规则很简单，暂不代表真实来源冲突处理能力；
 - 暂不建立 Fact 层可能需要在真实抽取阶段复审；
 - Recompute Ratio 在小图上只用于机制验证，不能外推为生产成本收益；
 - Snapshot Registry 尚未经过多进程并发初始化或数据库迁移压力验证；
 - storage protocol 尚未覆盖读取和图查询，当前并非真正可替换存储；
-- 当前验证了 `revise` 与 `retract`，没有验证 `expire` 或多来源 `conflict`；P0-2C 已将其登记为 Gate 风险，而不是已具备能力；
-- suite 的 `p0_2b_acceptance_candidate=true` 不是正式 Gate P0 结论；P0-2C 已完成覆盖分析，Gate 仍需决定是否接受受控场景偏差进入 M1；
-- Suite 预期 `2 / 6` 重算比例来自受控图结构，不能外推到真实研究任务；
+- `expire` 与 `retract` 在 P0 共享追加式 current-view 机制，as-of 历史查询与基于 `valid_to` 的自动过期尚未实现；多来源 `conflict` 只验证保留冲突、不做消解仲裁；
+- Gate P0 已附条件通过（D-021）；附加条件要求在 M1 中用确定性 fixture 校准 LLM 组件，并在规模声明前补规模化 benchmark；
+- Suite 2.0.0 的 `4 / 11` 重算比例来自受控图结构，不能外推到真实研究任务；
 - 空 semantic-change 场景需要严格遵守空集合指标约定，否则容易产生误导性的 precision；
-- 当前只有首次 `main` 基线，尚未配置远程 CI、分支保护或 release 策略。
+- 已配置 GitHub Actions CI（3.11/3.14 双版本测试 + suite 1.0.0 回归），但尚无分支保护或 release 策略。
 
 ## 14. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-29 | P0-3 + Gate P0 | 实现 GS-004 expire、GS-005 conflict、conflict 传播模式与 manifest 声明式验收；新增 suite 2.0.0；51/51 tests、67/67 JSON hash 通过，suite 1.0.0 重跑零 diff；登记 D-018～D-021，Gate P0 附条件通过，允许启动 M1 |
+| 2026-08-29 | CI | 新增 GitHub Actions（Python 3.11/3.14 测试矩阵 + suite 1.0.0 回归）；README 补充 Python 版本要求与 Windows launcher 说明 |
 | 2026-08-27 | P0-2C | 完成正式 suite/full-recompute 评估、F01～F06 负向校准和覆盖缺口分析；30/30 tests、31/31 JSON hash 通过；登记 D-017，进入 Gate P0 待评审状态 |
 | 2026-08-27 | README | 新增并重构为 Explorer-first 项目入口：具体示例、quick start、探索导航、机制图、实验与产物；登记 D-016 |
 | 2026-08-27 | Repository setup | 初始化本地 Git `main`，确认忽略规则，并把首次基线提交推送到 private `Peter-Sherlock/Veritas` |

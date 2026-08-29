@@ -1,0 +1,57 @@
+{
+  "confirmed_invalidations": [
+    {
+      "new_state": "fail",
+      "node_key": "python_311_compatible",
+      "old_state": "pass"
+    },
+    {
+      "new_state": "contradicted",
+      "node_key": "python_311_supported",
+      "old_state": "accepted"
+    }
+  ],
+  "created_claim_assessments": [
+    "python_311_supported@assessment-2",
+    "python_312_supported@assessment-1"
+  ],
+  "created_claims": [
+    "python_312_supported"
+  ],
+  "created_conclusions": [
+    "python_311_compatible@2"
+  ],
+  "input_snapshot_hash": "e7bdbfd5166affcbfbc188a4851718f33600ffcba2a5da538a96a94e3f67e21d",
+  "output_hash": "d3b0625e09ec4d0b842039c69b722b5cb9315df5009f017300b353b598ea1914",
+  "rechecked_unchanged": [],
+  "reverification_results": [
+    {
+      "assessment_id": "python_311_supported@assessment-2",
+      "new_state": "contradicted",
+      "node_key": "python_311_supported",
+      "old_state": "accepted",
+      "reason_refs": [
+        "EDGE_RUNTIME_PY311_CONTRADICT@2"
+      ]
+    },
+    {
+      "assessment_id": "python_312_supported@assessment-1",
+      "new_state": "accepted",
+      "node_key": "python_312_supported",
+      "old_state": null,
+      "reason_refs": [
+        "EDGE_RUNTIME_PY312_SUPPORT@1"
+      ]
+    }
+  ],
+  "rule_version": "p0-rules-2",
+  "run_id": "run-046dcc6b4ed54440",
+  "scenario_id": "GS-003",
+  "scenario_version": "1.0.0",
+  "untouched_nodes": [
+    "default_retries_3",
+    "policy_min_retries_3",
+    "retry_policy_fit",
+    "retry_supported"
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "confirmed_invalidations": [
+    {
+      "new_state": "contradicted",
+      "node_key": "default_retries_3",
+      "old_state": "accepted"
+    },
+    {
+      "new_state": "fail",
+      "node_key": "retry_policy_fit",
+      "old_state": "pass"
+    }
+  ],
+  "created_claim_assessments": [
+    "default_retries_1@assessment-1",
+    "default_retries_3@assessment-2",
+    "retry_supported@assessment-2"
+  ],
+  "created_claims": [
+    "default_retries_1"
+  ],
+  "created_conclusions": [
+    "retry_policy_fit@2"
+  ],
+  "input_snapshot_hash": "3b041967a5b4e78673c072d69d0bc15114a32c186bc86a846630e8723dfd6970",
+  "output_hash": "d352a1f4966f870d7a6b066d7047bf75b0e50d8bf54064ea5f807bbb5474420a",
+  "rechecked_unchanged": [
+    "retry_supported"
+  ],
+  "reverification_results": [
+    {
+      "assessment_id": "default_retries_1@assessment-1",
+      "new_state": "accepted",
+      "node_key": "default_retries_1",
+      "old_state": null,
+      "reason_refs": [
+        "EDGE_API_DEFAULT1_SUPPORT@2"
+      ]
+    },
+    {
+      "assessment_id": "default_retries_3@assessment-2",
+      "new_state": "contradicted",
+      "node_key": "default_retries_3",
+      "old_state": "accepted",
+      "reason_refs": [
+        "EDGE_API_DEFAULT3_CONTRADICT@2"
+      ]
+    },
+    {
+      "assessment_id": "retry_supported@assessment-2",
+      "new_state": "accepted",
+      "node_key": "retry_supported",
+      "old_state": "accepted",
+      "reason_refs": [
+        "EDGE_API_RETRY_SUPPORT@2",
+        "EDGE_GUIDE_RETRY_SUPPORT@1"
+      ]
+    }
+  ],
+  "rule_version": "p0-rules-1",
+  "run_id": "run-f39dacf198a857ae",
+  "scenario_id": "GS-001",
+  "scenario_version": "1.0.0",
+  "untouched_nodes": [
+    "policy_min_retries_3",
+    "python_311_compatible",
+    "python_311_supported"
+  ]
+}

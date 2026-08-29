@@ -70,7 +70,12 @@ class EvolutionEngine:
                 return prior_run
 
             self._validate_package(package)
-            candidate = propagate_change(self.repository, package.event)
+            candidate = propagate_change(
+                self.repository,
+                package.event,
+                new_edges=package.new_edges,
+                new_evidence=package.new_evidence,
+            )
             before_nodes = {
                 *(claim.claim_id for claim in self.repository.list_claims()),
                 *(conclusion.conclusion_key for conclusion in self.repository.list_current_conclusions()),
@@ -101,17 +106,30 @@ class EvolutionEngine:
                     (package.event.old_source_version_id,),
                     {"mode": "append_only_change_event"},
                 )
+            elif package.event.change_type == ChangeType.EXPIRE:
+                trace.add(
+                    "source_version_expired",
+                    (package.event.old_source_version_id,),
+                    {"mode": "append_only_change_event"},
+                )
+            elif package.event.change_type == ChangeType.CONFLICT:
+                trace.add(
+                    "conflict_source_recorded",
+                    (package.new_source.version_id, package.event.old_source_version_id),
+                    {"mode": "independent_source_no_supersession"},
+                )
             else:
                 trace.add(
                     "source_version_activated",
                     (package.new_source.version_id, package.event.old_source_version_id),
                     {"mode": "append_only_supersedes"},
                 )
-            trace.add(
-                "old_evidence_expired",
-                candidate.evidence_spans,
-                {"mode": "inactive_via_source_supersession"},
-            )
+            if package.event.change_type != ChangeType.CONFLICT:
+                trace.add(
+                    "old_evidence_expired",
+                    candidate.evidence_spans,
+                    {"mode": "inactive_via_source_supersession"},
+                )
 
             for claim in package.new_claims:
                 self.repository.insert_claim(claim)
@@ -321,14 +339,27 @@ class EvolutionEngine:
     def _validate_package(self, package: ChangePackage) -> None:
         if not self.repository.source_version_exists(package.event.old_source_version_id):
             raise ValueError("old source version does not exist")
-        if package.event.change_type == ChangeType.RETRACT:
+        if package.event.change_type in (ChangeType.RETRACT, ChangeType.EXPIRE):
             if package.event.new_source_version_id is not None or package.new_source is not None:
-                raise ValueError("a retract event cannot provide a new source version")
+                raise ValueError("a retract/expire event cannot provide a new source version")
             if package.new_claims or package.new_evidence or package.new_edges:
-                raise ValueError("a retract event cannot introduce new claims, evidence, or edges")
+                raise ValueError("a retract/expire event cannot introduce new claims, evidence, or edges")
+            return
+        if package.event.change_type == ChangeType.CONFLICT:
+            if package.new_source is None:
+                raise ValueError("a conflict event requires a new source version")
+            if package.event.new_source_version_id != package.new_source.version_id:
+                raise ValueError("event and package disagree on new source version")
+            if package.new_source.supersedes_version_id is not None:
+                raise ValueError("a conflicting source must be independent, not a superseding version")
+            old_source = self.repository.get_source_version(package.event.old_source_version_id)
+            if old_source.source_id == package.new_source.source_id:
+                raise ValueError("a conflict event requires a different source identity")
+            if not package.new_evidence or not package.new_edges:
+                raise ValueError("a conflict event requires new evidence and new edges")
             return
         if package.event.change_type not in (ChangeType.REVISE, ChangeType.SUPERSEDE):
-            raise ValueError(f"unsupported P0-2 change type: {package.event.change_type.value}")
+            raise ValueError(f"unsupported change type: {package.event.change_type.value}")
         if package.new_source is None:
             raise ValueError("a revised source requires a new source version")
         if package.event.new_source_version_id != package.new_source.version_id:

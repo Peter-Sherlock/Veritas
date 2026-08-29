@@ -413,7 +413,7 @@ class SQLiteRepository:
               )
               AND NOT EXISTS (
                   SELECT 1 FROM change_events AS event
-                  WHERE event.change_type = 'retract'
+                  WHERE event.change_type IN ('retract', 'expire')
                     AND event.old_source_version_id = source.version_id
               )
             ORDER BY edge.edge_id
@@ -644,16 +644,27 @@ class SQLiteRepository:
                    event.change_type,
                    event.old_source_version_id,
                    event.new_source_version_id,
+                   old_source.source_id AS old_source_id,
+                   new_source.source_id AS new_source_id,
                    new_source.supersedes_version_id
             FROM change_events AS event
+            LEFT JOIN source_versions AS old_source
+              ON old_source.version_id = event.old_source_version_id
             LEFT JOIN source_versions AS new_source
               ON new_source.version_id = event.new_source_version_id
             ORDER BY event.change_event_id
             """
         ).fetchall()
         for row in change_rows:
-            if row["change_type"] == ChangeType.RETRACT.value:
+            if row["change_type"] in (ChangeType.RETRACT.value, ChangeType.EXPIRE.value):
                 valid = row["new_source_version_id"] is None
+            elif row["change_type"] == ChangeType.CONFLICT.value:
+                valid = (
+                    row["new_source_version_id"] is not None
+                    and row["supersedes_version_id"] is None
+                    and row["new_source_id"] is not None
+                    and row["new_source_id"] != row["old_source_id"]
+                )
             else:
                 valid = (
                     row["new_source_version_id"] is not None

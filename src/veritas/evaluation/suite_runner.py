@@ -88,10 +88,22 @@ def run_suite(
     for failure in failures:
         taxonomy_counts[failure["failure_code"]] += 1
 
+    # Suites may declare their acceptance contract in the manifest. Manifests
+    # without an "acceptance" block keep the frozen P0-2B behavior unchanged.
+    acceptance_spec = manifest.get("acceptance")
+    if acceptance_spec:
+        evaluation_status = acceptance_spec["evaluation_status"]
+        gate_p0_decision = acceptance_spec["gate_p0_decision"]
+        acceptance_field = acceptance_spec["field"]
+    else:
+        evaluation_status = "P0-2B_IMPLEMENTATION_VERIFICATION"
+        gate_p0_decision = "not_evaluated_in_p0_2b"
+        acceptance_field = "p0_2b_acceptance_candidate"
     acceptance_candidate = _is_acceptance_candidate(
         scenario_results,
         aggregate,
         failures,
+        acceptance_spec,
     )
     summary = {
         "suite_id": manifest["suite_id"],
@@ -99,8 +111,8 @@ def run_suite(
         "manifest_hash": hashlib.sha256(
             canonical_json(manifest).encode("utf-8")
         ).hexdigest(),
-        "evaluation_status": "P0-2B_IMPLEMENTATION_VERIFICATION",
-        "gate_p0_decision": "not_evaluated_in_p0_2b",
+        "evaluation_status": evaluation_status,
+        "gate_p0_decision": gate_p0_decision,
         "scenario_order": [entry.scenario.scenario_id for entry in entries],
         "per_scenario": per_scenario,
         "macro_average": aggregate["macro_average"],
@@ -109,7 +121,7 @@ def run_suite(
         "failure_taxonomy_counts": taxonomy_counts,
         "critical_failure_count": len(failures),
         "failures": failures,
-        "p0_2b_acceptance_candidate": acceptance_candidate,
+        acceptance_field: acceptance_candidate,
     }
     summary_path = suite_dir / "summary.json"
     _write_hashed_json(summary_path, summary)
@@ -292,6 +304,7 @@ def _is_acceptance_candidate(
     results: list[RunnerResult],
     aggregate: dict[str, Any],
     failures: list[dict[str, Any]],
+    spec: dict[str, Any] | None = None,
 ) -> bool:
     exact_metrics = (
         "candidate_impact_precision",
@@ -313,14 +326,21 @@ def _is_acceptance_candidate(
         for result in results
     )
     totals = aggregate["recompute_totals"]
+    if spec is None:
+        expected_recomputed = 2
+        expected_total = 6
+    else:
+        expected_recomputed = int(spec["expected_selective_recomputed_conclusions"])
+        expected_total = int(spec["expected_total_conclusions"])
+    expected_ratio = expected_recomputed / expected_total
     return (
         per_scenario_pass
         and not failures
-        and totals["selective_recomputed_conclusions"] == 2
-        and totals["selective_total_conclusions"] == 6
-        and abs(totals["selective_recompute_ratio"] - (2 / 6)) < 1e-12
-        and totals["full_recomputed_conclusions"] == 6
-        and totals["full_total_conclusions"] == 6
+        and totals["selective_recomputed_conclusions"] == expected_recomputed
+        and totals["selective_total_conclusions"] == expected_total
+        and abs(totals["selective_recompute_ratio"] - expected_ratio) < 1e-12
+        and totals["full_recomputed_conclusions"] == expected_total
+        and totals["full_total_conclusions"] == expected_total
         and totals["full_recompute_ratio"] == 1.0
     )
 
@@ -341,6 +361,9 @@ def main() -> int:
     args = parser.parse_args()
 
     result = run_suite(args.manifest, args.artifacts_root)
+    acceptance_key = next(
+        key for key in result.summary if key.endswith("acceptance_candidate")
+    )
     print(
         json.dumps(
             {
@@ -348,9 +371,7 @@ def main() -> int:
                 "suite_version": result.summary["suite_version"],
                 "summary_path": str(result.summary_path),
                 "critical_failure_count": result.summary["critical_failure_count"],
-                "p0_2b_acceptance_candidate": result.summary[
-                    "p0_2b_acceptance_candidate"
-                ],
+                acceptance_key: result.summary[acceptance_key],
                 "recompute_totals": result.summary["recompute_totals"],
             },
             ensure_ascii=False,

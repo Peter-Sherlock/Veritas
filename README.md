@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-30%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-51%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -60,8 +60,10 @@ cd Veritas
 $env:PYTHONPATH = "src"
 $env:PYTHONDONTWRITEBYTECODE = "1"
 
-# Run all three evidence-evolution scenarios
-python -m veritas.evaluation.suite_runner
+# Run all five evidence-evolution scenarios (suite 2.0.0)
+python -m veritas.evaluation.suite_runner `
+  --manifest datasets/suites/p0-evolution-suite-2.json `
+  --artifacts-root artifacts
 ```
 
 Expected summary:
@@ -69,11 +71,11 @@ Expected summary:
 ```json
 {
   "critical_failure_count": 0,
-  "p0_2b_acceptance_candidate": true,
+  "p0_3_acceptance_candidate": true,
   "recompute_totals": {
-    "selective_recomputed_conclusions": 2,
-    "selective_total_conclusions": 6,
-    "full_recomputed_conclusions": 6
+    "selective_recomputed_conclusions": 4,
+    "selective_total_conclusions": 11,
+    "full_recomputed_conclusions": 11
   }
 }
 ```
@@ -97,7 +99,7 @@ Choose the path that matches what you want to explore:
 
 | I want to… | Start here |
 | --- | --- |
-| Run a complete experiment | [`suite_runner.py`](src/veritas/evaluation/suite_runner.py) and the [suite manifest](datasets/suites/p0-evolution-suite.json) |
+| Run a complete experiment | [`suite_runner.py`](src/veritas/evaluation/suite_runner.py) and the [suite manifest](datasets/suites/p0-evolution-suite-2.json) |
 | Read a small input fixture | [GS-002: redundant-source retraction](datasets/scenarios/GS-002/scenario.json) |
 | Follow one decision step by step | [GS-003 trace](artifacts/GS-003/run-046dcc6b4ed54440/trace.json) |
 | See a conclusion change | [GS-003 conclusion diff](artifacts/GS-003/run-046dcc6b4ed54440/conclusion_diff.json) |
@@ -151,10 +153,12 @@ Two boundaries matter:
 | **GS-001 — Revision** | Can a changed retry default update only the retry-policy branch? | 1 of 2 conclusions recomputed |
 | **GS-002 — Retraction** | Can a source disappear while redundant evidence keeps the conclusion valid? | 0 of 2 conclusions recomputed |
 | **GS-003 — Branch isolation** | Can Python compatibility change without touching the retry branch? | 1 of 2 conclusions recomputed |
+| **GS-004 — Expiry** | Does an expired time-limited source demote a conclusion to `unknown` instead of `fail`? | 1 of 3 conclusions recomputed |
+| **GS-005 — Multi-source conflict** | Does an independent contradicting source produce a preserved `conflict` instead of silent arbitration? | 1 of 2 conclusions recomputed |
 
-Across the frozen suite, selective execution recomputes **2 of 6** conclusions; the full-recompute baseline evaluates **6 of 6**. Both produce identical final outcomes in all three scenarios.
+Across the frozen suite (v2.0.0), selective execution recomputes **4 of 11** conclusions; the full-recompute baseline evaluates **11 of 11**. Both produce identical final outcomes in all five scenarios.
 
-Open the [machine-readable suite summary](artifacts/suites/p0-evolution-suite-1.0.0/summary.json) for per-scenario metrics and failure records.
+Open the [machine-readable suite summary](artifacts/suites/p0-evolution-suite-2.0.0/summary.json) for per-scenario metrics and failure records. The original three-scenario suite remains frozen at [v1.0.0](artifacts/suites/p0-evolution-suite-1.0.0/summary.json).
 
 ## What a run produces
 
@@ -210,15 +214,15 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas is currently at **P0-2C: controlled-suite evaluation complete**.
+Veritas is currently at **P0-3: expire and multi-source conflict scenarios complete; Gate P0 passed with conditions** and is cleared to enter M1 (initial research and search).
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
-- 30 automated tests, including independent negative calibration for F01–F06
-- three frozen scenarios covering revision, retraction, and branch isolation
+- 51 automated tests, including independent negative calibration for F01–F06
+- five frozen scenarios covering revision, retraction, branch isolation, expiry, and multi-source conflict
 - provenance, snapshot-drift, idempotency, replay, and artifact-integrity checks
-- selective execution matches full recomputation in all scenarios while evaluating 2 of 6 conclusions instead of 6 of 6
+- selective execution matches full recomputation in all scenarios while evaluating 4 of 11 conclusions instead of 11 of 11
 
-The project is ready for **Gate P0 review**. That review will decide whether the controlled evidence is sufficient to enter M1 or whether `expire`, multi-source `conflict`, or less regular graph scenarios should be added first.
+Gate P0 was reviewed on 2026-08-29 and **passed with conditions** (see [D-021](docs/PROJECT_STRUCTURE.md)): the mechanism is validated on controlled graphs; LLM extraction must be calibrated against deterministic fixtures in M1, and no cost claim may be extrapolated from the 4/11 ratio without a scaled benchmark.
 
 > [!WARNING]
 > This repository does not yet perform web search, LLM extraction, autonomous planning, or production-scale concurrent execution. The current numbers come from small controlled graphs and should not be treated as real-world cost estimates.

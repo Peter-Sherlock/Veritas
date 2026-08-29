@@ -1,0 +1,201 @@
+{
+  "events": [
+    {
+      "entity_refs": [
+        "CHG_API_1_0_TO_1_1"
+      ],
+      "event_seq": 1,
+      "event_type": "change_event_received",
+      "reason": {
+        "change_type": "revise"
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.001000Z"
+    },
+    {
+      "entity_refs": [
+        "EV_API_DEFAULT@1",
+        "EV_API_RETRY@1",
+        "default_retries_3",
+        "retry_policy_fit",
+        "retry_supported"
+      ],
+      "event_seq": 2,
+      "event_type": "candidate_impact_computed",
+      "reason": {
+        "source_snapshot": "GS-001:T0"
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.002000Z"
+    },
+    {
+      "entity_refs": [
+        "SRC_API@1.0",
+        "SRC_API@1.1"
+      ],
+      "event_seq": 3,
+      "event_type": "source_version_activated",
+      "reason": {
+        "mode": "append_only_supersedes"
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.003000Z"
+    },
+    {
+      "entity_refs": [
+        "EV_API_DEFAULT@1",
+        "EV_API_RETRY@1"
+      ],
+      "event_seq": 4,
+      "event_type": "old_evidence_expired",
+      "reason": {
+        "mode": "inactive_via_source_supersession"
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.004000Z"
+    },
+    {
+      "entity_refs": [
+        "default_retries_1",
+        "default_retries_1@assessment-1"
+      ],
+      "event_seq": 5,
+      "event_type": "claim_reverified",
+      "reason": {
+        "new_state": "accepted",
+        "old_state": null
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.005000Z"
+    },
+    {
+      "entity_refs": [
+        "default_retries_1"
+      ],
+      "event_seq": 6,
+      "event_type": "claim_state_created",
+      "reason": {
+        "new_state": "accepted"
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.006000Z"
+    },
+    {
+      "entity_refs": [
+        "default_retries_3",
+        "default_retries_3@assessment-2"
+      ],
+      "event_seq": 7,
+      "event_type": "claim_reverified",
+      "reason": {
+        "new_state": "contradicted",
+        "old_state": "accepted"
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.007000Z"
+    },
+    {
+      "entity_refs": [
+        "default_retries_3"
+      ],
+      "event_seq": 8,
+      "event_type": "claim_state_changed",
+      "reason": {
+        "new_state": "contradicted",
+        "old_state": "accepted"
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.008000Z"
+    },
+    {
+      "entity_refs": [
+        "retry_supported",
+        "retry_supported@assessment-2"
+      ],
+      "event_seq": 9,
+      "event_type": "claim_reverified",
+      "reason": {
+        "new_state": "accepted",
+        "old_state": "accepted"
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.009000Z"
+    },
+    {
+      "entity_refs": [
+        "retry_supported"
+      ],
+      "event_seq": 10,
+      "event_type": "claim_state_unchanged",
+      "reason": {
+        "evidence_rebased": true,
+        "state": "accepted"
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.010000Z"
+    },
+    {
+      "entity_refs": [
+        "default_retries_1",
+        "policy_min_retries_3",
+        "retry_policy_fit",
+        "retry_supported"
+      ],
+      "event_seq": 11,
+      "event_type": "conclusion_recomputed",
+      "reason": {
+        "new_state": "fail",
+        "old_state": "pass"
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.011000Z"
+    },
+    {
+      "entity_refs": [
+        "retry_policy_fit@1",
+        "retry_policy_fit@2"
+      ],
+      "event_seq": 12,
+      "event_type": "conclusion_version_created",
+      "reason": {
+        "relation": "supersedes"
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.012000Z"
+    },
+    {
+      "entity_refs": [
+        "run-f39dacf198a857ae"
+      ],
+      "event_seq": 13,
+      "event_type": "evolution_run_committed",
+      "reason": {
+        "candidate_claim_count": 2,
+        "candidate_conclusion_count": 1,
+        "created_conclusion_count": 1,
+        "recomputed_conclusion_count": 1
+      },
+      "rule_version": "p0-rules-1",
+      "run_id": "run-f39dacf198a857ae",
+      "timestamp": "2026-08-16T00:00:00.013000Z"
+    }
+  ],
+  "input_snapshot_hash": "3b041967a5b4e78673c072d69d0bc15114a32c186bc86a846630e8723dfd6970",
+  "output_hash": "3d9b3a68e47e0f3db55a916b40bf53c30dcbaaac1037cf64d1c71fa53dbfbf60",
+  "rule_version": "p0-rules-1",
+  "run_id": "run-f39dacf198a857ae",
+  "scenario_id": "GS-001",
+  "scenario_version": "1.0.0"
+}

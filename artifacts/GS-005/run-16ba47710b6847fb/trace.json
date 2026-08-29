@@ -1,0 +1,126 @@
+{
+  "events": [
+    {
+      "entity_refs": [
+        "CHG_PY312_SECURITY_CONFLICT"
+      ],
+      "event_seq": 1,
+      "event_type": "change_event_received",
+      "reason": {
+        "change_type": "conflict"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-16ba47710b6847fb",
+      "timestamp": "2026-08-25T00:00:00.001000Z"
+    },
+    {
+      "entity_refs": [
+        "EV_ADVISORY_PY312@1",
+        "python_312_compatible",
+        "python_312_supported"
+      ],
+      "event_seq": 2,
+      "event_type": "candidate_impact_computed",
+      "reason": {
+        "source_snapshot": "GS-005:T0"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-16ba47710b6847fb",
+      "timestamp": "2026-08-25T00:00:00.002000Z"
+    },
+    {
+      "entity_refs": [
+        "SRC_RUNTIME_GUIDE@1.1",
+        "SRC_SECURITY_ADVISORY@1.0"
+      ],
+      "event_seq": 3,
+      "event_type": "conflict_source_recorded",
+      "reason": {
+        "mode": "independent_source_no_supersession"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-16ba47710b6847fb",
+      "timestamp": "2026-08-25T00:00:00.003000Z"
+    },
+    {
+      "entity_refs": [
+        "python_312_supported",
+        "python_312_supported@assessment-2"
+      ],
+      "event_seq": 4,
+      "event_type": "claim_reverified",
+      "reason": {
+        "new_state": "conflict",
+        "old_state": "accepted"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-16ba47710b6847fb",
+      "timestamp": "2026-08-25T00:00:00.004000Z"
+    },
+    {
+      "entity_refs": [
+        "python_312_supported"
+      ],
+      "event_seq": 5,
+      "event_type": "claim_state_changed",
+      "reason": {
+        "new_state": "conflict",
+        "old_state": "accepted"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-16ba47710b6847fb",
+      "timestamp": "2026-08-25T00:00:00.005000Z"
+    },
+    {
+      "entity_refs": [
+        "python_312_compatible",
+        "python_312_supported"
+      ],
+      "event_seq": 6,
+      "event_type": "conclusion_recomputed",
+      "reason": {
+        "new_state": "conflict",
+        "old_state": "pass"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-16ba47710b6847fb",
+      "timestamp": "2026-08-25T00:00:00.006000Z"
+    },
+    {
+      "entity_refs": [
+        "python_312_compatible@1",
+        "python_312_compatible@2"
+      ],
+      "event_seq": 7,
+      "event_type": "conclusion_version_created",
+      "reason": {
+        "relation": "supersedes"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-16ba47710b6847fb",
+      "timestamp": "2026-08-25T00:00:00.007000Z"
+    },
+    {
+      "entity_refs": [
+        "run-16ba47710b6847fb"
+      ],
+      "event_seq": 8,
+      "event_type": "evolution_run_committed",
+      "reason": {
+        "candidate_claim_count": 1,
+        "candidate_conclusion_count": 1,
+        "created_conclusion_count": 1,
+        "recomputed_conclusion_count": 1
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-16ba47710b6847fb",
+      "timestamp": "2026-08-25T00:00:00.008000Z"
+    }
+  ],
+  "input_snapshot_hash": "2fbf97c2711e0d90fc71a9651628b5cd9d281ec977b7cb9fe459dbc70d37d146",
+  "output_hash": "9bc76cb4c04af6949f704f549fe7695cae07e6c867ceedd17e09b1ce967d082e",
+  "rule_version": "p0-rules-3",
+  "run_id": "run-16ba47710b6847fb",
+  "scenario_id": "GS-005",
+  "scenario_version": "1.0.0"
+}

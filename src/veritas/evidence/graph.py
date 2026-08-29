@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
+from typing import Iterable
 
 from veritas.domain.enums import EdgeType
 from veritas.domain.models import CandidateImpact, ChangeEvent
@@ -61,6 +62,50 @@ class EvidenceGraph:
         return CandidateImpact(
             evidence_spans=tuple(sorted(evidence_ids)),
             claims=tuple(sorted(impacted_claims)),
+            conclusions=tuple(sorted(impacted_conclusions)),
+        )
+
+    def candidate_impact_from_claims(
+        self,
+        claim_ids: Iterable[str],
+        evidence_ids: Iterable[str] = (),
+    ) -> CandidateImpact:
+        """Walk downstream from externally-triggered claims (conflict events).
+
+        Unlike candidate_impact, the triggering evidence is not yet in the
+        graph: the seeds are claims referenced by the change package's new
+        supports/contradicts edges, and propagation follows depends_on edges
+        of the pre-change snapshot towards conclusions.
+        """
+        seeds = {claim_id for claim_id in claim_ids}
+        current_conclusions = {
+            conclusion.conclusion_version_id: conclusion.conclusion_key
+            for conclusion in self.repository.list_current_conclusions()
+        }
+
+        adjacency: dict[str, list[str]] = defaultdict(list)
+        for edge in self.repository.list_dependency_edges():
+            if edge.edge_type == EdgeType.DEPENDS_ON:
+                adjacency[edge.from_id].append(edge.to_id)
+        for targets in adjacency.values():
+            targets.sort()
+
+        queue = deque(sorted(seeds))
+        visited = set(seeds)
+        impacted_conclusions: set[str] = set()
+        while queue:
+            node_id = queue.popleft()
+            for target_id in adjacency.get(node_id, []):
+                if target_id in visited:
+                    continue
+                visited.add(target_id)
+                queue.append(target_id)
+                if target_id in current_conclusions:
+                    impacted_conclusions.add(current_conclusions[target_id])
+
+        return CandidateImpact(
+            evidence_spans=tuple(sorted(evidence_ids)),
+            claims=tuple(sorted(seeds)),
             conclusions=tuple(sorted(impacted_conclusions)),
         )
 

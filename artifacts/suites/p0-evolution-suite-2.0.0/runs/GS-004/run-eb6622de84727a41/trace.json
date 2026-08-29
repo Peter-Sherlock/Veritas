@@ -1,0 +1,138 @@
+{
+  "events": [
+    {
+      "entity_refs": [
+        "CHG_PREVIEW_PROGRAM_EXPIRE"
+      ],
+      "event_seq": 1,
+      "event_type": "change_event_received",
+      "reason": {
+        "change_type": "expire"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-eb6622de84727a41",
+      "timestamp": "2026-09-02T00:00:00.001000Z"
+    },
+    {
+      "entity_refs": [
+        "EV_PREVIEW_MIGRATION@1",
+        "migration_assistance",
+        "migration_assistance_available"
+      ],
+      "event_seq": 2,
+      "event_type": "candidate_impact_computed",
+      "reason": {
+        "source_snapshot": "GS-004:T0"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-eb6622de84727a41",
+      "timestamp": "2026-09-02T00:00:00.002000Z"
+    },
+    {
+      "entity_refs": [
+        "SRC_PREVIEW_PROGRAM@1.0"
+      ],
+      "event_seq": 3,
+      "event_type": "source_version_expired",
+      "reason": {
+        "mode": "append_only_change_event"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-eb6622de84727a41",
+      "timestamp": "2026-09-02T00:00:00.003000Z"
+    },
+    {
+      "entity_refs": [
+        "EV_PREVIEW_MIGRATION@1"
+      ],
+      "event_seq": 4,
+      "event_type": "old_evidence_expired",
+      "reason": {
+        "mode": "inactive_via_source_supersession"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-eb6622de84727a41",
+      "timestamp": "2026-09-02T00:00:00.004000Z"
+    },
+    {
+      "entity_refs": [
+        "migration_assistance_available",
+        "migration_assistance_available@assessment-2"
+      ],
+      "event_seq": 5,
+      "event_type": "claim_reverified",
+      "reason": {
+        "new_state": "unsupported",
+        "old_state": "accepted"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-eb6622de84727a41",
+      "timestamp": "2026-09-02T00:00:00.005000Z"
+    },
+    {
+      "entity_refs": [
+        "migration_assistance_available"
+      ],
+      "event_seq": 6,
+      "event_type": "claim_state_changed",
+      "reason": {
+        "new_state": "unsupported",
+        "old_state": "accepted"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-eb6622de84727a41",
+      "timestamp": "2026-09-02T00:00:00.006000Z"
+    },
+    {
+      "entity_refs": [
+        "migration_assistance",
+        "migration_assistance_available"
+      ],
+      "event_seq": 7,
+      "event_type": "conclusion_recomputed",
+      "reason": {
+        "new_state": "unknown",
+        "old_state": "pass"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-eb6622de84727a41",
+      "timestamp": "2026-09-02T00:00:00.007000Z"
+    },
+    {
+      "entity_refs": [
+        "migration_assistance@1",
+        "migration_assistance@2"
+      ],
+      "event_seq": 8,
+      "event_type": "conclusion_version_created",
+      "reason": {
+        "relation": "supersedes"
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-eb6622de84727a41",
+      "timestamp": "2026-09-02T00:00:00.008000Z"
+    },
+    {
+      "entity_refs": [
+        "run-eb6622de84727a41"
+      ],
+      "event_seq": 9,
+      "event_type": "evolution_run_committed",
+      "reason": {
+        "candidate_claim_count": 1,
+        "candidate_conclusion_count": 1,
+        "created_conclusion_count": 1,
+        "recomputed_conclusion_count": 1
+      },
+      "rule_version": "p0-rules-3",
+      "run_id": "run-eb6622de84727a41",
+      "timestamp": "2026-09-02T00:00:00.009000Z"
+    }
+  ],
+  "input_snapshot_hash": "5d6da926406a8765e5a44b3dabeb1a3823eb5825f6765d17ebf62d158d3c9f2b",
+  "output_hash": "06a57ddfd7518af26d6c40043679d5eeba0a748c6d2f157c3678feb3072b62da",
+  "rule_version": "p0-rules-3",
+  "run_id": "run-eb6622de84727a41",
+  "scenario_id": "GS-004",
+  "scenario_version": "1.0.0"
+}

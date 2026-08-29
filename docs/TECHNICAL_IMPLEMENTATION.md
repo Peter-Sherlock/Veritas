@@ -1,9 +1,9 @@
 # Veritas 技术实现文档
 
 > 文档职责：记录可执行技术规格、数据契约、算法、测试与实际验证结果。  
-> 当前阶段：P0-2C Aggregate Evaluation and Failure Analysis
-> 当前状态：Evaluation complete v0.5; Gate P0 review pending
-> 更新日期：2026-08-27  
+> 当前阶段：P0-3 expire / conflict 场景实现  
+> 当前状态：Suite 2.0.0 evaluation complete v0.6; Gate P0 review recorded  
+> 更新日期：2026-08-29  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[项目结构与设计文档](PROJECT_STRUCTURE.md)
 
@@ -466,6 +466,11 @@ P0-1 实际记录：
 7. `conclusion_recomputed`
 8. `conclusion_version_created`
 9. `evolution_run_committed`
+
+P0-2B 起，`retract` 用 `source_version_retracted` 替代第 3 步（追加式 ChangeEvent，不修改旧行）。P0-3 新增两种事件类型（不改变已有事件的语义与顺序）：
+
+- `source_version_expired`：替代第 3 步，用于 expire（追加式 ChangeEvent，与 retract 共用 current-view 排除机制）；
+- `conflict_source_recorded`：替代第 3 步，用于 conflict；记录独立来源进入证据池且不 supersede 旧来源。conflict 事件不产生 `old_evidence_expired`，因为没有证据退出 current view。
 
 每条事件必须带 `run_id`、`event_seq`、`timestamp`、`entity_refs`、`rule_version` 和结构化 `reason`。
 
@@ -1058,26 +1063,87 @@ P0-2C 的退出条件已经满足：suite 指标、full-recompute baseline、逐
 
 这不是 Gate P0 已通过。Gate 评审仍需明确回答：当前受控证据是否足以支持继续进入 M1，还是应先扩充 `expire`、`conflict` 或更不规则的图结构场景。无论哪种选择，都不应把当前 `2 / 6` 比例外推为真实负载收益。
 
-## 16. 当前限制
+## 16. P0-3 expire 与 conflict 场景实现
+
+### 16.1 范围与决策
+
+P0-3 补上 15.4 节登记的两个覆盖缺口：`expire` 与多来源 `conflict`。新增语义不写入旧 rule version，GS-004/GS-005 使用 `p0-rules-3`；冻结的 suite 1.0.0 与 GS-001～003 fixture 保持不变，新聚合通过独立的 `p0-evolution-suite-2.json`（suite_version 2.0.0）表达。相关决策见项目结构文档 D-018～D-020。
+
+### 16.2 实现位置
+
+| 能力 | 实际文件 |
+| --- | --- |
+| GS-004 expire fixture 与真值 | [`GS-004/scenario.json`](../datasets/scenarios/GS-004/scenario.json) |
+| GS-005 conflict fixture 与真值 | [`GS-005/scenario.json`](../datasets/scenarios/GS-005/scenario.json) |
+| Suite 2.0.0 manifest 与声明式验收 | [`p0-evolution-suite-2.json`](../datasets/suites/p0-evolution-suite-2.json) |
+| expire/retract 共用追加式 current-view | [`storage/sqlite.py`](../src/veritas/storage/sqlite.py) `list_active_evidence_edges_for_claim` |
+| conflict 候选传播（新边目标为种子，沿 depends_on 下行） | [`evidence/graph.py`](../src/veritas/evidence/graph.py) `candidate_impact_from_claims`、[`invalidation/impact.py`](../src/veritas/invalidation/impact.py) |
+| expire/conflict ChangePackage 校验 | [`invalidation/repair.py`](../src/veritas/invalidation/repair.py) `_validate_package` |
+| change_event 谱系三形状校验 | [`storage/sqlite.py`](../src/veritas/storage/sqlite.py) `validate_provenance` |
+| manifest 声明式验收 | [`evaluation/suite_runner.py`](../src/veritas/evaluation/suite_runner.py) |
+| 新增回归测试 | [`test_gs004.py`](../tests/scenarios/test_gs004.py)、[`test_gs005.py`](../tests/scenarios/test_gs005.py)、[`test_p0_suite_2.py`](../tests/scenarios/test_p0_suite_2.py)、[`test_expire_and_conflict.py`](../tests/unit/test_expire_and_conflict.py) |
+
+### 16.3 已实现语义
+
+- **expire**：与 retract 共用追加式 current-view 机制（ChangeEvent 排除来源，不改写旧行）；区别在于语义层——expire 断言来源在 `effective_at` 前有效、之后失效，retract 断言内容被撤回。GS-004 中唯一支持证据过期使 `migration_assistance_available` 从 `accepted` 变为 `unsupported`（不是 contradicted），结论从 `pass` 变为 `unknown`，首次覆盖规则表的 unsupported→unknown 路径；
+- **conflict**：事件引入独立来源（不同 `source_id`、`supersedes_version_id` 必须为 NULL）的反驳证据，旧来源保持 active，系统不仲裁、不选边。候选影响以新增 supports/contradicts 边的目标 Claim 为种子，沿 input snapshot 的 depends_on 边传播。GS-005 中 `python_312_supported` 从 `accepted` 变为 `conflict`（assessment 同时引用两条 active 边），结论从 `pass` 变为 `conflict`，首次覆盖 conflict→conflict 路径；
+- **校验**：expire 禁止夹带任何新实体；conflict 要求新来源存在、不得 supersede 旧来源、source_id 必须不同、必须携带新证据与新边；
+- **suite 验收**：manifest 可声明 `acceptance` 块（验收字段名、evaluation_status、gate 状态、期望 recompute totals）；无该块的 manifest 保持 P0-2B 行为逐字节不变。
+
+### 16.4 逐场景实际结果（suite 2.0.0）
+
+| 场景 | 变化类型 | Candidate P/R | Invalidation P/R | Unaffected | Repair / Full Equivalent | Selective | Full | Critical failures |
+| --- | --- | --- | --- | ---: | --- | ---: | ---: | ---: |
+| GS-001 | revise | 1.0 / 1.0 | 1.0 / 1.0 | 1.0 | true / true | 1 / 2 | 2 / 2 | 0 |
+| GS-002 | retract | 1.0 / 1.0 | 1.0 / 1.0 | 1.0 | true / true | 0 / 2 | 2 / 2 | 0 |
+| GS-003 | revise（分支隔离） | 1.0 / 1.0 | 1.0 / 1.0 | 1.0 | true / true | 1 / 2 | 2 / 2 | 0 |
+| GS-004 | expire | 1.0 / 1.0 | 1.0 / 1.0 | 1.0 | true / true | 1 / 3 | 3 / 3 | 0 |
+| GS-005 | conflict | 1.0 / 1.0 | 1.0 / 1.0 | 1.0 | true / true | 1 / 2 | 2 / 2 | 0 |
+
+聚合：selective **4 / 11 ≈ 0.3636**，full **11 / 11**；五个场景 replay determinism、event idempotency、provenance integrity 均为 true；`p0_3_acceptance_candidate=true`（该字段只表示实现输出满足声明的验收契约，Gate P0 结论见项目结构文档第 11 节）。
+
+### 16.5 验证命令与结果
+
+```powershell
+$env:PYTHONPATH='src'
+python -m unittest discover -s tests -v
+python -m veritas.evaluation.suite_runner --manifest datasets/suites/p0-evolution-suite.json --artifacts-root artifacts
+python -m veritas.evaluation.suite_runner --manifest datasets/suites/p0-evolution-suite-2.json --artifacts-root artifacts
+```
+
+最终结果：
+
+```text
+Ran 51 tests
+OK
+suite 1.0.0 重跑：summary 与逐场景 artifacts 零 diff
+suite 2.0.0：critical_failure_count=0，p0_3_acceptance_candidate=true
+ARTIFACT_JSON_COUNT=67
+ARTIFACT_HASH_MISMATCHES=0
+```
+
+新增 21 项测试覆盖：expire 候选集合精确性、unsupported→unknown 状态迁移、过期证据退出 current-view、conflict 双边同时 active 且不仲裁、conflict 谱系形状被 provenance 校验接受、expire/conflict 非法包拒绝（夹带新来源/新证据、superseding 来源、同 source_id、缺新边）、suite 2.0.0 manifest 声明验收与聚合契约、suite 1.0.0 行为不变回归。原有 30 项测试全部保持通过。
+
+## 17. 当前限制
 
 - 证据与 Claim 的关系由 fixture 显式声明，没有测试自动抽取；
 - 没有来源质量权重；
 - 没有处理复杂逻辑表达式、概率置信度或循环依赖；
 - 没有定义真实网页版本检测；
 - 没有验证 Fact 层是否需要独立存在；
-- 已验证两个 `revise` 和一个 `retract` 场景，尚未验证 `expire` 或多来源 `conflict`；
+- 已验证 `revise`、`retract`、`expire` 与多来源 `conflict` 四类变化场景；`expire` 与 `retract` 在 P0 共享追加式 current-view 机制，基于 `valid_to` 的自动过期与 as-of 历史查询尚未实现；
 - Snapshot Registry 已覆盖身份/hash 漂移和未登记部分数据库，但尚未验证多进程并发初始化；
 - storage protocol 目前只是最小写入边界，图和规则仍直接依赖 SQLiteRepository；
 - 没有并发、多进程、规模或性能结果。
-- P0-2C 正式 failure analysis 已完成，但 Gate P0 尚未作出通过或不通过决定；当前 suite summary 仍保留 P0-2B 实现验证字段，正式解释见本节分析；
-- `2 / 6` 的聚合重算目标来自受控场景设计，不能当作真实研究负载的成本收益。
+- Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
 因此，目前可以确认的是“三个受控离线场景上的确定性 Evidence Evolution、撤回 current-view、选择性结论重算和可复现 suite 执行已实现并通过测试”；不能外推为真实 Web Research、通用冲突推理、Agent 自主研究或生产规模能力。
 
-## 17. 变更记录
+## 18. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-29 | P0-3 | 实现 GS-004 expire 与 GS-005 conflict 场景、conflict 传播模式、manifest 声明式验收与 suite 2.0.0；51/51 tests、67/67 JSON hash 通过，suite 1.0.0 零 diff；Gate P0 评审结论见项目结构文档 |
 | 2026-08-27 | P0-2C | 完成三场景聚合评估、full-recompute 对照、F01～F06 负向校准与覆盖分析；30/30 tests、31/31 JSON hash 通过；状态推进为 Ready for Gate P0 review |
 | 2026-08-27 | README | 建立 Explorer-first 项目入口；示例、运行命令、导航、链接和结果与 P0-2B 实现对齐 |
 | 2026-08-27 | Repository setup | 初始化 Git `main`、验证忽略规则，并将首次基线提交推送至 private `Peter-Sherlock/Veritas` |

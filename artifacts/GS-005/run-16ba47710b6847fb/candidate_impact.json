@@ -1,0 +1,18 @@
+{
+  "change_event_id": "CHG_PY312_SECURITY_CONFLICT",
+  "claims": [
+    "python_312_supported"
+  ],
+  "conclusions": [
+    "python_312_compatible"
+  ],
+  "evidence_spans": [
+    "EV_ADVISORY_PY312@1"
+  ],
+  "input_snapshot_hash": "2fbf97c2711e0d90fc71a9651628b5cd9d281ec977b7cb9fe459dbc70d37d146",
+  "output_hash": "15bbb65b80002e0ecb56a7b3d7299eefe6eab7e45b5f9b8f602226db27bdc986",
+  "rule_version": "p0-rules-3",
+  "run_id": "run-16ba47710b6847fb",
+  "scenario_id": "GS-005",
+  "scenario_version": "1.0.0"
+}

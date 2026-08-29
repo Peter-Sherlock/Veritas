@@ -1,0 +1,18 @@
+{
+  "change_event_id": "CHG_PREVIEW_PROGRAM_EXPIRE",
+  "claims": [
+    "migration_assistance_available"
+  ],
+  "conclusions": [
+    "migration_assistance"
+  ],
+  "evidence_spans": [
+    "EV_PREVIEW_MIGRATION@1"
+  ],
+  "input_snapshot_hash": "5d6da926406a8765e5a44b3dabeb1a3823eb5825f6765d17ebf62d158d3c9f2b",
+  "output_hash": "ac574a2fb0044f682db8ca5c60341f48060fd1e5b62c7011c553b3130e5e6e07",
+  "rule_version": "p0-rules-3",
+  "run_id": "run-eb6622de84727a41",
+  "scenario_id": "GS-004",
+  "scenario_version": "1.0.0"
+}

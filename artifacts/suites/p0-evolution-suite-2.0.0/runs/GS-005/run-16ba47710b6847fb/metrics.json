@@ -1,0 +1,39 @@
+{
+  "input_snapshot_hash": "2fbf97c2711e0d90fc71a9651628b5cd9d281ec977b7cb9fe459dbc70d37d146",
+  "metrics": {
+    "candidate_impact_precision": 1.0,
+    "candidate_impact_recall": 1.0,
+    "critical_failure_count": 0,
+    "current_outcomes": {
+      "python_312_compatible": "conflict",
+      "retry_policy_fit": "pass"
+    },
+    "event_idempotency": true,
+    "failures": [],
+    "full_recompute_equivalent": true,
+    "full_recompute_outcomes": {
+      "python_312_compatible": "conflict",
+      "retry_policy_fit": "pass"
+    },
+    "full_recompute_ratio": 1.0,
+    "invalidation_precision": 1.0,
+    "invalidation_recall": 1.0,
+    "provenance_errors": [],
+    "provenance_integrity": true,
+    "repair_success": true,
+    "replay_determinism": true,
+    "selective_recompute_ratio": 0.5,
+    "unaffected_preservation": 1.0
+  },
+  "operational_metrics": {
+    "candidate_claim_count": 1,
+    "candidate_conclusion_count": 1,
+    "created_conclusion_count": 1,
+    "recomputed_conclusion_count": 1
+  },
+  "output_hash": "99aa15194d33634dcb3f6174ebd71e4b829d0b738d1671cd8a1772ac928e9ada",
+  "rule_version": "p0-rules-3",
+  "run_id": "run-16ba47710b6847fb",
+  "scenario_id": "GS-005",
+  "scenario_version": "1.0.0"
+}

@@ -1,0 +1,45 @@
+{
+  "confirmed_invalidations": [
+    {
+      "new_state": "unknown",
+      "node_key": "migration_assistance",
+      "old_state": "pass"
+    },
+    {
+      "new_state": "unsupported",
+      "node_key": "migration_assistance_available",
+      "old_state": "accepted"
+    }
+  ],
+  "created_claim_assessments": [
+    "migration_assistance_available@assessment-2"
+  ],
+  "created_claims": [],
+  "created_conclusions": [
+    "migration_assistance@2"
+  ],
+  "input_snapshot_hash": "5d6da926406a8765e5a44b3dabeb1a3823eb5825f6765d17ebf62d158d3c9f2b",
+  "output_hash": "77b24cb8c550f01fc59b2f3a62cba12ddeffcac801403e53ca29742122dd8a31",
+  "rechecked_unchanged": [],
+  "reverification_results": [
+    {
+      "assessment_id": "migration_assistance_available@assessment-2",
+      "new_state": "unsupported",
+      "node_key": "migration_assistance_available",
+      "old_state": "accepted",
+      "reason_refs": []
+    }
+  ],
+  "rule_version": "p0-rules-3",
+  "run_id": "run-eb6622de84727a41",
+  "scenario_id": "GS-004",
+  "scenario_version": "1.0.0",
+  "untouched_nodes": [
+    "default_retries_3",
+    "policy_min_retries_3",
+    "python_311_compatible",
+    "python_311_supported",
+    "retry_policy_fit",
+    "retry_supported"
+  ]
+}

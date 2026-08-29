@@ -1,0 +1,28 @@
+{
+  "action_required": true,
+  "affected_claims": [
+    "migration_assistance_available"
+  ],
+  "change_event_id": "CHG_PREVIEW_PROGRAM_EXPIRE",
+  "change_reason": "source_expire",
+  "changed_evidence": [
+    "EV_PREVIEW_MIGRATION@1"
+  ],
+  "conclusion_key": "migration_assistance",
+  "input_snapshot_hash": "5d6da926406a8765e5a44b3dabeb1a3823eb5825f6765d17ebf62d158d3c9f2b",
+  "new_version": {
+    "conclusion_version_id": "migration_assistance@2",
+    "outcome": "unknown",
+    "statement": "Migration assistance availability is unknown because the supporting offer has expired"
+  },
+  "old_version": {
+    "conclusion_version_id": "migration_assistance@1",
+    "outcome": "pass",
+    "statement": "Atlas preview customers can rely on free migration assistance"
+  },
+  "output_hash": "64db99dc673c6566220402b067db7889fa3f8875ad87ab133f1fdf91037edf01",
+  "rule_version": "p0-rules-3",
+  "run_id": "run-eb6622de84727a41",
+  "scenario_id": "GS-004",
+  "scenario_version": "1.0.0"
+}
