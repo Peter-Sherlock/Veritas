@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-24%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-30%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -45,7 +45,13 @@ The interesting part is not the final `fail`. It is that Veritas can explain **w
 
 ## Quick start
 
-Veritas uses only Python standard-library runtime dependencies.
+Veritas uses only Python standard-library runtime dependencies and requires **Python 3.11+**. Check your interpreter first:
+
+```bash
+python --version   # must be >= 3.11
+```
+
+> On Windows, if plain `python` resolves to an older interpreter (e.g. Anaconda), use the launcher: `py -3.14 -m veritas.evaluation.suite_runner`.
 
 ```powershell
 git clone https://github.com/Peter-Sherlock/Veritas.git
@@ -97,6 +103,7 @@ Choose the path that matches what you want to explore:
 | See a conclusion change | [GS-003 conclusion diff](artifacts/GS-003/run-046dcc6b4ed54440/conclusion_diff.json) |
 | Understand impact propagation | [`impact.py`](src/veritas/invalidation/impact.py) and [`graph.py`](src/veritas/evidence/graph.py) |
 | Understand selective repair | [`repair.py`](src/veritas/invalidation/repair.py) |
+| Inspect failure-detector calibration | [`test_failure_taxonomy.py`](tests/unit/test_failure_taxonomy.py) |
 | Inspect persistence and current-view semantics | [`sqlite.py`](src/veritas/storage/sqlite.py) |
 | Read the full technical specification | [Technical implementation](docs/TECHNICAL_IMPLEMENTATION.md) |
 | Understand design decisions and boundaries | [Project structure and design](docs/PROJECT_STRUCTURE.md) |
@@ -203,14 +210,15 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas is currently at **P0-2B: deterministic mechanism verified**.
+Veritas is currently at **P0-2C: controlled-suite evaluation complete**.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
-- 24 automated tests
+- 30 automated tests, including independent negative calibration for F01–F06
 - three frozen scenarios covering revision, retraction, and branch isolation
 - provenance, snapshot-drift, idempotency, replay, and artifact-integrity checks
+- selective execution matches full recomputation in all scenarios while evaluating 2 of 6 conclusions instead of 6 of 6
 
-The next step is P0-2C: a formal failure and coverage analysis before deciding Gate P0.
+The project is ready for **Gate P0 review**. That review will decide whether the controlled evidence is sufficient to enter M1 or whether `expire`, multi-source `conflict`, or less regular graph scenarios should be added first.
 
 > [!WARNING]
 > This repository does not yet perform web search, LLM extraction, autonomous planning, or production-scale concurrent execution. The current numbers come from small controlled graphs and should not be treated as real-world cost estimates.

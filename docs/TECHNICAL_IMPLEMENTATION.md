@@ -1,23 +1,23 @@
 # Veritas 技术实现文档
 
 > 文档职责：记录可执行技术规格、数据契约、算法、测试与实际验证结果。  
-> 当前阶段：P0-2B Scenario and Suite Implementation  
-> 当前状态：Implementation verified v0.4; P0-2C pending  
+> 当前阶段：P0-2C Aggregate Evaluation and Failure Analysis
+> 当前状态：Evaluation complete v0.5; Gate P0 review pending
 > 更新日期：2026-08-27  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[项目结构与设计文档](PROJECT_STRUCTURE.md)
 
 ## 1. 当前阶段目标
 
-P0-2B 将 P0-2A 冻结的 GS-002、GS-003、Failure Taxonomy 和 suite 验收口径落成可执行实现：
+P0-2C 对 P0-2B 已实现的三个场景、聚合指标、全量重算基线和 Failure Taxonomy 进行正式评估：
 
 > 当一个来源发布新版本时，系统如何找到需要重新验证的节点，如何确认真正失效的主张，如何只更新必要结论，并保留完整版本谱系。
 
-当前已有 GS-001～003 三个独立场景、显式 suite manifest、逐场景失败记录、Snapshot Registry 和聚合运行器。P0-2B 实现验证已通过；P0-2C 的正式聚合评估、failure analysis 与 Gate P0 决策尚未执行。
+当前已有 GS-001～003 三个独立场景、显式 suite manifest、逐场景失败记录、Snapshot Registry 和聚合运行器。P0-2C 已完成正式聚合评估、F01～F06 负向校准和覆盖边界分析；结论是证据足以进入 Gate P0 评审，但 Gate 尚未作出通过或不通过决定。
 
 ## 2. 本阶段非目标
 
-P0-2B 不包含：
+P0-2C 不包含：
 
 - Web Search；
 - LLM 抽取或推理；
@@ -29,7 +29,7 @@ P0-2B 不包含：
 - 对真实互联网内容的自动变化检测；
 - `expire` 与多来源 `conflict` 场景；
 - storage protocol 的全面重构；
-- P0-2C 正式 failure analysis 或 Gate P0 结论；
+- Gate P0 的最终通过/不通过结论；
 - 现有 GS-001 scenario 与历史逐运行 artifacts 的重写。
 
 这些能力不能作为 P0 核心机制通过验收的前提。
@@ -488,7 +488,7 @@ P0-1 实际记录：
 
 | 项目 | 当前验证值 |
 | --- | --- |
-| Python | 3.14.7 |
+| Python | 3.14.5 |
 | SQLite | 3.50.4 |
 | 外部运行依赖 | 无 |
 | 测试框架 | 标准库 `unittest` |
@@ -919,7 +919,7 @@ P0-2 通过条件：
 | Critical Failures | 0 |
 | P0-2B acceptance candidate | true |
 
-`p0_2b_acceptance_candidate=true` 只表示实现输出满足 P0-2A 冻结断言。summary 同时明确记录 `gate_p0_decision=not_evaluated_in_p0_2b`，不能把它写成 P0-2C 或 Gate P0 已通过。
+`p0_2b_acceptance_candidate=true` 只表示实现输出满足 P0-2A 冻结断言。summary 同时明确记录 `gate_p0_decision=not_evaluated_in_p0_2b`；不能单凭该字段宣称 P0-2C 或 Gate P0 通过，P0-2C 的附加分析见第 15 节。
 
 ### 14.5 验证命令与结果
 
@@ -964,7 +964,101 @@ artifacts/
 
 根目录 [README](../README.md) 面向第一次探索项目的人：先用 GS-001 的具体变化展示输入、影响、修复与未影响结论，再提供 quick start、按目标组织的代码/fixture/artifact 导航、核心机制图、三个实验、输出契约和扩展场景入口。内部阶段历史、完整 failure 规格与详细指标继续保留在双文档；README 中出现的测试数量和重算比例来自当前测试与 suite summary。
 
-## 15. 当前限制
+## 15. P0-2C 正式评估与 Failure Analysis
+
+### 15.1 评估输入与方法
+
+P0-2C 没有改写冻结 fixture 或运行时规则。正式评估使用以下证据：
+
+1. 显式 manifest 锁定的 GS-001～003、scenario version、rule version 与 ground-truth hash；
+2. suite runner 为每个场景创建独立空 SQLite 数据库，避免历史幂等结果掩盖代码变化；
+3. 选择性执行结果与同一 current-view 上的 full-recompute baseline；
+4. 每个运行的五类 content-addressed artifacts 及 suite summary；
+5. 基于真实 GS-001 EvolutionRun 的 F01～F06 负向注入测试，用于证明失败探测器本身可触发。
+
+负向校准只改变传入 `evaluate_run` 的期望值或验证信号，不修改冻结场景、数据库、正式 artifacts 或运行时决策。
+
+### 15.2 冻结验收目标与实际结果
+
+| 验收项 | 冻结目标 | 实际结果 | 结论 |
+| --- | --- | --- | --- |
+| Candidate Precision / Recall | 三场景每项 1.0 | 三场景每项 1.0 | 通过 |
+| Invalidation Precision / Recall | 三场景每项 1.0 | 三场景每项 1.0 | 通过 |
+| Unaffected Preservation | 三场景每项 1.0 | 三场景每项 1.0 | 通过 |
+| Repair Success | 三场景均 true | 三场景均 true | 通过 |
+| Full Recompute Equivalent | 三场景均 true | 三场景均 true | 通过 |
+| Replay / Event Idempotency | 三场景均 true | 三场景均 true | 通过 |
+| Provenance Integrity | 三场景均通过 | 三场景均通过 | 通过 |
+| Critical Failures | 0 | 0 | 通过 |
+| Selective Recompute | `2 / 6` | `2 / 6 = 0.3333333333333333` | 通过 |
+| Full Recompute | `6 / 6` | `6 / 6 = 1.0` | 通过 |
+
+因此，在当前冻结图和规则内，选择性执行与全量重算得到相同最终结论，同时少重算 4 个未受语义影响的结论。这个比较只在全部正确性、provenance 与 replay 断言通过后成立。
+
+### 15.3 Failure Analysis
+
+正式 suite 的三场景 failure records 均为空，F01～F06 聚合计数均为 0。为了避免把“没有观察到失败”误当成“失败检测一定有效”，P0-2C 增加了六项负向校准：
+
+| Failure code | 注入的可控偏差 | 期望与结果 |
+| --- | --- | --- |
+| F01 Impact Detection | ground truth 额外要求一个不存在的 candidate node | 单独触发 F01 |
+| F02 Invalidation Decision | ground truth 将实际语义变化集合置空 | 单独触发 F02 |
+| F03 Repair Correctness | 将 `retry_policy_fit` 期望结果从 fail 改为 pass | 单独触发 F03 |
+| F04 Recompute Scope | 将期望重算结论集合置空 | 单独触发 F04 |
+| F05 Provenance Integrity | 注入缺失 dependency edge 的 provenance error | 单独触发 F05 |
+| F06 Replay Reproducibility | 将 replay determinism 信号置为 false | 单独触发 F06 |
+
+六类记录均满足 failure code、`critical` severity、scenario、entity refs、expected/actual 与非空 trace refs 契约。F05 另有跨来源 supersedes 拒绝和 artifact 缺失/篡改测试支撑；F06 另有真实 ChangeEvent 重放幂等测试支撑。
+
+结论边界：零正式失败表示三个冻结场景没有违反已编码断言；负向校准表示六类探测路径能够报警。两者都不能证明未建模的 failure mode 不存在。
+
+### 15.4 覆盖充分性与缺口
+
+| 能力或风险 | 当前证据 | 覆盖状态 |
+| --- | --- | --- |
+| revise 导致语义变化与选择性修复 | GS-001、GS-003 | 已覆盖 |
+| retract 但冗余证据保持语义 | GS-002 | 已覆盖 |
+| 跨分支 untouched preservation | GS-001、GS-003 | 已覆盖 |
+| selective 与 full-recompute 等价 | 三场景 | 已覆盖 |
+| replay determinism / event idempotency | 三场景与回归测试 | 已覆盖 |
+| snapshot identity/hash drift | Snapshot Registry tests | 已覆盖 |
+| artifact 缺失或篡改 | suite negative test | 已覆盖 |
+| F01～F06 探测器可触发 | 六项负向校准 | 已覆盖 |
+| `expire` 变化类型 | 无冻结场景 | 未覆盖 |
+| 多来源 `conflict` 与冲突消解 | 无冻结场景 | 未覆盖 |
+| 真实网页检测与自动抽取噪声 | 当前为人工 fixture | 未覆盖 |
+| 大图、并发、多进程和性能 | 无负载测试 | 未覆盖 |
+
+当前覆盖足以评审 P0 的核心研究问题——在受控证据图上，是否能正确定位、验证并以更小范围修复结论——但不足以声称已具备通用 Web Research 或生产能力。
+
+### 15.5 验证结果
+
+```powershell
+$env:PYTHONPATH='src'
+python -m unittest discover -s tests -p 'test_*.py' -v
+python -m veritas.evaluation.suite_runner `
+  --manifest datasets/suites/p0-evolution-suite.json `
+  --artifacts-root artifacts
+```
+
+最终结果：
+
+```text
+Ran 30 tests
+OK
+ARTIFACT_JSON_COUNT=31
+ARTIFACT_HASH_VALID=31
+ARTIFACT_HASH_MISMATCHES=0
+F01_F06_NEGATIVE_CALIBRATIONS=6/6
+```
+
+### 15.6 P0-2C 结论
+
+P0-2C 的退出条件已经满足：suite 指标、full-recompute baseline、逐场景 failure records、Failure Taxonomy 校准与覆盖边界均有可复核证据。项目状态推进为 **Ready for Gate P0 review**。
+
+这不是 Gate P0 已通过。Gate 评审仍需明确回答：当前受控证据是否足以支持继续进入 M1，还是应先扩充 `expire`、`conflict` 或更不规则的图结构场景。无论哪种选择，都不应把当前 `2 / 6` 比例外推为真实负载收益。
+
+## 16. 当前限制
 
 - 证据与 Claim 的关系由 fixture 显式声明，没有测试自动抽取；
 - 没有来源质量权重；
@@ -975,18 +1069,19 @@ artifacts/
 - Snapshot Registry 已覆盖身份/hash 漂移和未登记部分数据库，但尚未验证多进程并发初始化；
 - storage protocol 目前只是最小写入边界，图和规则仍直接依赖 SQLiteRepository；
 - 没有并发、多进程、规模或性能结果。
-- P0-2C 的正式 failure analysis 和 Gate P0 决策尚未进行；当前 suite summary 是 P0-2B 实现验证产物；
+- P0-2C 正式 failure analysis 已完成，但 Gate P0 尚未作出通过或不通过决定；当前 suite summary 仍保留 P0-2B 实现验证字段，正式解释见本节分析；
 - `2 / 6` 的聚合重算目标来自受控场景设计，不能当作真实研究负载的成本收益。
 
 因此，目前可以确认的是“三个受控离线场景上的确定性 Evidence Evolution、撤回 current-view、选择性结论重算和可复现 suite 执行已实现并通过测试”；不能外推为真实 Web Research、通用冲突推理、Agent 自主研究或生产规模能力。
 
-## 16. 变更记录
+## 17. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-27 | P0-2C | 完成三场景聚合评估、full-recompute 对照、F01～F06 负向校准与覆盖分析；30/30 tests、31/31 JSON hash 通过；状态推进为 Ready for Gate P0 review |
 | 2026-08-27 | README | 建立 Explorer-first 项目入口；示例、运行命令、导航、链接和结果与 P0-2B 实现对齐 |
 | 2026-08-27 | Repository setup | 初始化 Git `main`、验证忽略规则，并将首次基线提交推送至 private `Peter-Sherlock/Veritas` |
-| 2026-08-27 | P0-2B | 实现 GS-002/003、retract current-view、compatibility rule、Snapshot Registry、F01～F06、显式 suite runner；24/24 tests 与 31/31 JSON hash 验证通过；P0-2C/Gate 未执行 |
+| 2026-08-27 | P0-2B | 实现 GS-002/003、retract current-view、compatibility rule、Snapshot Registry、F01～F06、显式 suite runner；24/24 tests 与 31/31 JSON hash 验证通过；阶段结束时 P0-2C/Gate 尚未执行 |
 | 2026-08-27 | P0-2A | 冻结 GS-002 retract、GS-003 Python 分支变化、六类 Failure Taxonomy、suite 指标和 Gate 条件；未修改 runtime |
 | 2026-08-27 | P0-1 | 实现 GS-001 垂直链路、SQLite 追加式版本、选择性修复、full-recompute 对照、五类 artifacts 与 11 项测试 |
 | 2026-08-27 | P0-0 | 建立最小领域模型、传播/验证边界、GS-001、指标和验收断言 |

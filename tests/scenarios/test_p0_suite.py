@@ -7,7 +7,11 @@ import unittest
 from pathlib import Path
 
 from veritas.evaluation.scenario import canonical_json
-from veritas.evaluation.suite_runner import run_suite, verify_artifact_directory
+from veritas.evaluation.suite_runner import (
+    FAILURE_CODES,
+    run_suite,
+    verify_artifact_directory,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -22,6 +26,10 @@ class P0EvolutionSuiteTests(unittest.TestCase):
             self.assertEqual(["GS-001", "GS-002", "GS-003"], summary["scenario_order"])
             self.assertEqual(0, summary["critical_failure_count"])
             self.assertEqual([], summary["failures"])
+            self.assertEqual(
+                {failure_code: 0 for failure_code in FAILURE_CODES},
+                summary["failure_taxonomy_counts"],
+            )
             self.assertTrue(summary["p0_2b_acceptance_candidate"])
             self.assertEqual("not_evaluated_in_p0_2b", summary["gate_p0_decision"])
 

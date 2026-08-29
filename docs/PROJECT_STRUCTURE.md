@@ -1,8 +1,8 @@
 # Veritas 项目结构与设计文档
 
 > 文档职责：记录项目边界、设计思路、目录演进、阶段状态和关键决策。  
-> 当前阶段：P0-2B Scenario and Suite Implementation  
-> 当前状态：Implementation verified v0.4; P0-2C pending  
+> 当前阶段：P0-2C Aggregate Evaluation and Failure Analysis
+> 当前状态：Evaluation complete v0.5; Gate P0 review pending
 > 更新日期：2026-08-27  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[技术实现文档](TECHNICAL_IMPLEMENTATION.md)
@@ -83,6 +83,7 @@ Veritas/
 ├── tests/
 │   ├── unit/
 │   │   ├── test_domain_and_graph.py
+│   │   ├── test_failure_taxonomy.py
 │   │   └── test_snapshot_registry.py
 │   └── scenarios/
 │       ├── test_gs001.py
@@ -375,6 +376,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：README 先用具体变化场景回答“项目解决什么问题”，再提供 quick start 和按探索目标组织的入口；架构、实验结果与边界只保留理解项目所需的最小信息，详细阶段记录和 failure 规格下沉到双文档。
 - 原因：README 服务第一次探索项目的人，而不是承担项目内部总结；访客应先能运行、导航和形成心智模型，再决定是否深入阅读规格。
 
+### D-017：零失败结论必须经过负向校准
+
+- 状态：Implemented for P0-2C
+- 日期：2026-08-27
+- 决策：正式 suite 的 F01～F06 计数为零，只能与六类独立负向校准共同作为 failure detection 证据；校准基于真实 EvolutionRun 改变期望或验证信号，不改写冻结 fixture 与正式 artifacts。
+- 原因：正向场景零失败不能证明 detector 可触发；把 detector calibration 纳入回归测试可以区分“系统没有失败”与“系统看不见失败”。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -383,27 +391,31 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | P0-1 | 实现确定性最小垂直链路 | P0-0 规格通过复核 | GS-001 自动测试与 artifacts 全部通过 | 已完成：11/11 tests |
 | P0-2A | 冻结扩展场景与失败口径 | P0-1 通过 | GS-002/003、failure taxonomy、suite gate 完整 | 已完成：仅文档 |
 | P0-2B | 实现场景与 suite runner | P0-2A 通过 | GS-002/003 自动测试和逐场景 artifacts 通过 | 已完成：24/24 tests，31/31 JSON hashes |
-| P0-2C | 聚合评估与 Failure Analysis | P0-2B 通过 | Suite 指标、full baseline、failure records 完整 | 未开始 |
-| Gate P0 | 判断机制是否有价值 | P0-2 结果完整 | 正确性不低于全量重算且重算范围更小 | 未开始 |
+| P0-2C | 聚合评估与 Failure Analysis | P0-2B 通过 | Suite 指标、full baseline、failure records 完整 | 已完成：30/30 tests，F01～F06 校准，31/31 JSON hashes |
+| Gate P0 | 判断机制是否有价值 | P0-2 结果完整 | 正确性不低于全量重算且重算范围更小 | 待评审 |
 | M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 未开始 |
 
 如果 Gate P0 不通过，不进入 Web Search 集成；先分析图粒度、规则语义和 benchmark 是否支持项目假设。
 
-## 11. P0-2B 完成情况与下一阶段边界
+## 11. P0-2C 完成情况与 Gate 边界
 
-P0-2B 已完成：
+P0-2C 已完成：
 
-- [x] 实现 GS-002 retract fixture、空 semantic-change、evidence rebase 和零结论重算；
-- [x] 实现 GS-003 Python 3.11 → 3.12 的 compatibility 变化，并保持 retry 子图 untouched；
-- [x] 实现 `p0-rules-2` 的 `compatibility_support`，不改变 GS-001 的 `p0-rules-1`；
-- [x] 实现 retract append-only current-view 与 nullable change package；
-- [x] 实现 Scenario Snapshot Registry、同身份 hash 漂移与部分初始化拒绝；
-- [x] 实现 F01～F06 failures、provenance、replay 与 artifact hash 校验；
-- [x] 实现显式 suite manifest、独立数据库运行、macro/micro 与 recompute totals；
-- [x] 生成 GS-002/003 和 versioned suite artifacts，保留 GS-001 历史 artifacts；
-- [x] `24/24` 自动测试、`31/31` JSON content hash 验证通过。
+- [x] 从显式 manifest 在独立空数据库上重跑 GS-001～003；
+- [x] 复核逐场景与 macro/micro correctness，所有冻结正确性指标均为 1.0；
+- [x] 复核 selective `2 / 6` 与 full-recompute `6 / 6` 的最终结果等价；
+- [x] 确认正式 suite 中 F01～F06 计数均为 0，critical failures 为 0；
+- [x] 用六项负向注入分别单独触发 F01～F06，并验证完整 failure-record 契约；
+- [x] 区分已覆盖的 revise/retract/branch isolation 与未覆盖的 expire/conflict/真实抽取/规模风险；
+- [x] `30/30` 自动测试、`31/31` JSON content hash 验证通过；
+- [x] 技术实现文档与项目结构文档同步记录正式分析和边界。
 
-下一阶段是 P0-2C：复核 suite summary，形成正式 Failure Analysis（包括“零失败”时的覆盖充分性分析），审查 full-recompute 对照和受控场景偏差，然后再决定 Gate P0。P0-2C 不引入 Web Search、LLM、产品化 CLI、Trace Viewer 或 storage protocol 全面重构。
+下一步是 Gate P0 评审，而不是直接开始 M1。Gate 需要把两类判断分开：
+
+1. **机制判断**：三个冻结场景中，选择性执行与 full-recompute 等价，并减少 4/6 次结论重算，这一项已具备通过证据；
+2. **证据充分性判断**：场景均为小型人工图，尚无 `expire`、多来源 `conflict`、真实抽取噪声或规模数据，是否接受这些风险进入 M1 仍需明确决策。
+
+Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说明进入 M1 前必须补的场景；在该决定形成前，项目只标记为 **Ready for Gate P0 review**。
 
 ## 12. 文档更新检查表
 
@@ -435,8 +447,8 @@ P0-2B 已完成：
 - Recompute Ratio 在小图上只用于机制验证，不能外推为生产成本收益；
 - Snapshot Registry 尚未经过多进程并发初始化或数据库迁移压力验证；
 - storage protocol 尚未覆盖读取和图查询，当前并非真正可替换存储；
-- 当前验证了 `revise` 与 `retract`，没有验证 `expire` 或多来源 `conflict`；
-- suite 的 `p0_2b_acceptance_candidate=true` 不是正式 Gate P0 结论；P0-2C 尚需检查覆盖充分性和受控场景偏差；
+- 当前验证了 `revise` 与 `retract`，没有验证 `expire` 或多来源 `conflict`；P0-2C 已将其登记为 Gate 风险，而不是已具备能力；
+- suite 的 `p0_2b_acceptance_candidate=true` 不是正式 Gate P0 结论；P0-2C 已完成覆盖分析，Gate 仍需决定是否接受受控场景偏差进入 M1；
 - Suite 预期 `2 / 6` 重算比例来自受控图结构，不能外推到真实研究任务；
 - 空 semantic-change 场景需要严格遵守空集合指标约定，否则容易产生误导性的 precision；
 - 当前只有首次 `main` 基线，尚未配置远程 CI、分支保护或 release 策略。
@@ -445,9 +457,10 @@ P0-2B 已完成：
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-27 | P0-2C | 完成正式 suite/full-recompute 评估、F01～F06 负向校准和覆盖缺口分析；30/30 tests、31/31 JSON hash 通过；登记 D-017，进入 Gate P0 待评审状态 |
 | 2026-08-27 | README | 新增并重构为 Explorer-first 项目入口：具体示例、quick start、探索导航、机制图、实验与产物；登记 D-016 |
 | 2026-08-27 | Repository setup | 初始化本地 Git `main`，确认忽略规则，并把首次基线提交推送到 private `Peter-Sherlock/Veritas` |
-| 2026-08-27 | P0-2B | 落地 GS-002/003、suite manifest/runner、retract current-view、Snapshot Registry、failure records 与 D-014；24/24 tests 和 31/31 JSON hash 通过；P0-2C/Gate 未执行 |
+| 2026-08-27 | P0-2B | 落地 GS-002/003、suite manifest/runner、retract current-view、Snapshot Registry、failure records 与 D-014；24/24 tests 和 31/31 JSON hash 通过；阶段结束时 P0-2C/Gate 尚未执行 |
 | 2026-08-27 | P0-2A | 冻结 GS-002/003、F01～F06、suite/Gate 口径、P0-2B 计划结构与 D-009～D-013；未修改代码 |
 | 2026-08-27 | P0-1 | 落地最小 Python/SQLite 结构、GS-001 runner、11 项测试、五类 artifacts、阶段状态与边界 |
 | 2026-08-27 | P0-0 | 建立双文档规则、实际/计划结构、设计原则、决策记录与阶段门槛 |
