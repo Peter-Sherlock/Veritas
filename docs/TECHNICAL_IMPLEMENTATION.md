@@ -1241,7 +1241,7 @@ MRR 低于 1 是必须保留的检索事实：EX-004/008/010 的正确来源排�
 
 新增 12 项测试覆盖合法抽取、invalid JSON/schema/relation/key、引用缺失/歧义、supports/contradicts 候选物化、空抽取、稳定重放、10 题校准、statement 负向错配、fixture question 漂移和 prompt canary 漂移。Python 3.11.15 与 3.14.7 均在严格 `ResourceWarning` 模式下通过 `85/85` tests。
 
-GitHub Actions 新增独立 `extraction-calibration` job：重跑 10 题并要求 committed summary 零 diff。远程结果只在本分支推送并完成 Actions 后确认。
+GitHub Actions 新增独立 `extraction-calibration` job：重跑 10 题并要求 committed summary 零 diff。[run 33250938915](https://github.com/Peter-Sherlock/Veritas/actions/runs/33250938915) 已完成，双 Python、双 evolution suite 与 extraction calibration 共 5 个 job 全部 `success`。
 
 ### 19.4 退出边界
 

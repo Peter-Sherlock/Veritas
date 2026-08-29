@@ -500,7 +500,7 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | Gate P0 | 判断机制是否有价值 | P0-2 结果完整 | 正确性不低于全量重算且重算范围更小 | 已评审：附条件通过（D-021） |
 | M1-1 | LLM/检索协议与本地版本化语料 | Gate P0 通过 | 协议、Fixture/真实客户端、语料与测试落地 | 已完成：72/72 tests |
 | M1-1R | 跨平台语料与 CI 收口 | M1-1 完成 | canonical hash、双 Python/双 suite CI、双文档同步 | 已完成：73/73 tests；Actions #33247415305 四路成功 |
-| M1-2A | 严格抽取契约与确定性基线 | M1-1R 完成 | 10 题 gold/fixture、candidate pipeline、双 Python 测试 | 已完成：10/10；85/85 tests；待远程 CI |
+| M1-2A | 严格抽取契约与确定性基线 | M1-1R 完成 | 10 题 gold/fixture、candidate pipeline、双 Python 测试 | 已完成：10/10；85/85 tests；Actions #33250938915 五路成功 |
 | M1-2B | Failure Taxonomy 与 gate 硬化 | M1-2A 完成 | 每类失败独立可触发，正常集 critical=0 | 未开始 |
 | M1-2C | 真实 provider 校准与评审 | M1-2B 完成 | 真实录制、fixture 对照、边界结论 | 未开始 |
 | M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 进行中（M1-2A 已完成） |
@@ -562,7 +562,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] statement 错配和 fixture question 漂移负向回归可触发；
 - [x] Python 3.11.15 与 3.14.7 严格模式均通过 85/85 tests；
 - [x] README、技术实现文档和项目结构文档同步更新；
-- [ ] 分支推送后的 GitHub Actions 全部成功。
+- [x] GitHub Actions [run 33250938915](https://github.com/Peter-Sherlock/Veritas/actions/runs/33250938915) 五路任务全部成功。
 
 ## 12. 文档更新检查表
 
