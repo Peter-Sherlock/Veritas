@@ -41,3 +41,24 @@ jobs:
         env:
           PYTHONPATH: src
           PYTHONDONTWRITEBYTECODE: '1'
+
+  extraction-calibration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Run frozen M1-2A extraction calibration
+        run: >-
+          python -m veritas.evaluation.extraction_runner
+          --benchmark datasets/extraction/httpx-m1-2a/benchmark.json
+          --fixtures datasets/extraction/httpx-m1-2a/fixtures.json
+          --corpus-root datasets/corpus/httpx-docs
+          --output artifacts/extraction/httpx-initial-extraction-1.0.0/summary.json
+          --assert-pass
+        env:
+          PYTHONPATH: src
+          PYTHONDONTWRITEBYTECODE: '1'
+      - name: Verify committed calibration artifact is reproducible
+        run: git diff --exit-code -- artifacts/extraction/httpx-initial-extraction-1.0.0/summary.json

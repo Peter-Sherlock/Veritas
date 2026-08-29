@@ -1,40 +1,42 @@
 # Veritas 技术实现文档
 
 > 文档职责：记录可执行技术规格、数据契约、算法、测试与实际验证结果。  
-> 当前阶段：M1-1R 跨平台语料与 CI 收口
-> 当前状态：M1-1R complete；Ready for M1-2
+> 当前阶段：M1-2 抽取 pipeline 与校准
+> 当前状态：M1-2 in progress；M1-2A deterministic baseline complete
 > 更新日期：2026-08-29  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[项目结构与设计文档](PROJECT_STRUCTURE.md)
 
 ## 1. 当前阶段目标
 
-M1-1R 关闭 M1-1 暴露出的跨平台可复现性缺口，不改变 P0 evidence-evolution runtime 的领域语义：
+M1-2 把 M1-1 的检索与 LLM 协议连接成可校准的 source-grounded extraction 边界，同时保持 P0 的版本、谱系和幂等性由确定性代码控制。
 
-- 把语料内容定义为 canonical UTF-8 + LF，并让采集器、加载器和 manifest 使用同一 hash 契约；
-- 增加 LF/CRLF 等价回归，证明 Windows 工作树与 Git/Linux checkout 对同一文档得到相同内容和 SHA-256；
-- CI 同时运行 Python 3.11/3.14 单元测试，以及 suite 1.0.0/2.0.0 两套确定性评测；
-- 同步 README、技术实现文档和项目结构文档中的阶段状态与验证证据。
+阶段拆分：
 
-收口完成后，项目可以进入 M1-2 抽取 pipeline 与校准 harness；“可以进入”不等于该 pipeline、真实 LLM 调用或检索质量 benchmark 已经实现。
+- **M1-2A（已完成）**：严格 JSON schema、逐字引用对齐、确定性 Evidence/Claim/edge 候选、10 题 gold dataset 与 fixture baseline；
+- **M1-2B（下一步）**：抽取 Failure Taxonomy、独立负向校准、指标与 CI gate 硬化；
+- **M1-2C（未开始）**：在不暴露凭据的前提下录制真实 provider 输出，与同一冻结 fixture/gold truth 对照并作阶段评审。
+
+M1-2 的最终退出仍要求真实 LLM 校准记录；M1-2A 的 fixture 10/10 只证明契约与评测链路可复现。
 
 ## 2. 本阶段非目标
 
-M1-1R 不包含：
+M1-2A 不包含：
 
 - Web Search；
-- Evidence/Claim 自动抽取 pipeline 与真实 LLM smoke test；
+- 真实 LLM smoke test 或模型质量结论；
+- 把候选 Evidence/Claim 持久化进 P0 SQLite 图；
 - 向量检索；
 - 动态规划；
 - 多 Agent 或并行 Worker；
 - PostgreSQL、图数据库或服务部署；
 - 自由文本报告生成；
-- TF-IDF 排序调优、语义检索或检索质量 benchmark；
+- TF-IDF 排序调优或语义检索；
 - 对真实互联网内容的自动变化检测与抓取；
 - Research Runtime、checkpoint、预算控制与动态重规划；
 - 多进程、规模、性能或成本收益验证。
 
-这些能力属于 M1-2 及后续阶段，不能从 M1-1R 的跨平台验证结果中外推。
+这些能力属于 M1-2B/M1-2C 或后续阶段，不能从确定性 fixture baseline 中外推。
 
 ## 3. 核心不变量
 
@@ -1184,9 +1186,71 @@ GitHub Actions 现有两个正交矩阵：
 
 M1-1R 只证明 provider/search 边界、冻结语料和 CI 在目标 Python/操作系统换行差异下可复现。它没有把检索结果接入 Evidence/Claim 抽取，也没有验证真实 LLM、检索质量、研究循环或生产规模。
 
-## 19. 当前限制
+## 19. M1-2A 确定性抽取基线
 
-- 证据与 Claim 的关系由 fixture 显式声明，没有测试自动抽取；
+### 19.1 严格边界
+
+`src/veritas/extraction/pipeline.py` 将 provider 的职责限制为提出四个字段：
+
+```json
+{
+  "assertions": [
+    {
+      "statement": "...",
+      "canonical_key": "...",
+      "relation": "supports | contradicts",
+      "quote": "verbatim source substring"
+    }
+  ]
+}
+```
+
+确定性 validator 负责：
+
+- JSON 顶层和 assertion 字段必须精确匹配 schema，未知字段直接拒绝；
+- `canonical_key` 必须符合受限格式，`relation` 只能为 `supports` 或 `contradicts`；
+- `quote` 必须在当前 `VersionedDocument` 中逐字出现且只出现一次；不存在与歧义引用分别分类为 `citation_not_found` 和 `citation_ambiguous`；
+- provider 不得提供 Evidence/Claim/edge ID、时间或 hash；`ResearchExtractionPipeline` 根据 source namespace、版本、引用和 canonical key 生成稳定 ID；
+- 输出是候选 `EvidenceSpan`、`Claim` 与 `DependencyEdge`，本切片不直接写入 P0 SQLite。
+
+### 19.2 冻结校准数据
+
+`datasets/extraction/httpx-m1-2a/` 包含 10 个问题、gold assertions 与逐文档 fixture responses：
+
+- 每题固定 query、`top_k=3`、正确来源的最大允许排名和精确 statement/key/relation/quote；
+- fixture 同时冻结问题文本和实际检索到的文档版本；问题、版本或 top-k 文档集合漂移会在运行前失败；
+- pipeline 对 top-3 全部文档执行抽取，无关文档必须显式返回空 assertions，不能使用 gold source 绕过检索；
+- `extraction_runner.py` 分开计算 retrieval rank 与 assertion exact match，statement 也属于评分 identity；
+- summary 固化在 `artifacts/extraction/httpx-initial-extraction-1.0.0/summary.json`，并携带排除自身字段后计算的 canonical SHA-256。
+
+### 19.3 本地验证结果
+
+冻结 fixture baseline 的实际结果：
+
+| 指标 | 结果 |
+| --- | ---: |
+| Cases | 10/10 pass |
+| Retrieval Hit@3 | 1.0 |
+| Mean Reciprocal Rank | 0.7833333333333333 |
+| Assertion micro precision | 1.0 |
+| Assertion micro recall | 1.0 |
+| Citation exact alignment | 1.0 |
+| Critical failures | 0 |
+
+MRR 低于 1 是必须保留的检索事实：EX-004/008/010 的正确来源排第 2，EX-009 排第 3。fixture 抽取满分不能改写为“检索质量满分”。
+
+新增 12 项测试覆盖合法抽取、invalid JSON/schema/relation/key、引用缺失/歧义、supports/contradicts 候选物化、空抽取、稳定重放、10 题校准、statement 负向错配、fixture question 漂移和 prompt canary 漂移。Python 3.11.15 与 3.14.7 均在严格 `ResourceWarning` 模式下通过 `85/85` tests。
+
+GitHub Actions 新增独立 `extraction-calibration` job：重跑 10 题并要求 committed summary 零 diff。远程结果只在本分支推送并完成 Actions 后确认。
+
+### 19.4 退出边界
+
+M1-2A 已完成，但 M1-2 尚未完成。当前结果证明严格 contract、引用对齐、候选物化与 fixture calibration 可复现；不证明真实模型能达到同样 precision/recall，也不证明候选已安全持久化进 Evidence Graph。
+
+## 20. 当前限制
+
+- 已实现检索到 Evidence/Claim 候选的自动 pipeline，但当前 10 题由 `FixtureLLM` 重放；尚无真实 provider 校准记录；
+- 抽取候选尚未写入 SQLite 或接入 initial-research graph transaction；
 - 没有来源质量权重；
 - 没有处理复杂逻辑表达式、概率置信度或循环依赖；
 - 没有定义真实网页版本检测；
@@ -1197,12 +1261,13 @@ M1-1R 只证明 provider/search 边界、冻结语料和 CI 在目标 Python/操
 - 没有并发、多进程、规模或性能结果。
 - Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
-因此，目前可以确认的是“五个受控离线场景上的确定性 Evidence Evolution、追加式 current-view、选择性结论重算，以及 M1-1 provider/search 协议与冻结本地语料已经通过可复现验证”；不能外推为检索到 Evidence/Claim 的端到端 pipeline、真实 Web Research、通用冲突推理、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界，以及 M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路已经通过可复现验证”；不能外推为真实 LLM 抽取质量、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 20. 变更记录
+## 21. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-29 | M1-2A | 新增严格 extraction contract、逐字引用对齐、确定性 Evidence/Claim/edge 候选、10 题 HTTPX gold/fixture baseline 与 calibration runner；10/10 cases，Hit@3/precision/recall/citation=1.0，MRR=0.7833；Python 3.11/3.14 均 85/85 tests |
 | 2026-08-29 | M1-1R | 统一语料 canonical UTF-8/LF hash 契约，重算 48 条 manifest hash，增加换行回归与严格资源检查；CI 扩展为 Python 3.11/3.14 和 suite 1.0.0/2.0.0 双矩阵；两版本均 73/73 tests、67/67 artifact hashes 与 48/48 corpus hashes 通过 |
 | 2026-08-29 | M1-1 | 新增 providers 与 search 模块、httpx 版本化语料（10 文档 48 快照）、21 项新测试；72/72 通过 |
 | 2026-08-29 | P0-3 | 实现 GS-004 expire 与 GS-005 conflict 场景、conflict 传播模式、manifest 声明式验收与 suite 2.0.0；51/51 tests、67/67 JSON hash 通过，suite 1.0.0 零 diff；Gate P0 评审结论见项目结构文档 |

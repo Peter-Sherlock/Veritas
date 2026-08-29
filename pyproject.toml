@@ -5,10 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "veritas-research"
 version = "0.1.0"
-description = "Deterministic P0 evidence-evolution mechanism for Veritas"
+description = "Evidence evolution and source-grounded extraction for long-running research"
 requires-python = ">=3.11"
 dependencies = []
 
 [tool.setuptools.packages.find]
 where = ["src"]
-

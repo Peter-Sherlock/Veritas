@@ -1,8 +1,8 @@
 # Veritas 项目结构与设计文档
 
 > 文档职责：记录项目边界、设计思路、目录演进、阶段状态和关键决策。  
-> 当前阶段：M1-1R 跨平台语料与 CI 收口
-> 当前状态：M1-1R complete；Ready for M1-2
+> 当前阶段：M1-2 抽取 pipeline 与校准
+> 当前状态：M1-2 in progress；M1-2A deterministic baseline complete
 > 更新日期：2026-08-29  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[技术实现文档](TECHNICAL_IMPLEMENTATION.md)
@@ -50,8 +50,8 @@ Veritas 的首要研究对象不是搜索质量，而是证据变化后的研究
 
 ```text
 Veritas/
-├── .git/                       # main 分支，连接 private GitHub origin
-├── .github/workflows/tests.yml # CI：3.11/3.14 测试 + suite 1.0.0/2.0.0 双矩阵
+├── .git/                       # codex/m1-2-extraction-calibration 阶段分支
+├── .github/workflows/tests.yml # 双 Python、双 suite、extraction calibration
 ├── .gitattributes              # 跨平台文本统一为 LF
 ├── .gitignore
 ├── README.md                    # 项目首页、验证摘要与运行入口
@@ -70,11 +70,15 @@ Veritas/
 │   ├── storage/
 │   │   ├── protocol.py
 │   │   └── sqlite.py
+│   ├── extraction/
+│   │   ├── models.py         # contract error、抽取结果与 candidate bundle
+│   │   └── pipeline.py       # strict parser、quote alignment、候选物化
 │   ├── evaluation/
 │   │   ├── scenario.py
 │   │   ├── metrics.py
 │   │   ├── runner.py
-│   │   └── suite_runner.py
+│   │   ├── suite_runner.py
+│   │   └── extraction_runner.py
 │   ├── providers/
 │   │   └── llm.py            # LLM 协议、OpenAI 兼容客户端、Fixture/Recording
 │   └── search/
@@ -85,6 +89,8 @@ Veritas/
 ├── datasets/
 │   ├── corpus/
 │   │   └── httpx-docs/       # 10 篇文档 × 48 版本快照 + manifest.json（hash 钉住）
+│   ├── extraction/
+│   │   └── httpx-m1-2a/      # 10 题 benchmark + frozen fixture responses
 │   ├── scenarios/
 │   │   ├── GS-001/scenario.json
 │   │   ├── GS-002/scenario.json
@@ -98,6 +104,7 @@ Veritas/
 │   ├── unit/
 │   │   ├── test_domain_and_graph.py
 │   │   ├── test_expire_and_conflict.py
+│   │   ├── test_extraction.py
 │   │   ├── test_failure_taxonomy.py
 │   │   ├── test_httpx_corpus.py
 │   │   ├── test_local_corpus.py
@@ -109,9 +116,11 @@ Veritas/
 │       ├── test_gs003.py
 │       ├── test_gs004.py
 │       ├── test_gs005.py
+│       ├── test_extraction_calibration.py
 │       ├── test_p0_suite.py
 │       └── test_p0_suite_2.py
 ├── artifacts/
+│   ├── extraction/httpx-initial-extraction-1.0.0/summary.json
 │   ├── GS-001/run-f39dacf198a857ae/<five JSON artifacts>
 │   ├── GS-002/run-65365880276d316f/<five JSON artifacts>
 │   ├── GS-003/run-046dcc6b4ed54440/<five JSON artifacts>
@@ -129,18 +138,18 @@ Veritas/
     └── TECHNICAL_IMPLEMENTATION.md
 ```
 
-当前 Git 状态：本地 `main` 已连接 private 远程仓库 [Peter-Sherlock/Veritas](https://github.com/Peter-Sherlock/Veritas)，项目文件由首次基线提交跟踪；SQLite 运行数据库与 Python 缓存由项目 `.gitignore` 排除，源码、文档与 JSON 由 `.gitattributes` 统一为 LF。
+当前 Git 状态：M1-2A 在 `codex/m1-2-extraction-calibration` 阶段分支开发，基线为已同步的 `main@de24dbd`；private 远程仓库为 [Peter-Sherlock/Veritas](https://github.com/Peter-Sherlock/Veritas)。SQLite 运行数据库与 Python 缓存由 `.gitignore` 排除，源码、文档与 JSON 由 `.gitattributes` 统一为 LF。
 
 当前仍没有：
 
 - Web Search 或真实来源抓取；
-- 检索结果到 Evidence/Claim 的抽取 pipeline，以及经验证的真实 LLM 调用；
+- 经验证的真实 LLM 抽取，以及候选写入 Evidence Graph 的 transaction；
 - 产品化 CLI 或服务接口；
 - Research Runtime、checkpoint、预算控制或并发执行；
-- 经过 benchmark 的检索质量结论；
+- 足以代表通用检索质量的 benchmark 结论；
 - 生产规模 benchmark 结果。
 
-当前已有的是五个受控场景上的确定性 evidence-evolution runtime、两套 evaluation suite、可替换的 LLM/检索协议与冻结本地语料；这些模块尚未组成会自主搜索、抽取、规划、调用工具和生成研究报告的完整 Deep Research Agent。
+当前已有的是五个受控场景上的确定性 evidence-evolution runtime、两套 evolution suite、可替换的 LLM/检索协议、冻结语料，以及检索→严格抽取→Evidence/Claim 候选的 10 题 fixture baseline；这些模块尚未组成会自主搜索、持久化研究状态、规划、调用工具和生成研究报告的完整 Deep Research Agent。
 
 ## 4. P0-0 阶段边界
 
@@ -218,8 +227,12 @@ P0-2B 同时在 SQLite 中增加了 Scenario Snapshot Registry；它属于 evalu
 | `evidence` | 图结构与确定性 Claim 评估规则 | 不做搜索或自由文本推理 |
 | `invalidation` | 候选传播、重新验证和结论修复 | 不直接抓取来源 |
 | `storage` | 事务、幂等和快照持久化 | 不包含业务判定规则 |
+| `providers` | 可替换 structured-completion、fixture replay 与录制 | 不拥有领域 ID、版本或持久化 |
+| `search` | 版本化文档检索与抓取边界 | 不生成 Evidence/Claim |
+| `extraction` | 校验 provider 输出、对齐逐字引用并物化候选 | 不静默修复模型输出，不直接写数据库 |
 | `evaluation` | 加载 scenario/manifest、计算逐场景与 suite 指标、输出并校验 artifacts | 不修改运行时结果以适配评分 |
 | `datasets/scenarios` | 输入 fixture 与 ground truth | 不混放程序生成的运行结果 |
+| `datasets/extraction` | 冻结问题、检索口径、gold assertions 与 fixture responses | 不把 fixture 分数当作真实模型成绩 |
 | `tests` | 单元不变量与端到端黄金样例 | 不依赖外部网络 |
 | `artifacts` | 每次 run 的结构化输出 | 不作为人工编辑的数据源 |
 
@@ -460,6 +473,20 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：语料在 hash 与 `fetch()` 前先把 CRLF/CR 统一为 LF；采集器以 LF 字节写出文件和 manifest；CI 的 Python 3.11/3.14 与 suite 1.0.0/2.0.0 矩阵均关闭 fail-fast，保留完整失败证据。
 - 原因：Git 的 EOL 规范化会使同一 Markdown 在 Windows 工作树和 Linux checkout 中具有不同原始字节。以原始工作树字节定义内容身份会制造与语义无关的跨平台 hash 漂移；canonical 文本契约让采集、版本控制和运行时校验一致。
 
+### D-025：模型只提出 assertion，确定性层拥有 provenance
+
+- 状态：Implemented for M1-2A
+- 日期：2026-08-29
+- 决策：LLM 只能返回 `statement`、`canonical_key`、`relation` 与逐字 `quote`。schema、引用唯一定位、char offsets、hash、Evidence/Claim/edge ID 和时间字段全部由 `extraction` 模块校验或生成；模型输出失败时显式拒绝，不做模糊引用修复。
+- 原因：把 lineage ID 或 citation 修复交给概率模型会破坏 P0 已验证的不可变性、幂等与 provenance 约束。模型可以提出语义候选，但不能成为事实身份的权威。
+
+### D-026：抽取校准分开报告 retrieval 与 extraction
+
+- 状态：Implemented for M1-2A
+- 日期：2026-08-29
+- 决策：10 题 runner 对 top-3 每篇文档实际执行抽取，分别报告 Hit@3/MRR 与 assertion precision/recall/citation alignment；fixture 冻结 question、检索文档集合、version 与 prompt canary，statement 也纳入 exact-match identity；summary 携带 canonical content hash。
+- 原因：只在 gold source 上抽取会绕过检索失败；只报告 10/10 又会掩盖正确来源排名第 2/3 的问题。分层指标让 M1-2B/2C 能判断失败来自 retrieval、contract 还是模型语义。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -473,11 +500,14 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | Gate P0 | 判断机制是否有价值 | P0-2 结果完整 | 正确性不低于全量重算且重算范围更小 | 已评审：附条件通过（D-021） |
 | M1-1 | LLM/检索协议与本地版本化语料 | Gate P0 通过 | 协议、Fixture/真实客户端、语料与测试落地 | 已完成：72/72 tests |
 | M1-1R | 跨平台语料与 CI 收口 | M1-1 完成 | canonical hash、双 Python/双 suite CI、双文档同步 | 已完成：73/73 tests；Actions #33247415305 四路成功 |
-| M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 未开始 |
+| M1-2A | 严格抽取契约与确定性基线 | M1-1R 完成 | 10 题 gold/fixture、candidate pipeline、双 Python 测试 | 已完成：10/10；85/85 tests；待远程 CI |
+| M1-2B | Failure Taxonomy 与 gate 硬化 | M1-2A 完成 | 每类失败独立可触发，正常集 critical=0 | 未开始 |
+| M1-2C | 真实 provider 校准与评审 | M1-2B 完成 | 真实录制、fixture 对照、边界结论 | 未开始 |
+| M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 进行中（M1-2A 已完成） |
 | M1-3 | Research Runtime（状态/队列/checkpoint/预算） | M1-2 完成 | 中断恢复与预算测试通过 | 未开始 |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
 | M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 未开始 |
-| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-1R 已完成） |
+| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-2A 已完成） |
 
 如果 Gate P0 不通过，不进入 Web Search 集成；先分析图粒度、规则语义和 benchmark 是否支持项目假设。
 
@@ -521,6 +551,19 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] README、技术实现文档和项目结构文档同步更新；
 - [x] GitHub Actions [run 33247415305](https://github.com/Peter-Sherlock/Veritas/actions/runs/33247415305) 四路任务全部成功。
 
+### 11.3 M1-2A 完成记录（2026-08-29）
+
+- [x] 建立 `codex/m1-2-extraction-calibration` 阶段分支；
+- [x] 严格校验 JSON schema、relation、canonical key 与唯一逐字引用；
+- [x] 由确定性代码生成 EvidenceSpan、Claim 与 supports/contradicts edge 候选；
+- [x] 冻结 10 题 benchmark、gold assertions、question/version fixture snapshot；
+- [x] top-3 全文档实际抽取，未使用 gold source 跳过检索；
+- [x] 10/10 cases；Hit@3=1.0，MRR=0.7833，precision/recall/citation=1.0；
+- [x] statement 错配和 fixture question 漂移负向回归可触发；
+- [x] Python 3.11.15 与 3.14.7 严格模式均通过 85/85 tests；
+- [x] README、技术实现文档和项目结构文档同步更新；
+- [ ] 分支推送后的 GitHub Actions 全部成功。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -554,16 +597,18 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - `expire` 与 `retract` 在 P0 共享追加式 current-view 机制，as-of 历史查询与基于 `valid_to` 的自动过期尚未实现；多来源 `conflict` 只验证保留冲突、不做消解仲裁；
 - Gate P0 已附条件通过（D-021）；附加条件要求在 M1 中用确定性 fixture 校准 LLM 组件，并在规模声明前补规模化 benchmark；
 - M1-1R 已消除语料 hash 的 CRLF/LF 平台漂移；后续新增语料必须继续遵守 canonical UTF-8/LF 契约；
-- 本地 TF-IDF 仍是未校准的词面基线，长文档原始词频可能影响排序，M1-2 benchmark 前不能宣称检索质量；
-- LLM provider 尚未完成真实端点 smoke test，检索输出也尚未接入 Evidence/Claim 抽取 pipeline；
+- 本地 TF-IDF 仍是词面基线；10 题 Hit@3=1.0 但 MRR=0.7833，EX-009 正确来源仅排第 3，不能宣称通用检索质量；
+- M1-2A 的 10/10 来自 `FixtureLLM`，真实端点 smoke/calibration 尚未执行，不能宣称模型抽取质量；
+- extraction 当前只产出候选对象，尚未定义写入 Evidence Graph 的事务、去重与跨运行 canonical-key 冲突策略；
 - Suite 2.0.0 的 `4 / 11` 重算比例来自受控图结构，不能外推到真实研究任务；
 - 空 semantic-change 场景需要严格遵守空集合指标约定，否则容易产生误导性的 precision；
-- 已配置 GitHub Actions CI（3.11/3.14 测试 + suite 1.0.0/2.0.0 回归），但尚无分支保护或 release 策略。
+- 已配置 GitHub Actions CI（3.11/3.14 测试、suite 1.0.0/2.0.0、extraction calibration + artifact 零 diff），但尚无分支保护或 release 策略。
 
 ## 14. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-29 | M1-2A | 新增 extraction contract/pipeline、10 题 HTTPX gold 与 fixture、calibration runner/summary 和 CI job；10/10，Hit@3=1.0、MRR=0.7833、precision/recall/citation=1.0；Python 3.11/3.14 均 85/85 tests；登记 D-025～D-026 |
 | 2026-08-29 | M1-1R | 将 corpus hash 冻结为 canonical UTF-8/LF，重算 48 条 manifest hash；新增 LF/CRLF 回归和 HTTPError 资源关闭；CI 扩展为 Python 3.11/3.14、suite 1.0.0/2.0.0 双矩阵；两版本均 73/73 tests、67/67 artifact hashes 与 48/48 corpus hashes 通过；登记 D-024 |
 | 2026-08-29 | M1-1 | 新增 providers（LLM 协议/OpenAI 兼容零依赖客户端/FixtureLLM/RecordingLLM）与 search（检索协议/本地语料 TF-IDF）模块；`scripts/harvest_corpus.py` 采集 httpx 文档语料（10 文档、48 版本快照、hash 钉住）；72/72 tests 通过；登记 D-022～D-023 |
 | 2026-08-29 | P0-3 + Gate P0 | 实现 GS-004 expire、GS-005 conflict、conflict 传播模式与 manifest 声明式验收；新增 suite 2.0.0；51/51 tests、67/67 JSON hash 通过，suite 1.0.0 重跑零 diff；登记 D-018～D-021，Gate P0 附条件通过，允许启动 M1 |

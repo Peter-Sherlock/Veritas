@@ -1,0 +1,170 @@
+{
+  "benchmark_id": "httpx-initial-extraction",
+  "benchmark_version": "1.0.0",
+  "corpus_id": "httpx-docs",
+  "prompt_version": "httpx-extractor-1",
+  "schema_version": "evidence-assertion-1",
+  "reasoned_at": "2026-08-29T00:00:00Z",
+  "cases": [
+    {
+      "case_id": "EX-001",
+      "question": "How is HTTP/2 enabled on an HTTPX async client?",
+      "query": "http2 optional dependencies http2 true",
+      "top_k": 3,
+      "expected_retrieval": {"doc_id": "http2", "max_rank": 3},
+      "expected_assertions": [
+        {
+          "doc_id": "http2",
+          "statement": "HTTP/2 is enabled by constructing AsyncClient with http2=True",
+          "canonical_key": "httpx.async_client.http2=true",
+          "relation": "supports",
+          "quote": "And then instantiating a client with HTTP/2 support enabled:\n\n\u0060\u0060\u0060python\nclient = httpx.AsyncClient(http2=True)\n...\n\u0060\u0060\u0060"
+        }
+      ]
+    },
+    {
+      "case_id": "EX-002",
+      "question": "Which HTTPX client types support HTTP/2?",
+      "query": "http2 optional dependencies http2 true",
+      "top_k": 3,
+      "expected_retrieval": {"doc_id": "http2", "max_rank": 3},
+      "expected_assertions": [
+        {
+          "doc_id": "http2",
+          "statement": "HTTP/2 is available on both Client and AsyncClient",
+          "canonical_key": "httpx.http2.client_types=sync_and_async",
+          "relation": "supports",
+          "quote": "HTTP/2 support is available on both \u0060Client\u0060 and \u0060AsyncClient\u0060, although it's\ntypically more useful in async contexts if you're issuing lots of concurrent\nrequests."
+        }
+      ]
+    },
+    {
+      "case_id": "EX-003",
+      "question": "What client-lifetime pattern should be avoided in an async hot loop?",
+      "query": "hot loop aclose aiter_bytes",
+      "top_k": 3,
+      "expected_retrieval": {"doc_id": "async", "max_rank": 3},
+      "expected_assertions": [
+        {
+          "doc_id": "async",
+          "statement": "Do not instantiate multiple AsyncClient instances inside a hot loop",
+          "canonical_key": "httpx.async_client.hot_loop_instances=avoid",
+          "relation": "supports",
+          "quote": "In order to get the most benefit from connection pooling, make sure you're not instantiating multiple client instances - for example by using \u0060async with\u0060 inside a \"hot loop\". This can be achieved either by having a single scoped client that's passed throughout wherever it's needed, or by having a single global client instance."
+        }
+      ]
+    },
+    {
+      "case_id": "EX-004",
+      "question": "How can HTTPX ignore environment variables?",
+      "query": "SSL_CERT_FILE SSL_CERT_DIR trust_env",
+      "top_k": 3,
+      "expected_retrieval": {"doc_id": "environment_variables", "max_rank": 3},
+      "expected_assertions": [
+        {
+          "doc_id": "environment_variables",
+          "statement": "Set trust_env to False to make HTTPX ignore environment variables",
+          "canonical_key": "httpx.environment.trust_env=false",
+          "relation": "supports",
+          "quote": "Environment variables are used by default. To ignore environment variables, \u0060trust_env\u0060 has to be set \u0060False\u0060. There are two ways to set \u0060trust_env\u0060 to disable environment variables:"
+        }
+      ]
+    },
+    {
+      "case_id": "EX-005",
+      "question": "What does an HTTPX response history contain?",
+      "query": "history property followed redirects order",
+      "top_k": 3,
+      "expected_retrieval": {"doc_id": "quickstart", "max_rank": 3},
+      "expected_assertions": [
+        {
+          "doc_id": "quickstart",
+          "statement": "Response history lists followed redirect responses in order",
+          "canonical_key": "httpx.response.history=ordered_redirects",
+          "relation": "supports",
+          "quote": "The \u0060history\u0060 property of the response can be used to inspect any followed redirects.\nIt contains a list of any redirect responses that were followed, in the order\nin which they were made."
+        }
+      ]
+    },
+    {
+      "case_id": "EX-006",
+      "question": "Which WSGI transport option sets the request client address?",
+      "query": "WSGITransport remote_addr raise_app_exceptions",
+      "top_k": 3,
+      "expected_retrieval": {"doc_id": "advanced", "max_rank": 3},
+      "expected_assertions": [
+        {
+          "doc_id": "advanced",
+          "statement": "WSGITransport uses remote_addr to set the request client address",
+          "canonical_key": "httpx.wsgi_transport.client_address=remote_addr",
+          "relation": "supports",
+          "quote": "* Use a given client address for requests by setting \u0060remote_addr\u0060 (WSGI)."
+        }
+      ]
+    },
+    {
+      "case_id": "EX-007",
+      "question": "Which project script runs the HTTPX test suite?",
+      "query": "scripts publish scripts check scripts lint",
+      "top_k": 3,
+      "expected_retrieval": {"doc_id": "contributing", "max_rank": 3},
+      "expected_assertions": [
+        {
+          "doc_id": "contributing",
+          "statement": "The scripts/test command runs the HTTPX test suite",
+          "canonical_key": "httpx.development.test_command=scripts/test",
+          "relation": "supports",
+          "quote": "To run the tests, use:\n\n\u0060\u0060\u0060shell\n$ scripts/test\n\u0060\u0060\u0060"
+        }
+      ]
+    },
+    {
+      "case_id": "EX-008",
+      "question": "Does HTTPX follow redirects by default?",
+      "query": "requests compatibility cookies",
+      "top_k": 3,
+      "expected_retrieval": {"doc_id": "compatibility", "max_rank": 3},
+      "expected_assertions": [
+        {
+          "doc_id": "compatibility",
+          "statement": "HTTPX does not follow redirects by default",
+          "canonical_key": "httpx.redirects.follow_by_default=false",
+          "relation": "supports",
+          "quote": "Unlike \u0060requests\u0060, HTTPX does **not follow redirects by default**."
+        }
+      ]
+    },
+    {
+      "case_id": "EX-009",
+      "question": "Which proxy URL scheme is recommended when an HTTPS destination uses a proxy?",
+      "query": "PRE_MAC_LENGTH_TOO_LONG HTTPS proxy",
+      "top_k": 3,
+      "expected_retrieval": {"doc_id": "troubleshooting", "max_rank": 3},
+      "expected_assertions": [
+        {
+          "doc_id": "troubleshooting",
+          "statement": "Use an http URL scheme for the proxy instead of https",
+          "canonical_key": "httpx.proxy.url_scheme=http",
+          "relation": "supports",
+          "quote": "Change the scheme of your HTTPS proxy to \u0060http://...\u0060 instead of \u0060https://...\u0060:"
+        }
+      ]
+    },
+    {
+      "case_id": "EX-010",
+      "question": "Which optional dependency enables zstd response decoding?",
+      "query": "socksio rich click brotlicffi zstandard",
+      "top_k": 3,
+      "expected_retrieval": {"doc_id": "index", "max_rank": 3},
+      "expected_assertions": [
+        {
+          "doc_id": "index",
+          "statement": "The zstandard optional dependency enables zstd response decoding",
+          "canonical_key": "httpx.optional_dependency.zstd=zstandard",
+          "relation": "supports",
+          "quote": "* \u0060zstandard\u0060 - Decoding for \"zstd\" compressed responses. *(Optional, with \u0060httpx[zstd]\u0060)*"
+        }
+      ]
+    }
+  ]
+}
