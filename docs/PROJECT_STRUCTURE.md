@@ -472,7 +472,7 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | P0-3 | expire 与 conflict 场景 | Gate 风险清单 | GS-004/005、suite 2.0.0、声明式验收通过 | 已完成：51/51 tests，67/67 JSON hashes |
 | Gate P0 | 判断机制是否有价值 | P0-2 结果完整 | 正确性不低于全量重算且重算范围更小 | 已评审：附条件通过（D-021） |
 | M1-1 | LLM/检索协议与本地版本化语料 | Gate P0 通过 | 协议、Fixture/真实客户端、语料与测试落地 | 已完成：72/72 tests |
-| M1-1R | 跨平台语料与 CI 收口 | M1-1 完成 | canonical hash、双 Python/双 suite CI、双文档同步 | 已完成：73/73 tests；待本次远程 CI 确认 |
+| M1-1R | 跨平台语料与 CI 收口 | M1-1 完成 | canonical hash、双 Python/双 suite CI、双文档同步 | 已完成：73/73 tests；Actions #33247415305 四路成功 |
 | M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 未开始 |
 | M1-3 | Research Runtime（状态/队列/checkpoint/预算） | M1-2 完成 | 中断恢复与预算测试通过 | 未开始 |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
@@ -519,7 +519,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] Python 3.11.15 与 3.14.7 均以严格 `ResourceWarning` 模式通过 73/73 tests；
 - [x] suite 1.0.0/2.0.0 均重跑且与 67 个已提交 JSON artifacts 一致；
 - [x] README、技术实现文档和项目结构文档同步更新；
-- [ ] 推送后的 GitHub Actions 四路任务全部成功（在远程运行完成后勾选）。
+- [x] GitHub Actions [run 33247415305](https://github.com/Peter-Sherlock/Veritas/actions/runs/33247415305) 四路任务全部成功。
 
 ## 12. 文档更新检查表
 

@@ -1178,7 +1178,7 @@ GitHub Actions 现有两个正交矩阵：
 - artifacts：67/67 content hash 有效；
 - corpus：48/48 本地 canonical hash 有效，48/48 manifest hash 与 Git 中 LF 字节一致。
 
-远程 GitHub Actions 结果只在本次提交推送并完成运行后确认，不由本地结果代替。
+远程 GitHub Actions [run 33247415305](https://github.com/Peter-Sherlock/Veritas/actions/runs/33247415305) 已完成并成功：Python 3.11、Python 3.14、suite 1.0.0 与 suite 2.0.0 四个 job 全部为 `success`。
 
 ### 18.3 退出边界
 
