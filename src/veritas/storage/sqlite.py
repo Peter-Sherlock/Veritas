@@ -156,6 +156,13 @@ class SQLiteRepository:
                 PRIMARY KEY (scenario_id, scenario_version, input_snapshot_id)
             );
 
+            CREATE TABLE IF NOT EXISTS research_refreshes (
+                refresh_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                refreshed_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_edges_from ON dependency_edges(from_id, edge_type);
             CREATE INDEX IF NOT EXISTS idx_edges_to ON dependency_edges(to_id, edge_type);
             CREATE INDEX IF NOT EXISTS idx_evidence_source ON evidence_spans(source_version_id);
@@ -326,6 +333,42 @@ class SQLiteRepository:
             "SELECT 1 FROM source_versions WHERE version_id = ?", (version_id,)
         ).fetchone()
         return row is not None
+
+    def source_is_active(self, version_id: str) -> bool:
+        """The derived current-view test: a source is active while nothing
+        supersedes it and no retract/expire event names it."""
+        row = self.connection.execute(
+            """
+            SELECT 1
+            WHERE EXISTS (
+                SELECT 1 FROM source_versions AS newer
+                WHERE newer.supersedes_version_id = ?
+            )
+            OR EXISTS (
+                SELECT 1 FROM change_events AS event
+                WHERE event.change_type IN ('retract', 'expire')
+                  AND event.old_source_version_id = ?
+            )
+            """,
+            (version_id, version_id),
+        ).fetchone()
+        return row is None
+
+    def insert_research_refresh(
+        self, refresh_id: str, session_id: str, refreshed_at: str, payload: dict[str, Any]
+    ) -> None:
+        self.connection.execute(
+            "INSERT INTO research_refreshes (refresh_id, session_id, refreshed_at, payload_json) "
+            "VALUES (?, ?, ?, ?)",
+            (refresh_id, session_id, refreshed_at, _json_dump(payload)),
+        )
+
+    def find_research_refresh(self, refresh_id: str) -> dict[str, Any] | None:
+        row = self.connection.execute(
+            "SELECT payload_json FROM research_refreshes WHERE refresh_id = ?",
+            (refresh_id,),
+        ).fetchone()
+        return None if row is None else json.loads(row["payload_json"])
 
     def get_scenario_snapshot_hash(
         self,

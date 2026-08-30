@@ -1685,7 +1685,21 @@ python -m veritas.runtime \
 
 这一对照把 M2-1 的召回数字转译为演化行为差异：聚合消除的是"事实未变而结论翻 unknown"的假警报来源。
 
-## 35. 当前限制
+## 35. M3-A 自主闭环：再研究规划器与刷新事务
+
+### 36.1 规划器（D-042）
+
+`src/veritas/autonomy/planner.py` 的 `plan_re_research(repository, *, session_id, top_k=3, requests_per_item=3)`：遍历当前结论，outcome ≠ PASS 的 `all_accepted` 结论的依赖 claim（跨结论去重）各生成一个研究 item——question = claim statement，query = statement 的内容/数字 token（与聚合同一词表，数字保留），item_id `RR-NNN` 按 (conclusion_key, claim_id) 序确定性编号，budget = 3×items。`ReSearchPlan.to_spec()` 即 runtime CLI spec 格式、`save()` 直接落盘——运行时零改动。其余 rule kind 抛 `PlanningError("unsupported_rule_kind")`；悬空 claim 引用抛 `unknown_claim`；全 PASS 产出空计划（budget 下限 1）。
+
+### 36.2 刷新事务
+
+`refresh.py` 的 `apply_research_refresh(repository, *, bundle, session_id, rule_version, refreshed_at)`：再研究没有源变更事件，P0 `apply` 不适用。刷新在单事务内：守卫（bundle 非空；每条证据的源必须已注册且**活跃**——存储层新增 `source_is_active`，复用派生 current-view 的 supersedes/retract 两个 NOT EXISTS 子句，违反即 `superseded_source`/`unregistered_source`）→ 插入 claims/evidence/edges → 按引擎同款契约重评受影响 claim（previous 对比、语义变化集合）→ 语义交集内的结论重算并按需出新版本（DEPENDS_ON 边重建）→ 审计写入专用 `research_refreshes` 表。refresh_id 由 (session_id, bundle 内容) 决定性派生，重复 apply 幂等返回已存 payload。刷新绝不冒充变更事件进 change log。
+
+### 36.3 修复弧线（冻结场景）
+
+`tests/scenarios/test_autonomy_loop_m3.py` 在真实本地语料上跑完整弧线：T0（聚类）claim accepted + 结论 pass@1 → 真实修订后无聚类再研究（pre-M2 路径）→ claim unsupported、结论 unknown@2 → `plan_re_research` 产出 spec（question = 原 claim statement、query = "httpx retries connection setup failures"）→ 聚类再研究 bundle 经刷新写回 → claim 回 ACCEPTED、结论 pass@3；重复刷新幂等（实体计数不变）。
+
+## 36. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
@@ -1702,10 +1716,11 @@ python -m veritas.runtime \
 
 因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034）、M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035）、M1-4 的确定性重规划（D-036，触发场景测试通过）、M1-5A 的 GraphBridge 三层翻译与真实语料修订闭环（D-037，index 0.24.1→0.25.2 驱动结论 pass→unknown），以及 M1-5B 的真实历史规模基准（D-038，13 个真实修订事件逐事件等价、selective 23/185 求值）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 36. 变更记录
+## 37. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M3-A | 自主闭环前两块拼图（D-042）：`src/veritas/autonomy/`——`plan_re_research`（非 PASS 结论 → runtime spec 格式确定性研究计划）+ `apply_research_refresh`（活跃源守卫、引擎同款转换契约、`research_refreshes` 审计表、幂等）；存储层新增 `source_is_active`；修复弧线 pass@1→unknown@2→pass@3 场景钉死；188/188 tests |
 | 2026-08-30 | M2-2 | 簇级结论与冻结校准（D-041）：校准提升为正式模块 + 冻结 artifact（exact 3/32、cluster 19/32、19 组配对明细）+ CI 零 diff；演化侧对照场景钉死聚合价值——开簇改写再研究重入同一 claim（零 churn、结论停 v1 pass），关簇改写 churn（结论 pass@1→unknown@2）；179/179 tests |
 | 2026-08-30 | M2-1 | 候选语义聚合（D-040）：`src/veritas/aggregation/`——相似度 + 数字/否定硬守卫、`ClaimClusterStore`（代表冻结/单趟指派/审计行/policy_drift）、`resolve_bundle` 身份重映射；运行时可选接入默认全关、CLI `--cluster-store`；阈值从真录校准冻结 0.375（真改写 ≥0.385 / 异事实 ≤0.364，零假合并），簇级覆盖 19/32 vs 精确 key 3/32；178/178 tests |
 | 2026-08-30 | Gate M1 | 收口评审（D-039）：出口条件五条核验通过（基线 6ea0dad、CI run 33321253704 六任务成功）；携带 C2/C3-R/C4 进 M2；M2 主题"从候选到可信图"、自主闭环排 M3；M1 关闭 |
