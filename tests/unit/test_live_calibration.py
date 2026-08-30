@@ -93,6 +93,30 @@ class LiveExtractionCalibrationTests(unittest.TestCase):
         self.assertEqual(0, summary["major_failure_count"])
         self.assertFalse(summary["m1_2a_acceptance_candidate"])
 
+    def test_live_run_streams_progress_and_saves_recording_per_case(self) -> None:
+        import contextlib
+        import io
+
+        stderr = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp:
+            record_path = Path(tmp) / "recorded.json"
+            with contextlib.redirect_stderr(stderr):
+                summary = run_live_extraction_calibration(
+                    benchmark_path=BENCHMARK,
+                    corpus_root=CORPUS_ROOT,
+                    model="live-replay-model",
+                    base_url="https://example.invalid",
+                    record_path=record_path,
+                    provider=_ReplayLiveLLM(FIXTURES),
+                )
+        lines = [line for line in stderr.getvalue().splitlines() if line.startswith("[live]")]
+        self.assertEqual(10, len(lines))
+        self.assertIn("EX-001 pass", lines[0])
+        self.assertIn("10/10 EX-010", lines[-1])
+        self.assertIn("live provider recording:", stderr.getvalue())
+        # A finished run must still leave a complete, replayable recording.
+        self.assertEqual(10, summary["passed_case_count"])
+
     def test_live_run_without_provider_requires_api_key(self) -> None:
         original = os.environ.pop("VERITAS_LLM_API_KEY", None)
         try:

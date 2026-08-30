@@ -5,7 +5,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from veritas.extraction.models import ExtractionContractError
 from veritas.extraction.pipeline import (
@@ -166,6 +166,7 @@ def evaluate_extraction_calibration(
     fixtures: dict[str, Any],
     corpus: LocalCorpusProvider,
     provider: Any,
+    on_case_done: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     if benchmark["prompt_version"] != EXTRACTION_PROMPT_VERSION:
         raise ValueError(
@@ -322,6 +323,8 @@ def evaluate_extraction_calibration(
                 "status": "pass" if case_pass else "fail",
             }
         )
+        if on_case_done is not None:
+            on_case_done(case_results[-1])
 
     case_count = len(case_results)
     passed_case_count = sum(result["status"] == "pass" for result in case_results)
@@ -412,7 +415,9 @@ def run_live_extraction_calibration(
 
     Benchmark, corpus, prompts and metrics are identical to the fixture path;
     only the provider changes. Every exchange is recorded under
-    ``record_path`` so the run can later be replayed deterministically.
+    ``record_path`` so the run can later be replayed deterministically. The
+    recording file is rewritten after every case, so an interrupted run keeps
+    all completed exchanges, and per-case progress is streamed to stderr.
     """
     benchmark = _load_json(benchmark_path)
     corpus = LocalCorpusProvider(corpus_root)
@@ -425,14 +430,30 @@ def run_live_extraction_calibration(
             extra_payload={"thinking": {"type": "disabled"}},
         )
     recorder = RecordingLLM(provider)
+    record_output = Path(record_path)
+    record_output.parent.mkdir(parents=True, exist_ok=True)
+    case_total = len(benchmark["cases"])
+    case_done = 0
+
+    def on_case_done(case_result: dict[str, Any]) -> None:
+        nonlocal case_done
+        case_done += 1
+        recorder.save(record_output)
+        print(
+            f"[live] {case_done}/{case_total} {case_result['case_id']} "
+            f"{case_result['status']} requests={recorder.request_count} "
+            f"prompt_tokens={recorder.prompt_tokens}",
+            file=sys.stderr,
+            flush=True,
+        )
+
     summary = evaluate_extraction_calibration(
         benchmark=benchmark,
         fixtures={"fixture_id": f"live-recording:{model}", "model_id": model},
         corpus=corpus,
         provider=recorder,
+        on_case_done=on_case_done,
     )
-    record_output = Path(record_path)
-    record_output.parent.mkdir(parents=True, exist_ok=True)
     recorder.save(record_output)
     print(
         f"live provider recording: model={model} "

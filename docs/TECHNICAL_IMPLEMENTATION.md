@@ -1358,6 +1358,7 @@ v2.0.0 仍为确定性 fixture 基线：30/30 证明契约、引用对齐、检�
 - DeepSeek JSON Output 要求 prompt 中出现 "json" 一词——`EXTRACTION_SYSTEM_PROMPT` 本身含 "Return one JSON object"，满足；
 - `RecordingLLM` 累计 `request_count`/`prompt_tokens`/`completion_tokens`（不入库 fixture 文件，仅用于运行报告成本）；
 - 新增 `run_live_extraction_calibration`：benchmark、语料、prompt 与指标与 fixture 路径完全一致，仅替换 provider；每次真实交换经 `RecordingLLM` 录制为 `{model_id, responses}` 键值文件（`fixture_key` 为 prompt SHA-256），可随后用 `FixtureLLM` 确定性重放；summary 的 `fixture_id` 记为 `live-recording:<model>` 以区别冻结 fixture；
+- live 运行逐题向 stderr 流式输出进度（`[live] 5/30 EX-005 fail requests=15 prompt_tokens=...`），并在每题完成后重写录制文件——90 次串行调用全程可观察，中途中断保留已完成题目的录制；
 - CLI 扩展：`--provider {fixture,live}`（默认 fixture，行为不变）；live 模式需 `--record-out`，模型/端点由 `--model`/`--base-url` 指定，API key 只从 `VERITAS_LLM_API_KEY` 读取（不进命令行参数）；缺 key 时以清晰错误快速失败，不发任何网络请求。
 
 ### 22.3 运行命令
@@ -1377,7 +1378,7 @@ python -m veritas.evaluation.extraction_runner \
 
 ### 22.4 验证结果
 
-新增 6 项测试（`tests/unit/test_live_calibration.py` 3 项 + `tests/unit/test_providers.py` 3 项）：live 路径用注入 provider 打满 10 题且录制文件可经 `FixtureLLM` 重放出同一 prompt 键；全量契约拒绝（invalid JSON）逐题记 EX02、critical=10、major=0；无注入 provider 且缺环境 key 时快速失败。客户端测试锁定默认模型 `deepseek-v4-flash`、`extra_payload` 合并与 JSON mode 不受污染；`RecordingLLM` token 计量单调累计。Python 3.14.7 严格 `ResourceWarning` 模式 `Ran 103 tests OK`；fixture 路径重跑 M1-2A 与 M1-2B2，两个 committed summary 逐字节不变（`git diff --no-index` 零输出）。
+新增 7 项测试（`tests/unit/test_live_calibration.py` 4 项 + `tests/unit/test_providers.py` 3 项）：live 路径用注入 provider 打满 10 题且录制文件可经 `FixtureLLM` 重放出同一 prompt 键；全量契约拒绝（invalid JSON）逐题记 EX02、critical=10、major=0；逐题进度行数与内容（含最终 `live provider recording:` 汇总行）；无注入 provider 且缺环境 key 时快速失败。客户端测试锁定默认模型 `deepseek-v4-flash`、`extra_payload` 合并与 JSON mode 不受污染；`RecordingLLM` token 计量单调累计。Python 3.14.7 严格 `ResourceWarning` 模式 `Ran 104 tests OK`；fixture 路径重跑 M1-2A 与 M1-2B2，两个 committed summary 逐字节不变（`git diff --no-index` 零输出）。
 
 ### 22.5 退出边界
 

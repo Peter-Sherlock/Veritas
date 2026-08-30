@@ -623,9 +623,10 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] `OpenAICompatibleClient` 新增 `extra_payload` 合并；live 校准固定 `thinking: disabled`；
 - [x] `RecordingLLM` 累计 request/prompt/completion 计量，live 运行打印成本报告；
 - [x] `run_live_extraction_calibration` + CLI `--provider live`（`--record-out` 录制、`--model`/`--base-url` 可配、缺 key 快速失败）；
-- [x] 6 项新测试：live 满分录制可重放、全量契约拒绝逐题 EX02、缺 key 拒绝、默认模型/extra_payload/token 计量；
+- [x] live 运行逐题 stderr 进度流，录制文件每题重写（中断保留已完成题目）；
+- [x] 7 项新测试：live 满分录制可重放、全量契约拒绝逐题 EX02、进度流与逐题保存、缺 key 拒绝、默认模型/extra_payload/token 计量；
 - [x] fixture 路径重跑 M1-2A/M1-2B2，两个 committed summary 逐字节不变；
-- [x] Python 3.14.7 严格 `ResourceWarning` 模式 103/103 tests 通过；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式 104/104 tests 通过；
 - [x] README、技术实现文档和项目结构文档同步更新。
 
 ## 12. 文档更新检查表
@@ -673,7 +674,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
-| 2026-08-30 | M1-2C-pre | 交付 live provider 校准运行路径：CLI `--provider live`、`run_live_extraction_calibration`、`RecordingLLM` token 计量与录制重放闭环；客户端默认模型更新为 `deepseek-v4-flash`、新增 `extra_payload`（live 固定禁用 thinking）；103/103 tests，fixture 双摘要零 diff；真实录制待 `VERITAS_LLM_API_KEY`；登记 D-029 |
+| 2026-08-30 | M1-2C-pre | 交付 live provider 校准运行路径：CLI `--provider live`、`run_live_extraction_calibration`、`RecordingLLM` token 计量与录制重放闭环、逐题进度流与每题增量保存（中断安全）；客户端默认模型更新为 `deepseek-v4-flash`、新增 `extra_payload`（live 固定禁用 thinking）；104/104 tests，fixture 双摘要零 diff；真实录制待 `VERITAS_LLM_API_KEY`；登记 D-029 |
 | 2026-08-30 | M1-2B2 | 冻结 benchmark v2.0.0（v1 十题 + 20 新题：多断言 ×2、contradicts ×4、as_of 版本视图 ×2）；fixtures 由确定性脚本生成并内置三类验证；30/30、Hit@3=1.0、MRR=0.7222；CI 双校准矩阵；97/97 tests；登记 D-028 |
 | 2026-08-30 | M1-2B | 建立 `ex-failures-1` 抽取失败分类（EX01～EX05，critical/major 分级）、runner 拆分与 summary 增量 schema 演化；六项负向校准独立可触发，正常集 critical=0；91/91 tests；committed summary 重生成且 M1-2A 度量值不变；登记 D-027 |
 | 2026-08-29 | M1-2A | 新增 extraction contract/pipeline、10 题 HTTPX gold 与 fixture、calibration runner/summary 和 CI job；10/10，Hit@3=1.0、MRR=0.7833、precision/recall/citation=1.0；Python 3.11/3.14 均 85/85 tests；登记 D-025～D-026 |

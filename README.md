@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-103%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-104%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -109,7 +109,7 @@ python -m veritas.evaluation.extraction_runner `
   --output artifacts/extraction/live/summary-live.json
 ```
 
-Every real exchange is recorded to `--record-out` and can be replayed deterministically afterwards; the fixture benchmark above is untouched by live runs.
+Every real exchange is recorded to `--record-out` and can be replayed deterministically afterwards; the fixture benchmark above is untouched by live runs. Progress streams per case to stderr (`[live] 5/30 EX-005 fail requests=15 ...`) and the recording file is rewritten after every case, so an interrupted run keeps all completed exchanges. The full 30-question live run makes ~90 sequential API calls and takes several minutes.
 
 Linux and macOS users can replace the environment setup with:
 
@@ -256,7 +256,7 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 Veritas is currently in **M1-2: extraction calibration**. The deterministic fixture baselines are complete; the live-provider run path is wired, and the recording run awaits an API key.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
-- 103 automated tests on Python 3.11 and 3.14
+- 104 automated tests on Python 3.11 and 3.14
 - five frozen scenarios covering revision, retraction, branch isolation, expiry, and multi-source conflict
 - provenance, snapshot-drift, idempotency, replay, and artifact-integrity checks
 - selective execution matches full recomputation in all scenarios while evaluating 4 of 11 conclusions instead of 11 of 11
