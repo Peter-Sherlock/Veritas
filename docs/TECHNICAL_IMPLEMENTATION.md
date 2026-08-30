@@ -1339,7 +1339,7 @@ MRR 下降是扩容揭示的检索事实而非退化：advanced 文档（1296 �
 
 ### 21.4 验证结果
 
-Python 3.14.7 严格 `ResourceWarning` 模式：`Ran 97 tests OK`（91 + 新增 6）。CI `extraction-calibration` job 扩展为双校准矩阵（M1-2A 10 题 + M1-2B2 30 题），各自要求 committed summary 零 diff。
+Python 3.14.7 严格 `ResourceWarning` 模式：`Ran 97 tests OK`（91 + 新增 6）。CI `extraction-calibration` job 扩展为双校准矩阵（M1-2A 10 题 + M1-2B2 30 题），各自要求 committed summary 零 diff。GitHub Actions [run 33299526597](https://github.com/Peter-Sherlock/Veritas/actions/runs/33299526597) 六路任务全部成功。
 
 ### 21.5 退出边界
 

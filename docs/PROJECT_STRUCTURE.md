@@ -521,7 +521,7 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-1R | 跨平台语料与 CI 收口 | M1-1 完成 | canonical hash、双 Python/双 suite CI、双文档同步 | 已完成：73/73 tests；Actions #33247415305 四路成功 |
 | M1-2A | 严格抽取契约与确定性基线 | M1-1R 完成 | 10 题 gold/fixture、candidate pipeline、双 Python 测试 | 已完成：10/10；85/85 tests；Actions #33250938915 五路成功 |
 | M1-2B | Failure Taxonomy 与 gate 硬化 | M1-2A 完成 | 每类失败独立可触发，正常集 critical=0 | 已完成：91/91 tests；EX01～EX05 负向校准；Actions #33297042264 五路成功 |
-| M1-2B2 | Benchmark 扩容至 30 题 | M1-2B 完成 | 新增 20 题冻结、fixtures 可重建、双校准 CI 绿 | 已完成：97/97 tests；30/30、MRR=0.7222 |
+| M1-2B2 | Benchmark 扩容至 30 题 | M1-2B 完成 | 新增 20 题冻结、fixtures 可重建、双校准 CI 绿 | 已完成：97/97 tests；30/30、MRR=0.7222；Actions #33299526597 六路成功 |
 | M1-2C | 真实 provider 校准与评审 | M1-2B2 完成 | 真实录制、fixture 对照、边界结论 | 未开始 |
 | M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 进行中（M1-2A 已完成） |
 | M1-3 | Research Runtime（状态/队列/checkpoint/预算） | M1-2 完成 | 中断恢复与预算测试通过 | 未开始 |
@@ -606,7 +606,8 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] 6 项新测试（superset 断言、覆盖形状、as_of 版本映射、确定性、漂移拒绝）；
 - [x] CI `extraction-calibration` 扩展为 M1-2A/M1-2B2 双矩阵，各自零 diff；
 - [x] Python 3.14.7 严格模式 97/97 tests 通过；
-- [x] README、技术实现文档和项目结构文档同步更新。
+- [x] README、技术实现文档和项目结构文档同步更新；
+- [x] GitHub Actions [run 33299526597](https://github.com/Peter-Sherlock/Veritas/actions/runs/33299526597) 六路任务（Python 3.11/3.14、suite 1.0.0/2.0.0、extraction calibration M1-2A/M1-2B2 双矩阵零 diff）全部成功。
 
 ## 12. 文档更新检查表
 
