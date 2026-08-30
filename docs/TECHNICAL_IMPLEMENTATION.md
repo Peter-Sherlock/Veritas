@@ -1599,7 +1599,31 @@ python -m veritas.runtime \
 
 负面校准 3 项：`unknown_corpus_version`、`unregistered_old_source_version`、`unregistered_source_version`（namespace 失配证据拒入库，FK 兜底）。
 
-## 31. 当前限制
+## 31. M1-5B 规模演化 benchmark 与逐事件等价对照
+
+### 31.1 基准构造（D-038）
+
+`src/veritas/evaluation/evolution_benchmark.py` 把 Gate P0 条件二要求的规模声明落在真实语料历史上：
+
+1. **T0 图**：六个文档（advanced、async、compatibility、environment_variables、index、quickstart）各经一次确定性抽取管线 run（`FixtureLLM` 录制按检索结果生成，目标文档断言 watched 事实、其余文档空断言），`GraphBridge.load_bundle` 入库后共 8 个 source versions、6 claims、6 evidence、14 边；`record_initial_assessments` 评估全部 claim，6 个单 claim 结论 + 1 个跨文档聚合结论 `python_floor_claims_supported`（盯 index Python 下限与 env SSLKEYLOGFILE 两条真实事实）；
+2. **时间线**：13 个真实内容修订事件，`published_at` 全部来自语料 manifest，按其排序（0.25.2 六文档同一时刻，doc_id 决平局）；内容哈希相同的版本步（如 async 0.25.2→0.26.0）跳过——同内容不是修订，事件允许跨越 SAME 中间版本直达下一个真实内容转移（如 env 0.24.1→0.27.2、quickstart 0.25.2→0.27.2）；
+3. **事件两类**：九个幸存修订（watched 句在新版本仍在，T1 bundle 把新证据重挂到同一 claim——`claim_id` 仅由 canonical key 决定，INSERT OR IGNORE 幂等；claim 状态不变，trace 记 `evidence_rebased`）与四个 watched 事实移除（index Python 3.7+→3.8+、quickstart 无解码句移除、compatibility REQUESTS_CA_BUNDLE 段替换、env SSLKEYLOGFILE 整节移除；旧 claim unsupported、替换 claim accepted、watching 结论重算）。
+
+### 31.2 逐事件等价 oracle 与成本口径
+
+每个事件 apply 后立即运行 P0 全量 oracle（`full_recompute_state`：`evaluate_claim` × 所有 claim + `evaluate_conclusion` × 所有当前结论），与存储态逐节点比对，任何漂移抛 `equivalence_violation` 中止——等价是逐事件断言而非只在终点，漂移不会被后续事件掩盖。成本口径：selective = 引擎实际执行的 claim 重评 + conclusion 重算次数；full = 同一时刻 all claims + all conclusions 的反事实计数（与 P0 `full_recompute_ratio` 同语义推广到多事件真实图）。
+
+冻结结果（`artifacts/evolution/m1-5b-benchmark/summary.json`，canonical JSON + `output_hash`，测试字节级复现 + CI 重生成零 diff）：
+
+- selective **23** 次求值 vs 全量 **185** 次，cost ratio **0.1243**（幸存事件 1 次求值 vs 13–14 次，事实移除事件 3–4 次 vs 14–17 次）；
+- 4 次语义 claim 变更、9 次 claim 重评未变（重挂证据）、6 次结论重算、5 个结论新版本（聚合结论在事件 4 已翻 unknown，事件 13 重算但无新版本）；
+- 终态：4 个 watched claim unsupported（advanced/async 幸存）、3 个单文档结论 unknown、聚合结论 pass→unknown；最终 10 claims / 19 evidence / 33 边。
+
+### 31.3 负面校准与 CI
+
+四项负面校准独立可触发：`quote_not_in_corpus`（计划句不在钉住版本或出现多次）、`unknown_corpus_version`（计划引用语料外版本）、`equivalence_violation`（oracle 可失败——向 `assert_equivalent` 注入漂移态）、`unplanned_extraction_era`（目标文档在计划外时代被检索到即 fail fast），另有事件重放守卫（同一事件包重复 apply 返回同一 run、实体计数与成本不重复累计）。CI 新增 `evolution-benchmark` 任务：重生成 summary 并对已提交 artifact `git diff --exit-code`。
+
+## 32. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
@@ -1611,15 +1635,16 @@ python -m veritas.runtime \
 - 已验证 `revise`、`retract`、`expire` 与多来源 `conflict` 四类变化场景；`expire` 与 `retract` 在 P0 共享追加式 current-view 机制，基于 `valid_to` 的自动过期与 as-of 历史查询尚未实现；
 - Snapshot Registry 已覆盖身份/hash 漂移和未登记部分数据库，但尚未验证多进程并发初始化；
 - storage protocol 目前只是最小写入边界，图和规则仍直接依赖 SQLiteRepository；
-- 没有并发、多进程、规模或性能结果。
-- Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
+- 没有并发、多进程或性能压力结果；规模成本声明已由 M1-5B 钉死（13 个真实修订、23/185 求值、逐事件与全量重算等价），但 benchmark 图仍是单模型 fixture 抽取的六文档图，更大规模与跨文档多跳传播的成本曲线未测量。
+- Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，规模声明以 M1-5B 冻结基准（D-038）为准。
 
-因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034）、M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035），以及 M1-4 的确定性重规划（D-036，触发场景测试通过）已经通过可复现验证、M1-5A 的 GraphBridge 三层翻译与真实语料修订闭环（D-037，index 0.24.1→0.25.2 驱动结论 pass→unknown）”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034）、M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035）、M1-4 的确定性重规划（D-036，触发场景测试通过）、M1-5A 的 GraphBridge 三层翻译与真实语料修订闭环（D-037，index 0.24.1→0.25.2 驱动结论 pass→unknown），以及 M1-5B 的真实历史规模基准（D-038，13 个真实修订事件逐事件等价、selective 23/185 求值）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 32. 变更记录
+## 33. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-5B | 规模演化 benchmark（D-038）：`evolution_benchmark` 六文档 T0 图 + 13 个真实内容修订事件（9 幸存 + 4 watched 事实移除，manifest `published_at` 排序、SAME 哈希步跳过）；逐事件 full-recompute 等价 oracle（漂移即 `equivalence_violation`）；冻结成本声明 selective 23 vs 全量 185 求值（ratio 0.1243），summary 提交 + 测试字节复现 + CI 零 diff；161/161 tests |
 | 2026-08-30 | M1-5A | 端到端集成（D-037）：`GraphBridge`（语料→SourceVersion 对齐管线 id、bundle→演进库+T0 评估/结论、manifest 历史→revise 事件）；真实修订 index 0.24.1→0.25.2（Python 3.7+→3.8+）驱动 P0 引擎在真实抽取图上完成演化闭环，结论 pass@1→unknown@2，apply 幂等；152/152 tests |
 | 2026-08-30 | M1-4 | 动态重规划（D-036）：`ReplanPolicy`——拒绝以 top_k-1 重排一次（降级宽度持久化、max_attempts/min_top_k 双终止）、预算压力运行前确定性降级适配（最大优先/平局按队列序/触底不伪装）；schema `research-runtime-2`（effective_top_k 与规格身份分离）；CLI 旗标与摘要暴露；M1-3B 冻结摘要由同一录制重导；148/148 tests |
 | 2026-08-30 | M1-3B | Runtime CLI（D-035）：spec 驱动会话 + live/replay 双 provider + 逐项进度流与崩溃安全录制 + 重跑安全 + 确定性摘要；引擎新增 `on_item_done`；真实 DeepSeek 3 题会话证据入库（7 请求、2 引用拒绝被契约拦截、1 完成）并由 CLI 重放测试逐字段钉死；M1-3 阶段收口；141/141 tests |

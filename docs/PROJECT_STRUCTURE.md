@@ -78,7 +78,8 @@ Veritas/
 │   │   ├── metrics.py
 │   │   ├── runner.py
 │   │   ├── suite_runner.py
-│   │   └── extraction_runner.py
+│   │   ├── extraction_runner.py
+│   │   └── evolution_benchmark.py  # M1-5B 真实历史规模基准与逐事件等价 oracle
 │   ├── providers/
 │   │   └── llm.py            # LLM 协议、OpenAI 兼容客户端、Fixture/Recording
 │   └── search/
@@ -569,6 +570,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：新增 `src/veritas/integration/`（`GraphBridge`）。三个翻译：(1) 语料文档 → `SourceVersion`，id 采用管线同款 `<corpus_id>:<doc_id>@<version>` 方案，抽取证据直接落进演进库无需改写；(2) 会话 bundle → claims/evidence/edges + T0 初始评估与 `all_accepted` 结论（含 DEPENDS_ON 边），P0 规则引擎拿到完整初始状态；(3) 语料 manifest 历史 → 确定性 `revise` ChangeEvent（`external_event_id = <corpus_id>/<doc>@<new>` 做幂等键，observed/effective 取新版本真实 `published_at`，新 source 预先挂好 supersedes）。revise 事件 `changed_locators` 为空 = 整版本变更范围。端到端闭环用真实内容变化验证：index 文档 0.24.1→0.25.2 的 Python 下限句真实修订（3.7+→3.8+），T0 图经引擎演化后旧 claim 失去支持、新 claim 获支持、watching 结论 pass@1→unknown@2，重复 apply 幂等。
 - 原因：P0 演化引擎从未在真实文档图上运行过，Gate P0 的条件一要求"LLM 组件经确定性 fixture 校准"、M1-5 的存在意义就是补上"真实抽取图"这一环。三层翻译各自可测：源注册以 id 方案对齐免除改写（对齐错误由 `unregistered_source_version` 守卫拦截，FK 兜底）；T0 评估/结论装载复用 P0 规则函数不另起炉灶；事件从 manifest 导出而非手写，使"变更"和"内容"一样是真实数据。整版本变更范围是诚实默认——没有语义 diff 就声明全部受影响，宁多验证不漏验证。
 
+### D-038：规模档位基准在真实语料历史上逐事件对照全量重算，成本声明由冻结 artifact 钉死
+
+- 状态：Implemented for M1-5B
+- 日期：2026-08-30
+- 决策：新增 `src/veritas/evaluation/evolution_benchmark.py`。T0 图由六个文档经确定性抽取管线构成（6 claims、6 个单 claim 结论 + 1 个跨文档聚合结论，聚合结论盯 index Python 下限与 environment_variables SSLKEYLOGFILE 两条真实事实）；时间线为 13 个真实内容修订事件（`published_at` 全部来自语料 manifest，按其排序、doc_id 决平局；内容哈希相同的版本步跳过——同内容不是修订，事件允许跨越 SAME 中间版本直达下一个真实内容转移）。九个事件 watched 事实幸存（证据从新版本重挂到同一 claim，`evidence_rebased`）、四个事件 watched 句被移除（claim 翻转为 unsupported、再抽取产出替换 claim、watching 结论重算）。每个事件后以 P0 oracle（`evaluate_claim`/`evaluate_conclusion` 全量重算）对照存储态，任何漂移即 `equivalence_violation` 中止；成本口径 = 引擎实际 selective 求值（claim 重评 + conclusion 重算）对照同时点全量重算反事实（all claims + all conclusions）。冻结结果：selective 23 次求值 vs 全量 185 次（cost ratio 0.1243），4 次语义 claim 变更、6 次结论重算、5 个结论新版本，逐事件等价；summary 以 canonical JSON + `output_hash` 提交并在 CI 中重生成零 diff 校验。
+- 原因：Gate P0 条件二（D-021）与 Gate M1-2 携带项 C3（D-033）都要求规模声明不得从 4/11 受控图外推。把"规模"落在真实语料历史而不是合成大图上，是为了让成本声明与内容变更同源：事件不是生成的，是 httpx 文档真实发生的修订。SAME 版本步的跳过是语义决定而非实现妥协——内容未变就没有需要验证的东西，把它当修订会制造假事件。等价 oracle 逐事件运行而非只在终点运行，确保漂移不会被后续事件掩盖；oracle 的失败路径本身有负向测试钉死，基准的等价声明不能是永真断言。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -596,9 +604,9 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-3B | Runtime CLI 与 live 接线 | M1-3A 完成 | spec 驱动 CLI、live 录制逐项保存、重跑安全、live 证据入库并可重放 | 已完成：141/141 tests；3 题真实会话（7 请求）证据钉死 |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 已完成：148/148 tests；拒绝降级重试与预算预降级触发场景均有测试 |
 | M1-5A | 端到端集成桥与真实变更事件 | M1-4 完成 | 真实语料历史 ChangeEvent 驱动 P0 引擎在真实抽取图上完成一次演化 | 已完成：152/152 tests；index 0.24.1→0.25.2 真实修订闭环（结论 pass→unknown） |
-| M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
-| M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 未开始 |
-| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-2 已收口；M1-3 未开始） |
+| M1-5B | 规模档位演化 benchmark | M1-5A 完成 | 多文档多变更真实时间线、逐事件 full-recompute 等价、冻结成本 artifact | 已完成：161/161 tests；13 真实事件 23/185 求值（ratio 0.1243），CI 零 diff |
+| M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 已完成（M1-5A 集成桥 + M1-5B 规模 benchmark） |
+| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-2 已收口；M1-3/M1-4/M1-5 已完成） |
 
 如果 Gate P0 不通过，不进入 Web Search 集成；先分析图粒度、规则语义和 benchmark 是否支持项目假设。
 
@@ -772,6 +780,15 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] Python 3.14.7 严格 `ResourceWarning` 模式 152/152 tests 通过；
 - [x] README、技术实现文档和项目结构文档同步更新。
 
+### 11.15 M1-5B 完成记录（2026-08-30）
+
+- [x] `src/veritas/evaluation/evolution_benchmark.py`：T0 六文档抽取图（6 claims / 7 conclusions）、13 个真实内容修订时间线（manifest `published_at` 排序、SAME 哈希步跳过）、逐事件 P0 oracle 等价对照与 selective/full 成本核算、CLI（`python -m veritas.evaluation.evolution_benchmark`）；
+- [x] 真实故事线：9 个幸存修订（证据重挂同一 claim、`evidence_rebased`）+ 4 个 watched 事实移除——index Python 下限 3.7+→3.8+、quickstart 无解码句移除、compatibility REQUESTS_CA_BUNDLE 段替换、environment_variables SSLKEYLOGFILE 整节移除；
+- [x] 冻结证据 `artifacts/evolution/m1-5b-benchmark/summary.json`（canonical JSON + output_hash）：T0 8 sources / 6 claims / 7 conclusions；selective 23 vs full 185（ratio 0.1243）；终态 4 个 watched claim unsupported、3 个结论 unknown、聚合结论 pass→unknown；
+- [x] 负面校准 4 项：`quote_not_in_corpus`（计划句不在钉住版本）、`unknown_corpus_version`（计划引用语料外版本）、`equivalence_violation`（等价 oracle 可失败）、`unplanned_extraction_era`（计划外提取时代 fail fast），另有事件重放不重复计数守卫；
+- [x] CI 新增 evolution-benchmark 任务（重生成 + 零 diff）；Python 3.14.7 严格 `ResourceWarning` 模式 161/161 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -813,7 +830,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - EX01～EX05 校准的是抽取链路已编码的失败路径；两轮真实运行显示三类失败均出现且与分类语义吻合，但失败样本仍只有 30 题 × 单模型 × 每轮一次；
 - 抽取候选已有独立事务存储与跨 run 去重/冲突暴露（D-032），但尚未接入 Evidence Graph 写入事务；候选层按设计保留全部身份变体，语义改写合并仍无方案，噪声将原样进入后续聚合阶段；
 - M1-3/M1-4 运行时已可经 CLI 操作、有真实 3 题会话证据，重规划只覆盖"收窄检索"一条确定性轴：换查询措辞、换模型、跨 item 资源重分配等更大尺度的重规划尚未设计；崩溃恢复由测试内桩模拟而非真实进程中断；重规划的效果只有确定性触发场景证据，真实 live 会话上的重规划收益未测量；
-- Suite 2.0.0 的 `4 / 11` 重算比例来自受控图结构，不能外推到真实研究任务；
+- 规模成本声明已由 M1-5B 在真实语料历史上钉死（13 个真实内容修订、23/185 求值、逐事件与全量重算等价，D-038）；但 benchmark 图仍是单模型 fixture 抽取的六文档图，跨文档多跳传播与更大规模的成本曲线仍未测量；
 - 空 semantic-change 场景需要严格遵守空集合指标约定，否则容易产生误导性的 precision；
 - 已配置 GitHub Actions CI（3.11/3.14 测试、suite 1.0.0/2.0.0、extraction calibration + artifact 零 diff），但尚无分支保护或 release 策略。
 
@@ -821,6 +838,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-5B | 规模演化 benchmark（D-038）：六文档真实语料历史 13 个内容修订事件（9 幸存 + 4 watched 事实移除），逐事件 full-recompute 等价 oracle，冻结成本声明 selective 23 vs 全量 185 求值（ratio 0.1243）+ CI 重生成零 diff 校验；161/161 tests |
 | 2026-08-30 | M1-5A | 端到端集成桥（D-037）：`GraphBridge` 三层翻译（语料→SourceVersion、bundle→演进库、manifest 历史→revise 事件）；真实修订 index 0.24.1→0.25.2（Python 3.7+→3.8+）驱动 P0 引擎在真实抽取图上完成演化闭环（结论 pass→unknown、幂等）；152/152 tests |
 | 2026-08-30 | M1-4 | 动态重规划（D-036）：`ReplanPolicy` 两触发器——拒绝以 top_k-1 重排一次（降级宽度持久化、双重终止条件）、预算压力运行前确定性降级适配剩余预算；存储 schema `research-runtime-2`（effective_top_k）；CLI 旗标与摘要暴露；148/148 tests |
 | 2026-08-30 | M1-3B | Runtime CLI 接线（D-035）：`python -m veritas.runtime`，spec 驱动会话、live/replay 双 provider、逐项进度流与崩溃安全录制、完成会话重跑安全、确定性摘要含 content_hash；真实 DeepSeek 3 题会话（7 请求、2 引用拒绝被拦截、1 完成入库）证据入库并由重放测试钉死；141/141 tests |
