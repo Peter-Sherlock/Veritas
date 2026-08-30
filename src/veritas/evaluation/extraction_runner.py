@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +15,13 @@ from veritas.extraction.pipeline import (
     ResearchExtractionPipeline,
     build_extraction_prompt,
 )
-from veritas.providers.llm import FixtureLLM, LLMProvider, fixture_key
+from veritas.providers.llm import (
+    FixtureLLM,
+    LLMProvider,
+    OpenAICompatibleClient,
+    RecordingLLM,
+    fixture_key,
+)
 from veritas.search.local_corpus import LocalCorpusProvider
 
 
@@ -392,20 +399,101 @@ def run_extraction_calibration(
     )
 
 
+def run_live_extraction_calibration(
+    *,
+    benchmark_path: str | Path,
+    corpus_root: str | Path,
+    model: str,
+    base_url: str,
+    record_path: str | Path,
+    provider: LLMProvider | None = None,
+) -> dict[str, Any]:
+    """Run the frozen benchmark against a live provider and record responses.
+
+    Benchmark, corpus, prompts and metrics are identical to the fixture path;
+    only the provider changes. Every exchange is recorded under
+    ``record_path`` so the run can later be replayed deterministically.
+    """
+    benchmark = _load_json(benchmark_path)
+    corpus = LocalCorpusProvider(corpus_root)
+    if provider is None:
+        # DeepSeek V4-Flash defaults to thinking mode; calibration pins
+        # non-thinking for latency, cost and near-deterministic JSON output.
+        provider = OpenAICompatibleClient(
+            model=model,
+            base_url=base_url,
+            extra_payload={"thinking": {"type": "disabled"}},
+        )
+    recorder = RecordingLLM(provider)
+    summary = evaluate_extraction_calibration(
+        benchmark=benchmark,
+        fixtures={"fixture_id": f"live-recording:{model}", "model_id": model},
+        corpus=corpus,
+        provider=recorder,
+    )
+    record_output = Path(record_path)
+    record_output.parent.mkdir(parents=True, exist_ok=True)
+    recorder.save(record_output)
+    print(
+        f"live provider recording: model={model} "
+        f"requests={recorder.request_count} "
+        f"prompt_tokens={recorder.prompt_tokens} "
+        f"completion_tokens={recorder.completion_tokens}",
+        file=sys.stderr,
+    )
+    return summary
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the frozen extraction calibration")
     parser.add_argument("--benchmark", required=True)
-    parser.add_argument("--fixtures", required=True)
     parser.add_argument("--corpus-root", required=True)
+    parser.add_argument(
+        "--provider",
+        choices=("fixture", "live"),
+        default="fixture",
+        help="fixture replays frozen responses; live calls an OpenAI-compatible API",
+    )
+    parser.add_argument("--fixtures", help="required with --provider fixture")
+    parser.add_argument(
+        "--model",
+        default="deepseek-v4-flash",
+        help="live provider model id",
+    )
+    parser.add_argument(
+        "--base-url",
+        default="https://api.deepseek.com",
+        help="live provider OpenAI-compatible base URL",
+    )
+    parser.add_argument(
+        "--record-out",
+        help="required with --provider live; path for the recorded responses",
+    )
     parser.add_argument("--output")
     parser.add_argument("--assert-pass", action="store_true")
     args = parser.parse_args()
 
-    summary = run_extraction_calibration(
-        benchmark_path=args.benchmark,
-        fixtures_path=args.fixtures,
-        corpus_root=args.corpus_root,
-    )
+    if args.provider == "fixture":
+        if not args.fixtures:
+            parser.error("--provider fixture requires --fixtures")
+        summary = run_extraction_calibration(
+            benchmark_path=args.benchmark,
+            fixtures_path=args.fixtures,
+            corpus_root=args.corpus_root,
+        )
+    else:
+        if not args.record_out:
+            parser.error("--provider live requires --record-out")
+        try:
+            summary = run_live_extraction_calibration(
+                benchmark_path=args.benchmark,
+                corpus_root=args.corpus_root,
+                model=args.model,
+                base_url=args.base_url,
+                record_path=args.record_out,
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
     serialized = json.dumps(summary, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     if args.output:
         output_path = Path(args.output)

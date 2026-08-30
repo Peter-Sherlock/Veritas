@@ -64,11 +64,18 @@ class FixtureLLM:
 
 
 class RecordingLLM:
-    """Wraps a live provider and records exchanges for later replay."""
+    """Wraps a live provider and records exchanges for later replay.
+
+    Token usage is accumulated across complete() calls so a recording run can
+    report its own cost; it is not part of the saved fixture payload.
+    """
 
     def __init__(self, inner: LLMProvider) -> None:
         self._inner = inner
         self._responses: dict[str, str] = {}
+        self.request_count = 0
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
 
     @property
     def model_id(self) -> str:
@@ -77,6 +84,9 @@ class RecordingLLM:
     def complete(self, *, system: str, prompt: str, json_mode: bool = True) -> LLMResponse:
         response = self._inner.complete(system=system, prompt=prompt, json_mode=json_mode)
         self._responses[fixture_key(system, prompt)] = response.text
+        self.request_count += 1
+        self.prompt_tokens += response.prompt_tokens
+        self.completion_tokens += response.completion_tokens
         return response
 
     def save(self, path: str | Path) -> None:
@@ -95,16 +105,20 @@ class OpenAICompatibleClient:
     (DeepSeek, Kimi, Qwen, ...). Zero third-party dependencies.
 
     The API key comes from the constructor or VERITAS_LLM_API_KEY.
+    ``extra_payload`` is merged into the request body after the standard
+    fields, so provider-specific parameters (e.g. DeepSeek's
+    ``thinking`` mode switch) stay out of the client itself.
     """
 
     def __init__(
         self,
         *,
         base_url: str = "https://api.deepseek.com",
-        model: str = "deepseek-chat",
+        model: str = "deepseek-v4-flash",
         api_key: str | None = None,
         timeout: float = 60.0,
         max_retries: int = 3,
+        extra_payload: Mapping[str, Any] | None = None,
         opener: OpenerType | None = None,
     ) -> None:
         key = api_key or os.environ.get("VERITAS_LLM_API_KEY")
@@ -115,6 +129,7 @@ class OpenAICompatibleClient:
         self._api_key = key
         self._timeout = timeout
         self._max_retries = max_retries
+        self._extra_payload = dict(extra_payload) if extra_payload else {}
         self._opener: OpenerType = opener or (
             lambda request, timeout: urllib.request.urlopen(request, timeout=timeout)
         )
@@ -134,6 +149,7 @@ class OpenAICompatibleClient:
         }
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
+        payload.update(self._extra_payload)
         request = urllib.request.Request(
             f"{self._base_url}/chat/completions",
             data=json.dumps(payload).encode("utf-8"),

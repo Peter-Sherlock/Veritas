@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-97%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-103%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -95,6 +95,21 @@ python -m veritas.evaluation.extraction_runner `
   --corpus-root datasets/corpus/httpx-docs `
   --assert-pass
 ```
+
+Run the same benchmark against a live provider (M1-2C, requires an API key):
+
+```powershell
+$env:VERITAS_LLM_API_KEY = "<your DeepSeek key>"
+python -m veritas.evaluation.extraction_runner `
+  --provider live `
+  --model deepseek-v4-flash `
+  --benchmark datasets/extraction/httpx-m1-2b/benchmark.json `
+  --corpus-root datasets/corpus/httpx-docs `
+  --record-out artifacts/extraction/live/responses-recording.json `
+  --output artifacts/extraction/live/summary-live.json
+```
+
+Every real exchange is recorded to `--record-out` and can be replayed deterministically afterwards; the fixture benchmark above is untouched by live runs.
 
 Linux and macOS users can replace the environment setup with:
 
@@ -238,10 +253,10 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas is currently in **M1-2: extraction calibration**. The deterministic fixture baselines are complete; live-provider calibration is not.
+Veritas is currently in **M1-2: extraction calibration**. The deterministic fixture baselines are complete; the live-provider run path is wired, and the recording run awaits an API key.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
-- 97 automated tests on Python 3.11 and 3.14
+- 103 automated tests on Python 3.11 and 3.14
 - five frozen scenarios covering revision, retraction, branch isolation, expiry, and multi-source conflict
 - provenance, snapshot-drift, idempotency, replay, and artifact-integrity checks
 - selective execution matches full recomputation in all scenarios while evaluating 4 of 11 conclusions instead of 11 of 11
@@ -254,7 +269,7 @@ Veritas is currently in **M1-2: extraction calibration**. The deterministic fixt
 
 Gate P0 was reviewed on 2026-08-29 and **passed with conditions** (see [D-021](docs/PROJECT_STRUCTURE.md)): the mechanism is validated on controlled graphs; LLM extraction must be calibrated against deterministic fixtures in M1, and no cost claim may be extrapolated from the 4/11 ratio without a scaled benchmark.
 
-**M1-2B** added an extraction failure taxonomy: EX01 retrieval miss, EX02 contract rejection, and EX05 fixture drift are integrity failures, while EX03 citation rejection and EX04 assertion mismatch are quality gaps that the upcoming live-provider calibration will measure. **M1-2B2** expanded the frozen benchmark to 30 questions, adding multi-assertion cases, contradicts relations, and two as_of version-view cases grounded in real HTTPX documentation history (the 0.24.1 Python floor and the pre-0.26 proxy configuration style). The next slice is **M1-2C**: record a real provider against the same frozen prompts and compare it with the fixture baseline.
+**M1-2B** added an extraction failure taxonomy: EX01 retrieval miss, EX02 contract rejection, and EX05 fixture drift are integrity failures, while EX03 citation rejection and EX04 assertion mismatch are quality gaps that the upcoming live-provider calibration will measure. **M1-2B2** expanded the frozen benchmark to 30 questions, adding multi-assertion cases, contradicts relations, and two as_of version-view cases grounded in real HTTPX documentation history (the 0.24.1 Python floor and the pre-0.26 proxy configuration style). **M1-2C-pre** wired the live-provider path (`--provider live --model deepseek-v4-flash`, non-thinking, responses recorded for deterministic replay); the next slice, **M1-2C**, records the real provider against the same frozen prompts and compares it with the fixture baseline.
 
 > [!WARNING]
 > This repository does not yet perform web search, verified live-LLM extraction, autonomous planning, or production-scale concurrent execution. The 30/30 extraction result is deterministic fixture replay, not evidence of real-model quality.

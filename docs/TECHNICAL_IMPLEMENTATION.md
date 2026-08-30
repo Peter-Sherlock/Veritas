@@ -1345,9 +1345,47 @@ Python 3.14.7 严格 `ResourceWarning` 模式：`Ran 97 tests OK`（91 + 新增 
 
 v2.0.0 仍为确定性 fixture 基线：30/30 证明契约、引用对齐、检索口径与评分在扩容后可复现，不证明真实模型达到同样 precision/recall。as_of 案例证明版本视图检索与引文对齐可复现，但不构成演化 benchmark 本身——那需要把 ChangeEvent 与 ground truth 一并冻结（M1-5）。
 
-## 22. 当前限制
+## 22. M1-2C-pre Live Provider 接入路径
 
-- 已实现检索到 Evidence/Claim 候选的自动 pipeline，但当前 10 题由 `FixtureLLM` 重放；尚无真实 provider 校准记录；
+### 22.1 范围与 provider 选型
+
+本切片只交付真实 provider 校准的运行路径（M1-2C-pre），不包含录制本身——录制需要 `VERITAS_LLM_API_KEY`。live provider 选定为 **DeepSeek `deepseek-v4-flash`**（决策 D-029）：截至 2026-08-30 的国产 API 现价中，它是"付费里最便宜且质量有保底"的选项（输入未命中 1 元/1M tokens、缓存命中 0.02 元/1M、输出 2 元/1M，1M 上下文），原生 OpenAI 兼容且支持 JSON Output。旧别名 `deepseek-chat`/`deepseek-reasoner` 已不是文档化的模型名，客户端默认模型随之更新为 `deepseek-v4-flash`。
+
+### 22.2 语义与契约变化
+
+- `OpenAICompatibleClient` 新增 `extra_payload` 参数：在标准字段之后合并进请求体，provider 专属参数（如 DeepSeek 的 thinking 开关）不进入客户端本体；默认模型更新为 `deepseek-v4-flash`；
+- live 校准固定发送 `"thinking": {"type": "disabled"}`：V4-Flash 默认开启思考模式，校准需要低延迟、低成本与接近确定性的 JSON 输出；
+- DeepSeek JSON Output 要求 prompt 中出现 "json" 一词——`EXTRACTION_SYSTEM_PROMPT` 本身含 "Return one JSON object"，满足；
+- `RecordingLLM` 累计 `request_count`/`prompt_tokens`/`completion_tokens`（不入库 fixture 文件，仅用于运行报告成本）；
+- 新增 `run_live_extraction_calibration`：benchmark、语料、prompt 与指标与 fixture 路径完全一致，仅替换 provider；每次真实交换经 `RecordingLLM` 录制为 `{model_id, responses}` 键值文件（`fixture_key` 为 prompt SHA-256），可随后用 `FixtureLLM` 确定性重放；summary 的 `fixture_id` 记为 `live-recording:<model>` 以区别冻结 fixture；
+- CLI 扩展：`--provider {fixture,live}`（默认 fixture，行为不变）；live 模式需 `--record-out`，模型/端点由 `--model`/`--base-url` 指定，API key 只从 `VERITAS_LLM_API_KEY` 读取（不进命令行参数）；缺 key 时以清晰错误快速失败，不发任何网络请求。
+
+### 22.3 运行命令
+
+```bash
+export VERITAS_LLM_API_KEY=...   # DeepSeek 平台创建，勿写入仓库
+python -m veritas.evaluation.extraction_runner \
+  --provider live \
+  --model deepseek-v4-flash \
+  --benchmark datasets/extraction/httpx-m1-2b/benchmark.json \
+  --corpus-root datasets/corpus/httpx-docs \
+  --record-out artifacts/extraction/live/responses-recording.json \
+  --output artifacts/extraction/live/summary-live.json
+```
+
+录制文件是原始记录而非冻结 fixture：冻结（转成 per-case responses + canary + 漂移校验）是录制完成后的独立步骤。
+
+### 22.4 验证结果
+
+新增 6 项测试（`tests/unit/test_live_calibration.py` 3 项 + `tests/unit/test_providers.py` 3 项）：live 路径用注入 provider 打满 10 题且录制文件可经 `FixtureLLM` 重放出同一 prompt 键；全量契约拒绝（invalid JSON）逐题记 EX02、critical=10、major=0；无注入 provider 且缺环境 key 时快速失败。客户端测试锁定默认模型 `deepseek-v4-flash`、`extra_payload` 合并与 JSON mode 不受污染；`RecordingLLM` token 计量单调累计。Python 3.14.7 严格 `ResourceWarning` 模式 `Ran 103 tests OK`；fixture 路径重跑 M1-2A 与 M1-2B2，两个 committed summary 逐字节不变（`git diff --no-index` 零输出）。
+
+### 22.5 退出边界
+
+本切片证明 live 路径在注入 provider 下可运行、可录制、可重放，且不影响冻结基线；不证明真实 DeepSeek 调用的行为——录制、失败分布对比与 canonical_key/citation 校准仍是 M1-2C 待办，需要 API key。
+
+## 23. 当前限制
+
+- 已实现检索到 Evidence/Claim 候选的自动 pipeline，30 题由 `FixtureLLM` 重放；live provider 运行路径已就绪（M1-2C-pre），但尚无真实 provider 校准记录；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
 - 抽取候选尚未写入 SQLite 或接入 initial-research graph transaction；
 - 没有来源质量权重；
@@ -1360,12 +1398,13 @@ v2.0.0 仍为确定性 fixture 基线：30/30 证明契约、引用对齐、检�
 - 没有并发、多进程、规模或性能结果。
 - Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
-因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路、M1-2B 的五类抽取失败分类与 gate 分级，以及 M1-2B2 的 30 题扩容 benchmark 已经通过可复现验证”；不能外推为真实 LLM 抽取质量、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路、M1-2B 的五类抽取失败分类与 gate 分级、M1-2B2 的 30 题扩容 benchmark，以及 M1-2C-pre 的 live provider 运行路径已经通过可复现验证”；不能外推为真实 LLM 抽取质量、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 23. 变更记录
+## 24. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-2C-pre | 交付 live provider 校准运行路径：`run_live_extraction_calibration` + CLI `--provider live`（`--model deepseek-v4-flash` 默认、`thinking` 禁用、`RecordingLLM` 录制与 token 计量）；客户端默认模型更新为 `deepseek-v4-flash`、新增 `extra_payload`；103/103 tests，fixture 双摘要逐字节不变；真实录制待 `VERITAS_LLM_API_KEY`；登记 D-029 |
 | 2026-08-30 | M1-2B2 | 新增 20 题（EX-011～030）扩容 benchmark 至 `httpx-initial-extraction` 2.0.0；新增多断言 ×2、contradicts ×4、as_of 版本视图 ×2（index@0.24.1 Python 3.7+、troubleshooting@0.25.2 legacy proxies dict）；fixtures 由 `scripts/build_extraction_v2_fixtures.py` 确定性生成并内置 quote 唯一性与检索排名验证；30/30、Hit@3=1.0、MRR=0.7222、P/R/citation=1.0；CI 扩展为双校准矩阵；97/97 tests |
 | 2026-08-30 | M1-2B | 建立 `ex-failures-1` 抽取失败分类（EX01～EX05，critical/major 分级）、runner 拆分 `evaluate_extraction_calibration`、summary 增量 schema 演化与 per-case `failures` 数组；六项负向校准独立可触发，正常集 critical=0；91/91 tests（Python 3.14.7 严格模式），committed summary 重生成且度量值不变 |
 | 2026-08-29 | M1-2A | 新增严格 extraction contract、逐字引用对齐、确定性 Evidence/Claim/edge 候选、10 题 HTTPX gold/fixture baseline 与 calibration runner；10/10 cases，Hit@3/precision/recall/citation=1.0，MRR=0.7833；Python 3.11/3.14 均 85/85 tests |

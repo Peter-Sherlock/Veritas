@@ -77,6 +77,22 @@ class RecordingLLMTests(unittest.TestCase):
             replayed = FixtureLLM.from_json(path)
         self.assertEqual('{"ok": 1}', replayed.complete(system=SYSTEM, prompt=PROMPT).text)
 
+    def test_accumulates_token_usage(self) -> None:
+        class _CountingLLM:
+            model_id = "counting-llm"
+
+            def complete(self, *, system, prompt, json_mode=True):
+                return LLMResponse(
+                    text="{}", model_id=self.model_id, prompt_tokens=11, completion_tokens=7
+                )
+
+        recorder = RecordingLLM(_CountingLLM())
+        recorder.complete(system=SYSTEM, prompt=PROMPT)
+        recorder.complete(system=SYSTEM, prompt="another prompt")
+        self.assertEqual(2, recorder.request_count)
+        self.assertEqual(22, recorder.prompt_tokens)
+        self.assertEqual(14, recorder.completion_tokens)
+
 
 class OpenAICompatibleClientTests(unittest.TestCase):
     def _client(self, opener) -> OpenAICompatibleClient:
@@ -143,6 +159,34 @@ class OpenAICompatibleClientTests(unittest.TestCase):
         finally:
             if original is not None:
                 os.environ["VERITAS_LLM_API_KEY"] = original
+
+    def test_default_model_is_deepseek_v4_flash(self) -> None:
+        captured = {}
+
+        def opener(request, timeout):
+            captured["payload"] = json.loads(request.data.decode("utf-8"))
+            return _FakeHTTPResponse(_completion_payload("{}"))
+
+        self._client(opener).complete(system=SYSTEM, prompt=PROMPT)
+        self.assertEqual("deepseek-v4-flash", captured["payload"]["model"])
+
+    def test_extra_payload_is_merged_into_request(self) -> None:
+        captured = {}
+
+        def opener(request, timeout):
+            captured["payload"] = json.loads(request.data.decode("utf-8"))
+            return _FakeHTTPResponse(_completion_payload("{}"))
+
+        client = OpenAICompatibleClient(
+            api_key="test-key",
+            opener=opener,
+            max_retries=2,
+            extra_payload={"thinking": {"type": "disabled"}},
+        )
+        client.complete(system=SYSTEM, prompt=PROMPT, json_mode=False)
+        self.assertEqual({"type": "disabled"}, captured["payload"]["thinking"])
+        self.assertEqual(0, captured["payload"]["temperature"])
+        self.assertNotIn("response_format", captured["payload"])
 
 
 class LLMResponseContractTests(unittest.TestCase):
