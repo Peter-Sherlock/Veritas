@@ -2,7 +2,7 @@
 
 > 文档职责：记录项目边界、设计思路、目录演进、阶段状态和关键决策。  
 > 当前阶段：M1-2 抽取 pipeline 与校准
-> 当前状态：M1-2 in progress；M1-2A deterministic baseline complete；M1-2B failure taxonomy complete
+> 当前状态：M1-2 in progress；M1-2A/M1-2B/M1-2B2 complete；M1-2C next
 > 更新日期：2026-08-30  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[技术实现文档](TECHNICAL_IMPLEMENTATION.md)
@@ -90,7 +90,8 @@ Veritas/
 │   ├── corpus/
 │   │   └── httpx-docs/       # 10 篇文档 × 48 版本快照 + manifest.json（hash 钉住）
 │   ├── extraction/
-│   │   └── httpx-m1-2a/      # 10 题 benchmark + frozen fixture responses
+│   │   ├── httpx-m1-2a/      # 冻结 10 题 benchmark v1.0.0 + fixture responses
+│   │   └── httpx-m1-2b/      # 扩容 30 题 benchmark v2.0.0 + 生成式 fixtures
 │   ├── scenarios/
 │   │   ├── GS-001/scenario.json
 │   │   ├── GS-002/scenario.json
@@ -118,10 +119,13 @@ Veritas/
 │       ├── test_gs004.py
 │       ├── test_gs005.py
 │       ├── test_extraction_calibration.py
+│       ├── test_extraction_calibration_v2.py
 │       ├── test_p0_suite.py
 │       └── test_p0_suite_2.py
 ├── artifacts/
-│   ├── extraction/httpx-initial-extraction-1.0.0/summary.json
+│   ├── extraction/
+│   │   ├── httpx-initial-extraction-1.0.0/summary.json
+│   │   └── httpx-initial-extraction-2.0.0/summary.json
 │   ├── GS-001/run-f39dacf198a857ae/<five JSON artifacts>
 │   ├── GS-002/run-65365880276d316f/<five JSON artifacts>
 │   ├── GS-003/run-046dcc6b4ed54440/<five JSON artifacts>
@@ -150,7 +154,7 @@ Veritas/
 - 足以代表通用检索质量的 benchmark 结论；
 - 生产规模 benchmark 结果。
 
-当前已有的是五个受控场景上的确定性 evidence-evolution runtime、两套 evolution suite、可替换的 LLM/检索协议、冻结语料、检索→严格抽取→Evidence/Claim 候选的 10 题 fixture baseline，以及 EX01～EX05 抽取失败分类与独立负向校准；这些模块尚未组成会自主搜索、持久化研究状态、规划、调用工具和生成研究报告的完整 Deep Research Agent。
+当前已有的是五个受控场景上的确定性 evidence-evolution runtime、两套 evolution suite、可替换的 LLM/检索协议、冻结语料、检索→严格抽取→Evidence/Claim 候选的 30 题 fixture benchmark（v2.0.0），以及 EX01～EX05 抽取失败分类与独立负向校准；这些模块尚未组成会自主搜索、持久化研究状态、规划、调用工具和生成研究报告的完整 Deep Research Agent。
 
 ## 4. P0-0 阶段边界
 
@@ -495,6 +499,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：建立 `ex-failures-1` 失败分类。EX02 契约拒绝与 EX05 fixture 漂移为 critical（结果不可信）；EX01 检索未命中、EX03 引用拒绝、EX04 断言不匹配为 major（校准有效但未达 gold，是 M1-2C 要度量的对象）。`critical_failure_count` 从"失败 case 数"改为"critical 级失败记录数"，新增 `major_failure_count` 与全量 `failures` 记录；per-case `failure` 单对象改为 `failures` 数组。`m1_2a_acceptance_candidate` 定义为 critical=0 且 major=0，保持冻结 fixture 基线 gate 不变松。benchmark 与 fixtures 数据逐字节不变，summary 为增量 schema 演化并重新生成 content hash；M1-2A 全部度量值保持不变。
 - 原因：真实模型校准（M1-2C）必然产生 major 级偏差；若把质量差距与完整性失败混为一个计数，gate 要么过松（掩盖契约破坏）要么过紧（任何模型偏差都算"critical"）。分级让同一份 runner 既服务冻结基线的零失败 gate，也服务未来真实模型的差距报告。运行前守卫统一以 `EX05_FIXTURE_DRIFT` 前缀抛错，漂移中止运行，因此 EX05 只经异常断言校准、不出现在 summary 内。
 
+### D-028：benchmark v2.0.0 为独立冻结数据集，fixtures 由确定性脚本生成
+
+- 状态：Implemented for M1-2B2
+- 日期：2026-08-30
+- 决策：扩容 benchmark 落地为新数据集 `datasets/extraction/httpx-m1-2b/`（`httpx-initial-extraction` 2.0.0，30 题），v1.0.0 的 benchmark、fixtures 与 summary artifact 保持冻结不动。v2 的 fixtures.json 由 `scripts/build_extraction_v2_fixtures.py` 从 benchmark + 冻结语料确定性生成：gold 文档响应 = gold 断言集，其余检索文档响应为空；脚本内置引文唯一性、检索排名 ≤ max_rank 与 gold 断言覆盖三类验证，验证失败拒绝写出。新增覆盖包括多断言、contradicts 关系与两道 `as_of` 版本视图题（as_of 为 ISO 日期边界，与版本 `published_at` 字典序比较，不是版本号）。
+- 原因：真实模型校准（M1-2C）需要足够的样本量才能在 retrieval、contract、语义之间归因失败。手写 fixtures 既费力又难以审计；从 benchmark + 语料确定性生成让"fixture = perfect model"的语义显式可重建。v1 保持冻结使 M1-2A 的历史基线永远可复现，两套 summary 由 CI 双矩阵分别锁定。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -510,7 +521,8 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-1R | 跨平台语料与 CI 收口 | M1-1 完成 | canonical hash、双 Python/双 suite CI、双文档同步 | 已完成：73/73 tests；Actions #33247415305 四路成功 |
 | M1-2A | 严格抽取契约与确定性基线 | M1-1R 完成 | 10 题 gold/fixture、candidate pipeline、双 Python 测试 | 已完成：10/10；85/85 tests；Actions #33250938915 五路成功 |
 | M1-2B | Failure Taxonomy 与 gate 硬化 | M1-2A 完成 | 每类失败独立可触发，正常集 critical=0 | 已完成：91/91 tests；EX01～EX05 负向校准；Actions #33297042264 五路成功 |
-| M1-2C | 真实 provider 校准与评审 | M1-2B 完成 | 真实录制、fixture 对照、边界结论 | 未开始 |
+| M1-2B2 | Benchmark 扩容至 30 题 | M1-2B 完成 | 新增 20 题冻结、fixtures 可重建、双校准 CI 绿 | 已完成：97/97 tests；30/30、MRR=0.7222 |
+| M1-2C | 真实 provider 校准与评审 | M1-2B2 完成 | 真实录制、fixture 对照、边界结论 | 未开始 |
 | M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 进行中（M1-2A 已完成） |
 | M1-3 | Research Runtime（状态/队列/checkpoint/预算） | M1-2 完成 | 中断恢复与预算测试通过 | 未开始 |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
@@ -584,6 +596,18 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] README、技术实现文档和项目结构文档同步更新；
 - [x] GitHub Actions [run 33297042264](https://github.com/Peter-Sherlock/Veritas/actions/runs/33297042264) 五路任务（Python 3.11/3.14、suite 1.0.0/2.0.0、extraction calibration 零 diff）全部成功。
 
+### 11.5 M1-2B2 完成记录（2026-08-30）
+
+- [x] 冻结 benchmark v2.0.0：v1 十题逐字节携带 + 20 道新题（EX-011～030）；
+- [x] 新增覆盖：多断言（EX-014/024）、contradicts（EX-017/018/019/022）、as_of 版本视图（EX-029 index@0.24.1 Python 3.7+、EX-030 troubleshooting@0.25.2 legacy proxies dict）；
+- [x] `scripts/build_extraction_v2_fixtures.py` 确定性生成 fixtures，内置引文唯一性/检索排名/断言覆盖验证与 canary 计算；
+- [x] 澄清 `as_of` 语义为 ISO 日期边界（与 `published_at` 字典序比较）；
+- [x] v2 冻结基线：30/30、Hit@3=1.0、MRR=0.7222、P/R/citation=1.0、critical=0、major=0；
+- [x] 6 项新测试（superset 断言、覆盖形状、as_of 版本映射、确定性、漂移拒绝）；
+- [x] CI `extraction-calibration` 扩展为 M1-2A/M1-2B2 双矩阵，各自零 diff；
+- [x] Python 3.14.7 严格模式 97/97 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -617,8 +641,8 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - `expire` 与 `retract` 在 P0 共享追加式 current-view 机制，as-of 历史查询与基于 `valid_to` 的自动过期尚未实现；多来源 `conflict` 只验证保留冲突、不做消解仲裁；
 - Gate P0 已附条件通过（D-021）；附加条件要求在 M1 中用确定性 fixture 校准 LLM 组件，并在规模声明前补规模化 benchmark；
 - M1-1R 已消除语料 hash 的 CRLF/LF 平台漂移；后续新增语料必须继续遵守 canonical UTF-8/LF 契约；
-- 本地 TF-IDF 仍是词面基线；10 题 Hit@3=1.0 但 MRR=0.7833，EX-009 正确来源仅排第 3，不能宣称通用检索质量；
-- M1-2A 的 10/10 来自 `FixtureLLM`，真实端点 smoke/calibration 尚未执行，不能宣称模型抽取质量；
+- 本地 TF-IDF 仍是词面基线；30 题 Hit@3=1.0 但 MRR=0.7222，advanced 文档的词面优势把多个 gold 来源压到第 2/3，不能宣称通用检索质量；
+- M1-2A/M1-2B2 的满分来自 `FixtureLLM` 重放，真实端点 smoke/calibration 尚未执行，不能宣称模型抽取质量；
 - EX01～EX05 校准的是抽取链路已编码的失败路径；真实模型的失败分布（半正确引用、语义 paraphrase、跨文档断言漂移）要等 M1-2C 的真实录制才能观察；
 - extraction 当前只产出候选对象，尚未定义写入 Evidence Graph 的事务、去重与跨运行 canonical-key 冲突策略；
 - Suite 2.0.0 的 `4 / 11` 重算比例来自受控图结构，不能外推到真实研究任务；
@@ -629,6 +653,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-2B2 | 冻结 benchmark v2.0.0（v1 十题 + 20 新题：多断言 ×2、contradicts ×4、as_of 版本视图 ×2）；fixtures 由确定性脚本生成并内置三类验证；30/30、Hit@3=1.0、MRR=0.7222；CI 双校准矩阵；97/97 tests；登记 D-028 |
 | 2026-08-30 | M1-2B | 建立 `ex-failures-1` 抽取失败分类（EX01～EX05，critical/major 分级）、runner 拆分与 summary 增量 schema 演化；六项负向校准独立可触发，正常集 critical=0；91/91 tests；committed summary 重生成且 M1-2A 度量值不变；登记 D-027 |
 | 2026-08-29 | M1-2A | 新增 extraction contract/pipeline、10 题 HTTPX gold 与 fixture、calibration runner/summary 和 CI job；10/10，Hit@3=1.0、MRR=0.7833、precision/recall/citation=1.0；Python 3.11/3.14 均 85/85 tests；登记 D-025～D-026 |
 | 2026-08-29 | M1-1R | 将 corpus hash 冻结为 canonical UTF-8/LF，重算 48 条 manifest hash；新增 LF/CRLF 回归和 HTTPError 资源关闭；CI 扩展为 Python 3.11/3.14、suite 1.0.0/2.0.0 双矩阵；两版本均 73/73 tests、67/67 artifact hashes 与 48/48 corpus hashes 通过；登记 D-024 |

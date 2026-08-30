@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-91%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-97%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -86,12 +86,12 @@ Run the test suite:
 python -m unittest discover -s tests -v
 ```
 
-Run the frozen 10-question extraction calibration:
+Run the frozen 30-question extraction calibration:
 
 ```powershell
 python -m veritas.evaluation.extraction_runner `
-  --benchmark datasets/extraction/httpx-m1-2a/benchmark.json `
-  --fixtures datasets/extraction/httpx-m1-2a/fixtures.json `
+  --benchmark datasets/extraction/httpx-m1-2b/benchmark.json `
+  --fixtures datasets/extraction/httpx-m1-2b/fixtures.json `
   --corpus-root datasets/corpus/httpx-docs `
   --assert-pass
 ```
@@ -120,7 +120,8 @@ Choose the path that matches what you want to explore:
 | Explore the frozen HTTPX corpus | [corpus manifest](datasets/corpus/httpx-docs/manifest.json) and [`LocalCorpusProvider`](src/veritas/search/local_corpus.py) |
 | Inspect the LLM boundary | [`LLMProvider`, fixture replay and compatible client](src/veritas/providers/llm.py) |
 | Follow retrieval into grounded candidates | [strict extraction pipeline](src/veritas/extraction/pipeline.py) |
-| Inspect the 10-question extraction baseline | [benchmark](datasets/extraction/httpx-m1-2a/benchmark.json) and [summary](artifacts/extraction/httpx-initial-extraction-1.0.0/summary.json) |
+| Inspect the 30-question extraction benchmark | [benchmark](datasets/extraction/httpx-m1-2b/benchmark.json) and [summary](artifacts/extraction/httpx-initial-extraction-2.0.0/summary.json) |
+| See how the fixture benchmark is generated | [`build_extraction_v2_fixtures.py`](scripts/build_extraction_v2_fixtures.py) |
 | Read the full technical specification | [Technical implementation](docs/TECHNICAL_IMPLEMENTATION.md) |
 | Understand design decisions and boundaries | [Project structure and design](docs/PROJECT_STRUCTURE.md) |
 
@@ -208,7 +209,7 @@ datasets/
 ├── scenarios/       executable fixtures plus ground truth
 ├── suites/          explicit, version-locked suite manifests
 ├── corpus/          versioned HTTPX documentation snapshots
-└── extraction/      10 questions, gold assertions and frozen responses
+└── extraction/      30 questions (v2.0.0), gold assertions and frozen responses
 
 tests/               unit invariants and end-to-end scenarios
 docs/                detailed implementation and design decisions
@@ -237,26 +238,26 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas is currently in **M1-2: extraction calibration**. The deterministic M1-2A baseline is complete; live-provider calibration is not.
+Veritas is currently in **M1-2: extraction calibration**. The deterministic fixture baselines are complete; live-provider calibration is not.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
-- 91 automated tests on Python 3.11 and 3.14
+- 97 automated tests on Python 3.11 and 3.14
 - five frozen scenarios covering revision, retraction, branch isolation, expiry, and multi-source conflict
 - provenance, snapshot-drift, idempotency, replay, and artifact-integrity checks
 - selective execution matches full recomputation in all scenarios while evaluating 4 of 11 conclusions instead of 11 of 11
 - replaceable search/LLM protocols and a local HTTPX corpus with 10 documents and 48 version snapshots
 - canonical LF corpus hashes, with CI covering both Python versions and both frozen suite manifests
 - strict extraction validation: exact JSON schema, unique verbatim citations and deterministic Evidence/Claim/edge IDs
-- a frozen 10-question fixture baseline: 10/10 cases, exact assertion precision/recall 1.0, citation alignment 1.0
+- a frozen 30-question fixture benchmark (v2.0.0, a superset of the 10-question M1-2A set): 30/30 cases, exact assertion precision/recall 1.0, citation alignment 1.0, including multi-assertion, contradicts and as_of version-view cases
 - an extraction failure taxonomy (EX01–EX05) with critical/major severity, each class independently triggered by negative calibration
-- retrieval hit@3 is 1.0 but MRR is 0.7833; one correct source ranks third, so retrieval quality is not being overstated
+- retrieval hit@3 is 1.0 but MRR is 0.7222 on the expanded set; correct sources beyond rank one are kept as honest retrieval facts
 
 Gate P0 was reviewed on 2026-08-29 and **passed with conditions** (see [D-021](docs/PROJECT_STRUCTURE.md)): the mechanism is validated on controlled graphs; LLM extraction must be calibrated against deterministic fixtures in M1, and no cost claim may be extrapolated from the 4/11 ratio without a scaled benchmark.
 
-**M1-2B** added an extraction failure taxonomy: EX01 retrieval miss, EX02 contract rejection, and EX05 fixture drift are integrity failures, while EX03 citation rejection and EX04 assertion mismatch are quality gaps that the upcoming live-provider calibration will measure. The next slice is **M1-2C**: record a real provider against the same frozen prompts and compare it with the fixture baseline.
+**M1-2B** added an extraction failure taxonomy: EX01 retrieval miss, EX02 contract rejection, and EX05 fixture drift are integrity failures, while EX03 citation rejection and EX04 assertion mismatch are quality gaps that the upcoming live-provider calibration will measure. **M1-2B2** expanded the frozen benchmark to 30 questions, adding multi-assertion cases, contradicts relations, and two as_of version-view cases grounded in real HTTPX documentation history (the 0.24.1 Python floor and the pre-0.26 proxy configuration style). The next slice is **M1-2C**: record a real provider against the same frozen prompts and compare it with the fixture baseline.
 
 > [!WARNING]
-> This repository does not yet perform web search, verified live-LLM extraction, autonomous planning, or production-scale concurrent execution. The 10/10 extraction result is deterministic fixture replay, not evidence of real-model quality.
+> This repository does not yet perform web search, verified live-LLM extraction, autonomous planning, or production-scale concurrent execution. The 30/30 extraction result is deterministic fixture replay, not evidence of real-model quality.
 
 ## Further reading
 

@@ -44,21 +44,31 @@ jobs:
 
   extraction-calibration:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: M1-2A
+            dataset: datasets/extraction/httpx-m1-2a
+            summary: artifacts/extraction/httpx-initial-extraction-1.0.0/summary.json
+          - name: M1-2B2
+            dataset: datasets/extraction/httpx-m1-2b
+            summary: artifacts/extraction/httpx-initial-extraction-2.0.0/summary.json
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - name: Run frozen M1-2A extraction calibration
+      - name: Run frozen extraction calibration (${{ matrix.name }})
         run: >-
           python -m veritas.evaluation.extraction_runner
-          --benchmark datasets/extraction/httpx-m1-2a/benchmark.json
-          --fixtures datasets/extraction/httpx-m1-2a/fixtures.json
+          --benchmark ${{ matrix.dataset }}/benchmark.json
+          --fixtures ${{ matrix.dataset }}/fixtures.json
           --corpus-root datasets/corpus/httpx-docs
-          --output artifacts/extraction/httpx-initial-extraction-1.0.0/summary.json
+          --output ${{ matrix.summary }}
           --assert-pass
         env:
           PYTHONPATH: src
           PYTHONDONTWRITEBYTECODE: '1'
       - name: Verify committed calibration artifact is reproducible
-        run: git diff --exit-code -- artifacts/extraction/httpx-initial-extraction-1.0.0/summary.json
+        run: git diff --exit-code -- ${{ matrix.summary }}

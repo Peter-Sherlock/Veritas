@@ -1,0 +1,573 @@
+{
+  "benchmark_id": "httpx-initial-extraction",
+  "benchmark_version": "2.0.0",
+  "case_count": 30,
+  "cases": [
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-001",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "http2",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "http2",
+        "index",
+        "advanced"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-002",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "http2",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "http2",
+        "index",
+        "advanced"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-003",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "async",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "async",
+        "api",
+        "advanced"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-004",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "environment_variables",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "environment_variables",
+        "contributing"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-005",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "quickstart",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "quickstart",
+        "compatibility",
+        "advanced"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-006",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "advanced",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "advanced",
+        "quickstart",
+        "api"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-007",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "contributing",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "contributing",
+        "advanced",
+        "compatibility"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-008",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "compatibility",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-009",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "troubleshooting",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 3,
+      "retrieved_doc_ids": [
+        "advanced",
+        "quickstart",
+        "troubleshooting"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-010",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "index",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "index",
+        "contributing"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-011",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "quickstart",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "quickstart",
+        "compatibility"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-012",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "quickstart",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "quickstart",
+        "compatibility"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-013",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "quickstart",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "quickstart",
+        "compatibility",
+        "async"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 2,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-014",
+      "exact_match": true,
+      "expected_assertion_count": 2,
+      "expected_doc_id": "quickstart",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "quickstart",
+        "advanced",
+        "async"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-015",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "async",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "async",
+        "advanced",
+        "index"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-016",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "async",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "async",
+        "compatibility"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-017",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "compatibility",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-018",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "compatibility",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-019",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "compatibility",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-020",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "environment_variables",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "environment_variables",
+        "troubleshooting"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-021",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "environment_variables",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "environment_variables",
+        "advanced",
+        "async"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-022",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "troubleshooting",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 3,
+      "retrieved_doc_ids": [
+        "advanced",
+        "quickstart",
+        "troubleshooting"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-023",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "troubleshooting",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "troubleshooting",
+        "environment_variables"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 2,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-024",
+      "exact_match": true,
+      "expected_assertion_count": 2,
+      "expected_doc_id": "advanced",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-025",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "advanced",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "advanced",
+        "async",
+        "api"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-026",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "advanced",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-027",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "advanced",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "advanced",
+        "contributing",
+        "compatibility"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-028",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "api",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "api",
+        "quickstart"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-029",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "index",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "index",
+        "async"
+      ],
+      "status": "pass"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 1.0,
+      "assertion_recall": 1.0,
+      "case_id": "EX-030",
+      "exact_match": true,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "troubleshooting",
+      "failures": [],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "troubleshooting",
+        "compatibility"
+      ],
+      "status": "pass"
+    }
+  ],
+  "content_hash": "cf6c98b05ea42ae22113428e8539aff5762453f126d971d5591db2cfd037511d",
+  "corpus_id": "httpx-docs",
+  "critical_failure_count": 0,
+  "failure_counts": {
+    "EX01_RETRIEVAL_MISS": 0,
+    "EX02_CONTRACT_REJECTION": 0,
+    "EX03_CITATION_REJECTION": 0,
+    "EX04_ASSERTION_MISMATCH": 0,
+    "EX05_FIXTURE_DRIFT": 0
+  },
+  "failure_taxonomy": "ex-failures-1",
+  "failures": [],
+  "fixture_id": "httpx-extraction-fixtures-2.0.0",
+  "m1_2a_acceptance_candidate": true,
+  "major_failure_count": 0,
+  "metrics": {
+    "assertion_micro_precision": 1.0,
+    "assertion_micro_recall": 1.0,
+    "citation_exact_alignment": 1.0,
+    "mean_reciprocal_rank": 0.7222222222222221,
+    "retrieval_hit_at_k": 1.0
+  },
+  "model_id": "fixture-httpx-extractor-1",
+  "passed_case_count": 30,
+  "prompt_version": "httpx-extractor-1",
+  "schema_version": "evidence-assertion-1"
+}

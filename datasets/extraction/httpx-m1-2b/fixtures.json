@@ -1,0 +1,834 @@
+{
+  "fixture_id": "httpx-extraction-fixtures-2.0.0",
+  "model_id": "fixture-httpx-extractor-1",
+  "prompt_canary": {
+    "case_id": "EX-001",
+    "doc_id": "http2",
+    "version_id": "0.28.1",
+    "fixture_key": "bc9ab03811b91696c49b6133d60eabba78f19394b42dbf8929d9a3c2df239ac1"
+  },
+  "cases": [
+    {
+      "case_id": "EX-001",
+      "question": "How is HTTP/2 enabled on an HTTPX async client?",
+      "versions": {
+        "http2": "0.28.1",
+        "index": "0.28.1",
+        "advanced": "0.26.0"
+      },
+      "responses": {
+        "http2": {
+          "assertions": [
+            {
+              "statement": "HTTP/2 is enabled by constructing AsyncClient with http2=True",
+              "canonical_key": "httpx.async_client.http2=true",
+              "relation": "supports",
+              "quote": "And then instantiating a client with HTTP/2 support enabled:\n\n```python\nclient = httpx.AsyncClient(http2=True)\n...\n```"
+            }
+          ]
+        },
+        "index": {
+          "assertions": []
+        },
+        "advanced": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-002",
+      "question": "Which HTTPX client types support HTTP/2?",
+      "versions": {
+        "http2": "0.28.1",
+        "index": "0.28.1",
+        "advanced": "0.26.0"
+      },
+      "responses": {
+        "http2": {
+          "assertions": [
+            {
+              "statement": "HTTP/2 is available on both Client and AsyncClient",
+              "canonical_key": "httpx.http2.client_types=sync_and_async",
+              "relation": "supports",
+              "quote": "HTTP/2 support is available on both `Client` and `AsyncClient`, although it's\ntypically more useful in async contexts if you're issuing lots of concurrent\nrequests."
+            }
+          ]
+        },
+        "index": {
+          "assertions": []
+        },
+        "advanced": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-003",
+      "question": "What client-lifetime pattern should be avoided in an async hot loop?",
+      "versions": {
+        "async": "0.28.1",
+        "api": "0.28.1",
+        "advanced": "0.26.0"
+      },
+      "responses": {
+        "async": {
+          "assertions": [
+            {
+              "statement": "Do not instantiate multiple AsyncClient instances inside a hot loop",
+              "canonical_key": "httpx.async_client.hot_loop_instances=avoid",
+              "relation": "supports",
+              "quote": "In order to get the most benefit from connection pooling, make sure you're not instantiating multiple client instances - for example by using `async with` inside a \"hot loop\". This can be achieved either by having a single scoped client that's passed throughout wherever it's needed, or by having a single global client instance."
+            }
+          ]
+        },
+        "api": {
+          "assertions": []
+        },
+        "advanced": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-004",
+      "question": "How can HTTPX ignore environment variables?",
+      "versions": {
+        "advanced": "0.26.0",
+        "environment_variables": "0.28.1",
+        "contributing": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "environment_variables": {
+          "assertions": [
+            {
+              "statement": "Set trust_env to False to make HTTPX ignore environment variables",
+              "canonical_key": "httpx.environment.trust_env=false",
+              "relation": "supports",
+              "quote": "Environment variables are used by default. To ignore environment variables, `trust_env` has to be set `False`. There are two ways to set `trust_env` to disable environment variables:"
+            }
+          ]
+        },
+        "contributing": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-005",
+      "question": "What does an HTTPX response history contain?",
+      "versions": {
+        "quickstart": "0.28.1",
+        "compatibility": "0.28.1",
+        "advanced": "0.26.0"
+      },
+      "responses": {
+        "quickstart": {
+          "assertions": [
+            {
+              "statement": "Response history lists followed redirect responses in order",
+              "canonical_key": "httpx.response.history=ordered_redirects",
+              "relation": "supports",
+              "quote": "The `history` property of the response can be used to inspect any followed redirects.\nIt contains a list of any redirect responses that were followed, in the order\nin which they were made."
+            }
+          ]
+        },
+        "compatibility": {
+          "assertions": []
+        },
+        "advanced": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-006",
+      "question": "Which WSGI transport option sets the request client address?",
+      "versions": {
+        "advanced": "0.26.0",
+        "quickstart": "0.28.1",
+        "api": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": [
+            {
+              "statement": "WSGITransport uses remote_addr to set the request client address",
+              "canonical_key": "httpx.wsgi_transport.client_address=remote_addr",
+              "relation": "supports",
+              "quote": "* Use a given client address for requests by setting `remote_addr` (WSGI)."
+            }
+          ]
+        },
+        "quickstart": {
+          "assertions": []
+        },
+        "api": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-007",
+      "question": "Which project script runs the HTTPX test suite?",
+      "versions": {
+        "contributing": "0.28.1",
+        "advanced": "0.26.0",
+        "compatibility": "0.28.1"
+      },
+      "responses": {
+        "contributing": {
+          "assertions": [
+            {
+              "statement": "The scripts/test command runs the HTTPX test suite",
+              "canonical_key": "httpx.development.test_command=scripts/test",
+              "relation": "supports",
+              "quote": "To run the tests, use:\n\n```shell\n$ scripts/test\n```"
+            }
+          ]
+        },
+        "advanced": {
+          "assertions": []
+        },
+        "compatibility": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-008",
+      "question": "Does HTTPX follow redirects by default?",
+      "versions": {
+        "advanced": "0.26.0",
+        "compatibility": "0.28.1",
+        "quickstart": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "compatibility": {
+          "assertions": [
+            {
+              "statement": "HTTPX does not follow redirects by default",
+              "canonical_key": "httpx.redirects.follow_by_default=false",
+              "relation": "supports",
+              "quote": "Unlike `requests`, HTTPX does **not follow redirects by default**."
+            }
+          ]
+        },
+        "quickstart": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-009",
+      "question": "Which proxy URL scheme is recommended when an HTTPS destination uses a proxy?",
+      "versions": {
+        "advanced": "0.26.0",
+        "quickstart": "0.28.1",
+        "troubleshooting": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "quickstart": {
+          "assertions": []
+        },
+        "troubleshooting": {
+          "assertions": [
+            {
+              "statement": "Use an http URL scheme for the proxy instead of https",
+              "canonical_key": "httpx.proxy.url_scheme=http",
+              "relation": "supports",
+              "quote": "Change the scheme of your HTTPS proxy to `http://...` instead of `https://...`:"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "EX-010",
+      "question": "Which optional dependency enables zstd response decoding?",
+      "versions": {
+        "advanced": "0.26.0",
+        "index": "0.28.1",
+        "contributing": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "index": {
+          "assertions": [
+            {
+              "statement": "The zstandard optional dependency enables zstd response decoding",
+              "canonical_key": "httpx.optional_dependency.zstd=zstandard",
+              "relation": "supports",
+              "quote": "* `zstandard` - Decoding for \"zstd\" compressed responses. *(Optional, with `httpx[zstd]`)*"
+            }
+          ]
+        },
+        "contributing": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-011",
+      "question": "What is HTTPX's default timeout for network inactivity?",
+      "versions": {
+        "advanced": "0.26.0",
+        "quickstart": "0.28.1",
+        "compatibility": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "quickstart": {
+          "assertions": [
+            {
+              "statement": "HTTPX default timeout for network inactivity is five seconds",
+              "canonical_key": "httpx.timeout.default=5s",
+              "relation": "supports",
+              "quote": "The default timeout for network inactivity is five seconds. You can modify the\nvalue to be more or less strict:"
+            }
+          ]
+        },
+        "compatibility": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-012",
+      "question": "How are complicated JSON request bodies sent with HTTPX?",
+      "versions": {
+        "advanced": "0.26.0",
+        "quickstart": "0.28.1",
+        "compatibility": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "quickstart": {
+          "assertions": [
+            {
+              "statement": "Complicated request data structures are sent using JSON encoding instead of form encoding",
+              "canonical_key": "httpx.request.json_parameter",
+              "relation": "supports",
+              "quote": "Form encoded data is okay if all you need is a simple key-value data structure.\nFor more complicated data structures you'll often want to use JSON encoding instead."
+            }
+          ]
+        },
+        "compatibility": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-013",
+      "question": "How does HTTPX handle line endings when streaming text line by line?",
+      "versions": {
+        "quickstart": "0.28.1",
+        "compatibility": "0.28.1",
+        "async": "0.28.1"
+      },
+      "responses": {
+        "quickstart": {
+          "assertions": [
+            {
+              "statement": "HTTPX stream iteration normalises all line endings to \\n",
+              "canonical_key": "httpx.stream.iter_lines.universal_endings",
+              "relation": "supports",
+              "quote": "HTTPX will use universal line endings, normalising all cases to `\\n`."
+            }
+          ]
+        },
+        "compatibility": {
+          "assertions": []
+        },
+        "async": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-014",
+      "question": "What does HTTPX document about streaming large responses?",
+      "versions": {
+        "quickstart": "0.28.1",
+        "advanced": "0.26.0",
+        "async": "0.28.1"
+      },
+      "responses": {
+        "quickstart": {
+          "assertions": [
+            {
+              "statement": "Streaming responses are consumed inside a with block without loading the whole body into memory",
+              "canonical_key": "httpx.stream.context_manager",
+              "relation": "supports",
+              "quote": "For large downloads you may want to use streaming responses that do not load the entire response body into memory at once."
+            },
+            {
+              "statement": "response.content and response.text are unavailable inside a streaming block",
+              "canonical_key": "httpx.stream.unavailable_attributes",
+              "relation": "supports",
+              "quote": "If you're using streaming responses in any of these ways then the `response.content` and `response.text` attributes will not be available, and will raise errors if accessed."
+            }
+          ]
+        },
+        "advanced": {
+          "assertions": []
+        },
+        "async": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-015",
+      "question": "Which async environments does HTTPX support?",
+      "versions": {
+        "async": "0.28.1",
+        "advanced": "0.26.0",
+        "index": "0.28.1"
+      },
+      "responses": {
+        "async": {
+          "assertions": [
+            {
+              "statement": "HTTPX supports asyncio and trio as async environments",
+              "canonical_key": "httpx.async.backends",
+              "relation": "supports",
+              "quote": "HTTPX supports either `asyncio` or `trio` as an async environment."
+            }
+          ]
+        },
+        "advanced": {
+          "assertions": []
+        },
+        "index": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-016",
+      "question": "How do you close an AsyncClient explicitly?",
+      "versions": {
+        "advanced": "0.26.0",
+        "async": "0.28.1",
+        "compatibility": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "async": {
+          "assertions": [
+            {
+              "statement": "An AsyncClient can be closed explicitly with await client.aclose()",
+              "canonical_key": "httpx.async_client.aclose",
+              "relation": "supports",
+              "quote": "Alternatively, use `await client.aclose()` if you want to close a client explicitly:"
+            }
+          ]
+        },
+        "compatibility": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-017",
+      "question": "Does HTTPX follow redirects by default like requests?",
+      "versions": {
+        "advanced": "0.26.0",
+        "compatibility": "0.28.1",
+        "quickstart": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "compatibility": {
+          "assertions": [
+            {
+              "statement": "HTTPX does not follow redirects by default, unlike requests",
+              "canonical_key": "httpx.redirects.follow_default=false",
+              "relation": "contradicts",
+              "quote": "Unlike `requests`, HTTPX does **not follow redirects by default**."
+            }
+          ]
+        },
+        "quickstart": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-018",
+      "question": "Does HTTPX encode string request bodies as latin1 like Requests?",
+      "versions": {
+        "advanced": "0.26.0",
+        "compatibility": "0.28.1",
+        "quickstart": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "compatibility": {
+          "assertions": [
+            {
+              "statement": "HTTPX encodes str request bodies as utf-8, not latin1 like Requests",
+              "canonical_key": "httpx.request.body_encoding=utf-8",
+              "relation": "contradicts",
+              "quote": "HTTPX uses `utf-8` for encoding `str` request bodies."
+            }
+          ]
+        },
+        "quickstart": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-019",
+      "question": "Can cookies be passed per request on a Client instance?",
+      "versions": {
+        "advanced": "0.26.0",
+        "compatibility": "0.28.1",
+        "quickstart": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "compatibility": {
+          "assertions": [
+            {
+              "statement": "Cookies must be set on the client instance, not passed per request",
+              "canonical_key": "httpx.client.cookies=client_instance_only",
+              "relation": "contradicts",
+              "quote": "This usage is **not** supported:\n\n```python\nclient = httpx.Client()\nclient.post(..., cookies=...)\n```"
+            }
+          ]
+        },
+        "quickstart": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-020",
+      "question": "What does the NO_PROXY environment variable do in HTTPX?",
+      "versions": {
+        "advanced": "0.26.0",
+        "environment_variables": "0.28.1",
+        "troubleshooting": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "environment_variables": {
+          "assertions": [
+            {
+              "statement": "NO_PROXY disables the proxy for a comma-separated list of hostnames and urls",
+              "canonical_key": "httpx.env.no_proxy",
+              "relation": "supports",
+              "quote": "`NO_PROXY` disables the proxy for specific urls"
+            }
+          ]
+        },
+        "troubleshooting": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-021",
+      "question": "How do you make HTTPX ignore environment variables?",
+      "versions": {
+        "environment_variables": "0.28.1",
+        "advanced": "0.26.0",
+        "async": "0.28.1"
+      },
+      "responses": {
+        "environment_variables": {
+          "assertions": [
+            {
+              "statement": "Environment variables are ignored when trust_env is set to False",
+              "canonical_key": "httpx.client.trust_env=false",
+              "relation": "supports",
+              "quote": "Environment variables are used by default. To ignore environment variables, `trust_env` has to be set `False`."
+            }
+          ]
+        },
+        "advanced": {
+          "assertions": []
+        },
+        "async": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-022",
+      "question": "Does HTTPX properly support HTTPS proxies?",
+      "versions": {
+        "advanced": "0.26.0",
+        "quickstart": "0.28.1",
+        "troubleshooting": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "quickstart": {
+          "assertions": []
+        },
+        "troubleshooting": {
+          "assertions": [
+            {
+              "statement": "HTTPX does not properly support HTTPS proxies at this time",
+              "canonical_key": "httpx.proxy.https_support=false",
+              "relation": "contradicts",
+              "quote": "HTTPX does not properly support HTTPS proxies at this time."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "EX-023",
+      "question": "How is the proxy handshake timeout on HTTPS requests resolved?",
+      "versions": {
+        "advanced": "0.26.0",
+        "troubleshooting": "0.28.1",
+        "environment_variables": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "troubleshooting": {
+          "assertions": [
+            {
+              "statement": "HTTPS proxy handshake timeouts are fixed by changing the proxy scheme from https:// to http://",
+              "canonical_key": "httpx.proxy.scheme_fix=http",
+              "relation": "supports",
+              "quote": "Change the scheme of your HTTPS proxy to `http://...` instead of `https://...`:"
+            }
+          ]
+        },
+        "environment_variables": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-024",
+      "question": "What event hooks does the HTTPX client support?",
+      "versions": {
+        "advanced": "0.26.0",
+        "compatibility": "0.28.1",
+        "quickstart": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": [
+            {
+              "statement": "Client event hooks are called every time a particular type of event takes place",
+              "canonical_key": "httpx.client.event_hooks",
+              "relation": "supports",
+              "quote": "HTTPX allows you to register \"event hooks\" with the client, that are called\nevery time a particular type of event takes place."
+            },
+            {
+              "statement": "HTTPX currently has two event hooks: request and response",
+              "canonical_key": "httpx.client.event_hooks.types",
+              "relation": "supports",
+              "quote": "There are currently two event hooks:"
+            }
+          ]
+        },
+        "compatibility": {
+          "assertions": []
+        },
+        "quickstart": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-025",
+      "question": "How is the HTTPX connection pool size configured?",
+      "versions": {
+        "advanced": "0.26.0",
+        "async": "0.28.1",
+        "api": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": [
+            {
+              "statement": "Connection pool size is controlled with the limits keyword argument on the client",
+              "canonical_key": "httpx.limits.argument",
+              "relation": "supports",
+              "quote": "You can control the connection pool size using the `limits` keyword\nargument on the client."
+            }
+          ]
+        },
+        "async": {
+          "assertions": []
+        },
+        "api": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-026",
+      "question": "How can HTTPX transports be mocked during testing?",
+      "versions": {
+        "advanced": "0.26.0",
+        "compatibility": "0.28.1",
+        "quickstart": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": [
+            {
+              "statement": "MockTransport maps requests onto pre-determined responses during testing",
+              "canonical_key": "httpx.transport.mock_transport",
+              "relation": "supports",
+              "quote": "The `httpx.MockTransport` class accepts a handler function, which can be used\nto map requests onto pre-determined responses:"
+            }
+          ]
+        },
+        "compatibility": {
+          "assertions": []
+        },
+        "quickstart": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-027",
+      "question": "How is a custom CA bundle supplied for SSL verification?",
+      "versions": {
+        "advanced": "0.26.0",
+        "contributing": "0.28.1",
+        "compatibility": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": [
+            {
+              "statement": "A custom CA bundle is passed via the verify parameter",
+              "canonical_key": "httpx.ssl.verify=custom_ca_bundle",
+              "relation": "supports",
+              "quote": "If you'd like to use a custom CA bundle, you can use the `verify` parameter."
+            }
+          ]
+        },
+        "contributing": {
+          "assertions": []
+        },
+        "compatibility": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-028",
+      "question": "What does the Response.elapsed property measure?",
+      "versions": {
+        "advanced": "0.26.0",
+        "api": "0.28.1",
+        "quickstart": "0.28.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "api": {
+          "assertions": [
+            {
+              "statement": "Response.elapsed measures the time between sending the request and closing the response",
+              "canonical_key": "httpx.response.elapsed",
+              "relation": "supports",
+              "quote": "The amount of time elapsed between sending the request and calling `close()` on the corresponding response received for that request."
+            }
+          ]
+        },
+        "quickstart": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-029",
+      "question": "Which Python version did the HTTPX 0.24.1 documentation require?",
+      "versions": {
+        "advanced": "0.24.1",
+        "index": "0.24.1",
+        "async": "0.24.1"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "index": {
+          "assertions": [
+            {
+              "statement": "HTTPX 0.24.1 requires Python 3.7 or later",
+              "canonical_key": "httpx.install.python_minimum=3.7",
+              "relation": "supports",
+              "quote": "HTTPX requires Python 3.7+"
+            }
+          ]
+        },
+        "async": {
+          "assertions": []
+        }
+      }
+    },
+    {
+      "case_id": "EX-030",
+      "question": "How was a proxy configured on httpx.Client before the 0.26 transport mounts style?",
+      "versions": {
+        "advanced": "0.25.2",
+        "troubleshooting": "0.25.2",
+        "compatibility": "0.25.2"
+      },
+      "responses": {
+        "advanced": {
+          "assertions": []
+        },
+        "troubleshooting": {
+          "assertions": [
+            {
+              "statement": "Before 0.26, proxies were configured with a proxies dict mapping schemes to proxy urls",
+              "canonical_key": "httpx.client.proxies_dict=legacy",
+              "relation": "supports",
+              "quote": "proxies = {\n  \"http://\": \"http://myproxy.org\",\n  \"https://\": \"https://myproxy.org\",\n}"
+            }
+          ]
+        },
+        "compatibility": {
+          "assertions": []
+        }
+      }
+    }
+  ]
+}

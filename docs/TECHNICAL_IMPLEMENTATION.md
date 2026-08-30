@@ -2,7 +2,7 @@
 
 > 文档职责：记录可执行技术规格、数据契约、算法、测试与实际验证结果。  
 > 当前阶段：M1-2 抽取 pipeline 与校准
-> 当前状态：M1-2 in progress；M1-2A deterministic baseline complete；M1-2B failure taxonomy complete
+> 当前状态：M1-2 in progress；M1-2A/M1-2B/M1-2B2 complete；M1-2C next
 > 更新日期：2026-08-30  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[项目结构与设计文档](PROJECT_STRUCTURE.md)
@@ -15,6 +15,7 @@ M1-2 把 M1-1 的检索与 LLM 协议连接成可校准的 source-grounded extra
 
 - **M1-2A（已完成）**：严格 JSON schema、逐字引用对齐、确定性 Evidence/Claim/edge 候选、10 题 gold dataset 与 fixture baseline；
 - **M1-2B（已完成）**：抽取 Failure Taxonomy、独立负向校准、指标与 CI gate 硬化；
+- **M1-2B2（已完成）**：benchmark 扩容至 30 题（多断言、contradicts、as_of 版本视图），fixtures 由确定性脚本生成；
 - **M1-2C（未开始）**：在不暴露凭据的前提下录制真实 provider 输出，与同一冻结 fixture/gold truth 对照并作阶段评审。
 
 M1-2 的最终退出仍要求真实 LLM 校准记录；M1-2A 的 fixture 10/10 只证明契约与评测链路可复现。
@@ -1303,7 +1304,48 @@ Python 3.14.7 严格 `ResourceWarning` 模式：`Ran 91 tests OK`（85 + 新增 
 
 M1-2B 证明五类失败探测器独立可触发、正常集零失败、gate 语义分级清晰。它不观察任何真实模型失败模式——EX 分类是对"已编码失败路径"的校准，M1-2C 的真实 provider 记录才是第一条真实分布证据。
 
-## 21. 当前限制
+## 21. M1-2B2 Benchmark 扩容至 30 题
+
+### 21.1 动机与范围
+
+10 题对 M1-2C 的真实模型校准来说样本太薄：即使全对也不说明问题，出 2～3 个错也无法在 retrieval、contract、语义之间归因。M1-2B2 将冻结 benchmark 扩容为 `httpx-initial-extraction` **2.0.0**（`datasets/extraction/httpx-m1-2b/`），共 30 题：
+
+- EX-001～010 从 v1.0.0 逐字节携带（测试断言 superset 关系）；
+- EX-011～030 为 20 道新题，新增覆盖：
+  - **多断言**：EX-014（流式响应，2 条 supports）、EX-024（event hooks，2 条 supports）；
+  - **contradicts**：EX-017（默认不跟随重定向）、EX-018（utf-8 而非 latin1）、EX-019（cookies 仅 client 级）、EX-022（不支持 HTTPS proxy）；
+  - **as_of 版本视图**：EX-029（`index@0.24.1`，"HTTPX requires Python 3.7+"——0.25.2 起改为 3.8+）、EX-030（`troubleshooting@0.25.2`，legacy `proxies` dict 配置风格——0.26.0 起改为 transport mounts）。两题的引文均为语料真实历史差异，为 M1-5 的演化 benchmark 提供直接先例。
+
+`as_of` 语义澄清：`LocalCorpusProvider.latest_version` 将 `as_of` 与版本 `published_at` 做字典序比较，因此 `as_of` 必须是 ISO 日期边界（如 `2023-06-01T00:00:00Z`），不能传版本号。
+
+### 21.2 生成与验证脚本
+
+fixtures v2 不再手写，由 [`scripts/build_extraction_v2_fixtures.py`](../scripts/build_extraction_v2_fixtures.py) 从 benchmark v2 + 冻结语料确定性生成：gold 文档的 fixture 响应 = gold 断言集，其余 top-3 文档响应为空 assertions。脚本在写出前验证：每条 gold 引文在解析到的文档版本中逐字出现且唯一；gold 文档检索排名 ≤ `max_rank`；gold 断言全部被检索文档覆盖；并计算 prompt canary。fixture v1（`httpx-m1-2a/`）与摘要 artifact 1.0.0 保持冻结不变。
+
+### 21.3 冻结基线结果
+
+| 指标 | v1.0.0（10 题） | v2.0.0（30 题） |
+| --- | ---: | ---: |
+| Cases passed | 10/10 | 30/30 |
+| Retrieval Hit@3 | 1.0 | 1.0 |
+| Mean Reciprocal Rank | 0.7833 | 0.7222 |
+| Assertion micro precision / recall | 1.0 / 1.0 | 1.0 / 1.0 |
+| Citation exact alignment | 1.0 | 1.0 |
+| Critical / major failures | 0 / 0 | 0 / 0 |
+
+MRR 下降是扩容揭示的检索事实而非退化：advanced 文档（1296 行、词面覆盖广）在多个新题中排第 1，把 gold 文档压到第 2/3。这正是扩容的目的——把 v1 掩盖的检索弱点显性化，供后续检索升级决策使用。
+
+新增 6 项测试（`tests/scenarios/test_extraction_calibration_v2.py`）：30/30 通过与 hash 有效性、v1 superset 断言、覆盖形状（multi/contradicts/as_of 集合精确断言）、as_of fixture 版本映射、确定性重跑、fixture 漂移以 `EX05_FIXTURE_DRIFT` 拒绝。
+
+### 21.4 验证结果
+
+Python 3.14.7 严格 `ResourceWarning` 模式：`Ran 97 tests OK`（91 + 新增 6）。CI `extraction-calibration` job 扩展为双校准矩阵（M1-2A 10 题 + M1-2B2 30 题），各自要求 committed summary 零 diff。
+
+### 21.5 退出边界
+
+v2.0.0 仍为确定性 fixture 基线：30/30 证明契约、引用对齐、检索口径与评分在扩容后可复现，不证明真实模型达到同样 precision/recall。as_of 案例证明版本视图检索与引文对齐可复现，但不构成演化 benchmark 本身——那需要把 ChangeEvent 与 ground truth 一并冻结（M1-5）。
+
+## 22. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline，但当前 10 题由 `FixtureLLM` 重放；尚无真实 provider 校准记录；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
@@ -1318,12 +1360,13 @@ M1-2B 证明五类失败探测器独立可触发、正常集零失败、gate 语
 - 没有并发、多进程、规模或性能结果。
 - Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
-因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路，以及 M1-2B 的五类抽取失败分类与 gate 分级已经通过可复现验证”；不能外推为真实 LLM 抽取质量、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路、M1-2B 的五类抽取失败分类与 gate 分级，以及 M1-2B2 的 30 题扩容 benchmark 已经通过可复现验证”；不能外推为真实 LLM 抽取质量、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 22. 变更记录
+## 23. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-2B2 | 新增 20 题（EX-011～030）扩容 benchmark 至 `httpx-initial-extraction` 2.0.0；新增多断言 ×2、contradicts ×4、as_of 版本视图 ×2（index@0.24.1 Python 3.7+、troubleshooting@0.25.2 legacy proxies dict）；fixtures 由 `scripts/build_extraction_v2_fixtures.py` 确定性生成并内置 quote 唯一性与检索排名验证；30/30、Hit@3=1.0、MRR=0.7222、P/R/citation=1.0；CI 扩展为双校准矩阵；97/97 tests |
 | 2026-08-30 | M1-2B | 建立 `ex-failures-1` 抽取失败分类（EX01～EX05，critical/major 分级）、runner 拆分 `evaluate_extraction_calibration`、summary 增量 schema 演化与 per-case `failures` 数组；六项负向校准独立可触发，正常集 critical=0；91/91 tests（Python 3.14.7 严格模式），committed summary 重生成且度量值不变 |
 | 2026-08-29 | M1-2A | 新增严格 extraction contract、逐字引用对齐、确定性 Evidence/Claim/edge 候选、10 题 HTTPX gold/fixture baseline 与 calibration runner；10/10 cases，Hit@3/precision/recall/citation=1.0，MRR=0.7833；Python 3.11/3.14 均 85/85 tests |
 | 2026-08-29 | M1-1R | 统一语料 canonical UTF-8/LF hash 契约，重算 48 条 manifest hash，增加换行回归与严格资源检查；CI 扩展为 Python 3.11/3.14 和 suite 1.0.0/2.0.0 双矩阵；两版本均 73/73 tests、67/67 artifact hashes 与 48/48 corpus hashes 通过 |
