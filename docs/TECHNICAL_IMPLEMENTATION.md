@@ -1297,7 +1297,7 @@ python -W error::ResourceWarning -m unittest discover -s tests -v
 python -m veritas.evaluation.extraction_runner --benchmark datasets/extraction/httpx-m1-2a/benchmark.json --fixtures datasets/extraction/httpx-m1-2a/fixtures.json --corpus-root datasets/corpus/httpx-docs --output artifacts/extraction/httpx-initial-extraction-1.0.0/summary.json --assert-pass
 ```
 
-Python 3.14.7 严格 `ResourceWarning` 模式：`Ran 91 tests OK`（85 + 新增 6）。重新生成的 summary 与 M1-2A 版本相比仅含增量 schema 字段与 `failure` → `failures` 结构化替换，全部度量值不变，`--assert-pass` 通过。
+Python 3.14.7 严格 `ResourceWarning` 模式：`Ran 91 tests OK`（85 + 新增 6）。重新生成的 summary 与 M1-2A 版本相比仅含增量 schema 字段与 `failure` → `failures` 结构化替换，全部度量值不变，`--assert-pass` 通过。GitHub Actions [run 33297042264](https://github.com/Peter-Sherlock/Veritas/actions/runs/33297042264) 五路任务全部成功，其中 extraction-calibration job 确认 committed summary 零 diff。
 
 ### 20.5 退出边界
 
