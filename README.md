@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-121%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-134%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -135,6 +135,7 @@ Choose the path that matches what you want to explore:
 | Explore the frozen HTTPX corpus | [corpus manifest](datasets/corpus/httpx-docs/manifest.json) and [`LocalCorpusProvider`](src/veritas/search/local_corpus.py) |
 | Inspect the LLM boundary | [`LLMProvider`, fixture replay and compatible client](src/veritas/providers/llm.py) |
 | Follow retrieval into grounded candidates | [strict extraction pipeline](src/veritas/extraction/pipeline.py) |
+| See how sessions checkpoint and respect budgets | [runtime store and engine](src/veritas/runtime/) |
 | Inspect the 30-question extraction benchmark | [benchmark](datasets/extraction/httpx-m1-2c/benchmark.json) and [summary](artifacts/extraction/httpx-initial-extraction-3.0.0/summary.json) |
 | Inspect the real-provider calibration baselines | [v2 contract](artifacts/extraction/httpx-initial-extraction-2.0.0-deepseek-v4-flash/) and [v3 contract](artifacts/extraction/httpx-initial-extraction-3.0.0-deepseek-v4-flash/) (DeepSeek V4-Flash) |
 | See how the fixture benchmark is generated | [`build_extraction_v2_fixtures.py`](scripts/build_extraction_v2_fixtures.py) |
@@ -218,6 +219,7 @@ src/veritas/
 ├── storage/         SQLite persistence, lineage and current views
 ├── extraction/      strict JSON, quote alignment and domain candidates
 ├── evaluation/      evolution suites and extraction calibration
+├── runtime/         session state, work queue, checkpoints and budget
 ├── search/          retrieval protocol and frozen-corpus TF-IDF baseline
 └── providers/       LLM protocol, fixture replay and compatible client
 
@@ -254,10 +256,10 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas has closed **M1-2: extraction calibration** with a passed gate review and is entering **M1-3: research runtime**. The deterministic fixture baseline, two real-provider recordings, a contract revision that eliminated all integrity failures, transactional candidate persistence, and the M1-2 gate review are complete; the remaining quality gap is semantic paraphrasing.
+Veritas has closed **M1-2: extraction calibration** with a passed gate review and is inside **M1-3: research runtime**. The deterministic fixture baseline, two real-provider recordings, a contract revision that eliminated all integrity failures, transactional candidate persistence, the M1-2 gate review, and the runtime engine (session state, work queue, checkpoints, request budget) are complete; the remaining quality gap is semantic paraphrasing.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
-- 121 automated tests on Python 3.11 and 3.14
+- 134 automated tests on Python 3.11 and 3.14
 - five frozen scenarios covering revision, retraction, branch isolation, expiry, and multi-source conflict
 - provenance, snapshot-drift, idempotency, replay, and artifact-integrity checks
 - selective execution matches full recomputation in all scenarios while evaluating 4 of 11 conclusions instead of 11 of 11
@@ -272,7 +274,7 @@ Veritas has closed **M1-2: extraction calibration** with a passed gate review an
 
 Gate P0 was reviewed on 2026-08-29 and **passed with conditions** (see [D-021](docs/PROJECT_STRUCTURE.md)): the mechanism is validated on controlled graphs; LLM extraction must be calibrated against deterministic fixtures in M1, and no cost claim may be extrapolated from the 4/11 ratio without a scaled benchmark.
 
-**M1-2B** added an extraction failure taxonomy: EX01 retrieval miss, EX02 contract rejection, and EX05 fixture drift are integrity failures, while EX03 citation rejection and EX04 assertion mismatch are quality gaps. **M1-2B2** expanded the frozen benchmark to 30 questions (multi-assertion, contradicts, and two as_of version-view cases from real HTTPX history). **M1-2C-pre** wired the live-provider path; **M1-2C** recorded DeepSeek V4-Flash against the frozen prompts: 0/30 exact match with 9 contract rejections (model-proposed keys with illegal characters), 9 citation rejections, and 12 assertion mismatches at ≈0.42 CNY — pinning exact-statement matching as an unattainable quality bar (D-030). **M1-2C2** acted on that finding (D-031): the model no longer proposes canonical keys — the deterministic layer derives them from statements — and the scoring identity dropped to key level. The re-run under contract v2 eliminated **all 9 integrity failures** (critical = 0), cut citation rejections from 9 to 4 (citation alignment 0.4 → 0.8667), and left semantic paraphrasing as the dominant, honestly-measured quality gap (26/30 cases). **M1-2D** persisted the candidates (D-032): every contract-valid assertion lands in a dedicated transactional SQLite store keyed by (source version, canonical key, content hash), exact repeats dedup idempotently across runs, and disagreements are surfaced, never merged — the paraphrase noise is now frozen evidence (quickstart@0.28.1 holds 15 candidates with 15 distinct keys, neither EX-014 gold key among them). **Gate M1-2** verified all three exit conditions and passed the stage with three carried-forward items (D-033): M1-3 must be designed against the measured real baseline (0/30, persisted paraphrase noise), candidate aggregation stays expose-only until an evidence-based merge exists, and model-capability claims require a second run.
+**M1-2B** added an extraction failure taxonomy: EX01 retrieval miss, EX02 contract rejection, and EX05 fixture drift are integrity failures, while EX03 citation rejection and EX04 assertion mismatch are quality gaps. **M1-2B2** expanded the frozen benchmark to 30 questions (multi-assertion, contradicts, and two as_of version-view cases from real HTTPX history). **M1-2C-pre** wired the live-provider path; **M1-2C** recorded DeepSeek V4-Flash against the frozen prompts: 0/30 exact match with 9 contract rejections (model-proposed keys with illegal characters), 9 citation rejections, and 12 assertion mismatches at ≈0.42 CNY — pinning exact-statement matching as an unattainable quality bar (D-030). **M1-2C2** acted on that finding (D-031): the model no longer proposes canonical keys — the deterministic layer derives them from statements — and the scoring identity dropped to key level. The re-run under contract v2 eliminated **all 9 integrity failures** (critical = 0), cut citation rejections from 9 to 4 (citation alignment 0.4 → 0.8667), and left semantic paraphrasing as the dominant, honestly-measured quality gap (26/30 cases). **M1-2D** persisted the candidates (D-032): every contract-valid assertion lands in a dedicated transactional SQLite store keyed by (source version, canonical key, content hash), exact repeats dedup idempotently across runs, and disagreements are surfaced, never merged — the paraphrase noise is now frozen evidence (quickstart@0.28.1 holds 15 candidates with 15 distinct keys, neither EX-014 gold key among them). **Gate M1-2** verified all three exit conditions and passed the stage with three carried-forward items (D-033): M1-3 must be designed against the measured real baseline (0/30, persisted paraphrase noise), candidate aggregation stays expose-only until an evidence-based merge exists, and model-capability claims require a second run. **M1-3A** delivered that runtime engine (D-034): a queue of research questions runs through the calibrated extraction pipeline with a per-item transactional checkpoint in its own SQLite session store; resuming after a simulated crash skips finished items and converges to the same terminal state as an uninterrupted run; the request budget is reserved before each provider call so a crash can underspend but never overspend, and exhausting it is a clean stop that a raised budget resumes; contract rejections are terminal, recorded with their error code.
 
 > [!WARNING]
 > This repository does not yet perform web search, autonomous planning, or production-scale concurrent execution. The 30/30 extraction result is deterministic fixture replay, not evidence of real-model quality; the two measured live baselines (DeepSeek V4-Flash, one run per contract) are 0/30, with integrity failures eliminated by construction under contract v2 but semantic paraphrasing (26/30) unsolved.

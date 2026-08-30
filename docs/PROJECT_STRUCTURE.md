@@ -541,6 +541,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：M1-2 三条出口条件逐项核验通过——(1) **校准 CI 绿**：extraction-calibration 任务在每个切片保持绿灯（最新 run 33312539577 五路成功），评审日于 HEAD 复跑全部三类 CI 验证（121/121 tests、双 suite exit 0、校准 `--assert-pass` exit 0 且 artifacts 零 diff）；(2) **真实 LLM 校准记录**：v2/v3 两份契约的 DeepSeek V4-Flash 录制入库且均可确定性重放（重放测试钉死），五类失败分类在真实运行（EX02/EX03/EX04）与负向校准（EX01/EX05）中均有触发证据；(3) **benchmark 基线**：10 题（M1-2A）扩至 30 题 v3.0.0 逐字 superset，fixture 基线 30/30、Hit@3=1.0、MRR=0.7222。评审结论：**通过，允许启动 M1-3**，携带三条非阻塞项：C1 语义改写（26/30）是主导质量差距，M1-3 的预算/重规划设计必须以真实口径（0/30 exact-match、改写噪声已入库）为输入，不得以 fixture 满分为假设；C2 候选聚合/语义合并是开放设计问题，在有任何证据支持的方案前，候选层保持"只暴露不合并"（D-032）；C3 单 provider 单轮方差，任何模型能力结论需要第二次运行对照，规模与成本声明仍由 M1-5 承接（继承 D-021 条件二）。
 - 原因：M1-2 的目标是校准 harness 与测量，不是抽取质量达标——0/30 的真实基线恰是 harness 诚实测量的证据而非阶段失败，质量差距不构成对"测量工具已就绪"的阻塞。遗留项若不显式携带，M1-3 极易以 fixture 满分为隐含假设设计预算与重规划，重蹈"以受控结果外推生产"的覆辙（D-021 的教训）；把假设写进决策，使 M1-3 的设计与评审有据可查。
 
+### D-034：Research Runtime 采用独立会话存储与 reserve-then-call 预算，拒绝即终态
+
+- 状态：Implemented for M1-3A
+- 日期：2026-08-30
+- 决策：新增 `src/veritas/runtime/`（`store.py`/`engine.py`，schema `research-runtime-1`）。会话 = 工作队列 + 请求预算；队列处理复用 M1-2 校准过的抽取管线不改一字，预算经 provider 包装施加。逐项 checkpoint（每次 item 状态迁移一个事务）；恢复要求同一 `session_id` + 完全相同队列规格（`session_spec_drift` 拒绝）、预算单调（`budget_decrease` 拒绝）、终态 item 跳过、pending 重做。预算 reserve-then-call：`UPDATE ... WHERE requests_spent < budget_requests` 原子预留并先于调用持久化——崩溃宁可把已预留未响应的请求计为已花，绝不超支；耗尽是干净停止（`budget_exhausted` + pending 保留），提额后恢复。契约拒绝的 item 记录 `rejected` + 错误码即终态（确定性重放会复现拒绝，自动重试只是重复花费）；被拒 item 的部分抽取不落库（与校准 harness 批量语义一致）。`budget_requests` 为必填显式参数，无静默默认。
+- 原因：三个不变量各有所属——证据追加（D-032 候选存储）、演进身份唯一（P0 库）、checkpoint 可变（本存储）——合库会让 checkpoint 的可变性污染追加语义。预算的敌人是崩溃窗口：先调用后记账会在中断时少记花费、恢复后超支，reserve-then-call 把失败方向固定为"少花不超支"，代价只是崩溃后重做 item（候选去重使其无重复、预算如实多记）。拒绝即终态遵循 D-017/D-027 的分类学语义：契约拒绝是被拦截的完整性事件而非可重试噪声。预算显式必填是 D-033 C1 的直接落实——运行时不得假装抽取是免费的，真实基线（≈2.7 请求/题）是定标输入。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -563,7 +570,8 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-2D | 抽取候选事务持久化 | M1-2C2 完成 | CandidateStore 落地、双路径 `--store-out`、去重/守卫/冲突负面校准、噪声证据入库 | 已完成：121/121 tests；live 噪声量化钉住 |
 | M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 已完成（M1-2A/B/B2/C-pre/C/C2/D；基线扩至 30 题） |
 | Gate M1-2 | 判断校准 harness 是否足以支撑 Runtime | M1-2D 完成 | 出口条件逐项核验、遗留差距显式携带 | 已评审：通过（附三条携带项，D-033） |
-| M1-3 | Research Runtime（状态/队列/checkpoint/预算） | Gate M1-2 通过 | 中断恢复与预算测试通过 | 未开始 |
+| M1-3 | Research Runtime（状态/队列/checkpoint/预算） | Gate M1-2 通过 | 中断恢复与预算测试通过 | 进行中（M1-3A 引擎已完成；CLI 与 live 接线未做） |
+| M1-3A | Runtime 引擎：会话/队列/checkpoint/预算 | Gate M1-2 通过 | 中断恢复收敛、预算耗尽干净停止、拒绝即终态均有测试 | 已完成：134/134 tests |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
 | M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 未开始 |
 | M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-2 已收口；M1-3 未开始） |
@@ -701,6 +709,16 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 正式结论：**Gate M1-2 通过，允许启动 M1-3**（决策全文见 D-033）。
 
+### 11.11 M1-3A 完成记录（2026-08-30）
+
+- [x] `src/veritas/runtime/`：`RuntimeStore`（schema `research-runtime-1`，sessions/work_items）+ `ResearchRuntime` 引擎 + `WorkItem`/`BudgetExhausted`/`RuntimeSessionError`；
+- [x] 逐项 checkpoint 事务；恢复语义：同 session_id + 相同规格（漂移拒绝）、预算单调（下降拒绝）、终态跳过、pending 重做、耗尽提额解除；
+- [x] 预算 reserve-then-call 原子预留（先持久化后调用，崩溃宁少花不超支）；耗尽干净停止无异常；
+- [x] 契约拒绝即终态（记录错误码、不自动重试、部分抽取不落库）；已完成会话重跑拒绝；候选经 D-032 幂等落库（run 归属 `session:<id>`）；
+- [x] 13 项新测试：store 7（schema 漂移/规格校验/预留原子性/迁移/预算单调/终态守卫）+ engine 5（正常路径/预算耗尽与恢复/拒绝终态/**崩溃恢复收敛 + 参考等价**/规格漂移）+ 场景 1（fixture 会话 9 请求 3 gold 候选 + 重放拒绝）；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式 134/134 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -741,6 +759,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - 真实模型的 canonical_key 已由确定性层派生（D-031），键格式与键冲突类完整性风险在构造上消除；派生 slug 以完整 TEXT 存储（D-032），可读性与可分组性优先于字节开销；
 - EX01～EX05 校准的是抽取链路已编码的失败路径；两轮真实运行显示三类失败均出现且与分类语义吻合，但失败样本仍只有 30 题 × 单模型 × 每轮一次；
 - 抽取候选已有独立事务存储与跨 run 去重/冲突暴露（D-032），但尚未接入 Evidence Graph 写入事务；候选层按设计保留全部身份变体，语义改写合并仍无方案，噪声将原样进入后续聚合阶段；
+- M1-3A 运行时引擎仅在测试与场景层验证：无 CLI 入口、未接 live provider 长会话，崩溃恢复由测试内桩模拟而非真实进程中断；预算与重规划的联动（重规划尚未实现）是 M1-3B/M1-4 的设计输入；
 - Suite 2.0.0 的 `4 / 11` 重算比例来自受控图结构，不能外推到真实研究任务；
 - 空 semantic-change 场景需要严格遵守空集合指标约定，否则容易产生误导性的 precision；
 - 已配置 GitHub Actions CI（3.11/3.14 测试、suite 1.0.0/2.0.0、extraction calibration + artifact 零 diff），但尚无分支保护或 release 策略。
@@ -749,6 +768,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-3A | Research Runtime 引擎（D-034）：独立会话存储（`research-runtime-1`）+ 引擎；逐项 checkpoint、恢复跳过终态、规格漂移/预算下降/已完成重跑拒绝；reserve-then-call 预算（崩溃宁少花不超支）、耗尽干净停止、提额恢复；契约拒绝即终态；候选经 D-032 幂等落库；崩溃恢复与无崩溃参考 run 终态等价有测试钉死；134/134 tests |
 | 2026-08-30 | Gate M1-2 | 收口评审：三条出口条件逐项核验通过（校准 CI 绿、真实校准记录可重放、30 题基线），评审日 HEAD 复跑三类 CI 验证全绿；结论为通过并携带 C1～C3（真实口径输入、聚合只暴露不合并、单轮方差）（D-033）；M1-2 阶段表收口，M1-3 进入条件改为 Gate M1-2 通过；评审记录 11.10 |
 | 2026-08-30 | M1-2D | 抽取候选事务持久化（D-032）：独立 `CandidateStore`（schema `extraction-candidates-1`），身份含内容哈希、`INSERT OR IGNORE` 跨 run 幂等、观测表记录 run 归属；key 重派生/relation/空内容/schema 漂移守卫整批回滚；冲突只暴露不合并；fixture/live 双路径 `--store-out` 逐 case 事务落库，summary 逐字节不变；冻结证据：fixture 并集 32 幂等、live 52 候选/51 key、quickstart@0.28.1 十五 key 且 EX-014 gold key 缺席、跨 run 合库 84/84/80；121/121 tests |
 | 2026-08-30 | M1-2C2 | 契约 v2：模型只提 statement/relation/quote，canonical_key 由确定性层派生（D-031）；评分身份下沉 key 级；benchmark v3.0.0 + v1/v2 退役出 CI；真实重跑 EX02 9→0、citation alignment 0.4→0.8667、critical=0（≈0.50 元）；v3 live 证据 + 重放测试；110/110 tests |

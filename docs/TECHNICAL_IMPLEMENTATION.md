@@ -1515,11 +1515,34 @@ python -m veritas.evaluation.extraction_runner \
 
 正式结论：**Gate M1-2 通过，允许启动 M1-3**（决策 D-033；评审输入与判断见项目结构文档 11.10）。依据：M1-2 的目标是校准 harness 与测量而非抽取质量——0/30 真实基线是 harness 诚实测量的证据而非阶段失败。
 
-## 27. 当前限制
+## 27. M1-3A Research Runtime 引擎：会话状态、队列、checkpoint 与预算
+
+### 27.1 设计（D-034）
+
+新增 `src/veritas/runtime/` 包（`store.py` 会话存储 + `engine.py` 引擎，schema id `research-runtime-1`），独立于候选存储（D-032）与 P0 演进库：checkpoint 天然可变，证据天然追加——混用会让任一方破坏另一方的不变量。会话 = 工作队列（`WorkItem`：item_id/query/question/top_k/as_of）+ 请求预算；队列处理复用 M1-2 校准过的 `ResearchExtractionPipeline` 原封不动，预算通过包装 provider 施加——概率边界与被校准的那条完全一致。
+
+核心语义：
+
+- **逐项 checkpoint**：每个 item 的状态迁移（`pending` → `completed`/`rejected`）是独立事务；中断只丢当前 item；
+- **恢复语义**：以同一 `session_id` 与**完全相同**的队列规格重开（规格漂移以 `session_spec_drift` 拒绝）；终态 item（completed/rejected）跳过、pending 重做。重做 item 的候选去重由 D-032 的身份幂等保证——崩溃前已落库的候选不会重复；
+- **预算 = reserve-then-call**：`try_reserve_request` 以单条原子 `UPDATE ... WHERE requests_spent < budget_requests` 在调用前持久化预留；崩溃宁可少花（预留未响应也计为已花），绝不超支。预算耗尽是干净停止（会话转 `budget_exhausted`、pending 保留、无异常抛出），提高预算恢复执行；resume 时预算单调（`budget_decrease` 拒绝）；
+- **拒绝即终态**：契约拒绝（`ExtractionContractError`）的 item 记录 `rejected` + 错误码，不再自动重试（确定性重放会复现拒绝、真实重试只是重复花费）；被拒 item 的部分抽取不落库（与校准 harness 的批量语义一致）；
+- **会话终态守卫**：全部 item 终态才能 `completed`（`pending_items_remain` 守卫）；已完成会话重跑以 `session_completed` 拒绝；
+- **成本锚点（D-033 C1）**：`budget_requests` 是必填显式参数，无静默默认；真实基线（v3 live 82 请求/30 题 ≈ 2.7 请求/题）是预算定标的输入，fixture 满分不是。
+
+### 27.2 验证
+
+13 项新测试（121 → 134）：
+
+- store 单元 7 项：schema 漂移守卫、规格校验与漂移拒绝、预留原子性与持久性、item 迁移 checkpoint、预算单调与耗尽解除、会话终态守卫；
+- engine 单元 5 项：正常路径（3 item/3 请求/3 候选/run 归属 `session:<id>`）、预算耗尽干净停止 + 提额恢复（花费 1→2，无浪费调用）、契约拒绝记录且终态（重跑 `session_completed`）、**崩溃恢复收敛**（`_CrashAfterLLM` 模拟进程崩溃：2 item 完成 + 1 item 中断，花费 3；恢复只重做中断 item，健康 provider 仅见 1 次调用，最终花费 4；与无崩溃参考 run 的终态逐项相等、候选身份集合相等）、规格漂移拒绝；
+- 场景 1 项：冻结 fixture provider 驱动真实 httpx 语料的 3 题会话（EX-001～003）——completed、9 请求、候选恰为 3 个 gold 身份；已完成会话重放被拒且存储零变化。
+
+## 28. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
-- 抽取候选已事务持久化（M1-2D CandidateStore，含跨 run 去重与冲突暴露），但尚未接入 initial-research graph transaction，claim 级聚合与语义改写合并没有方案；
+- 抽取候选已事务持久化（M1-2D CandidateStore，含跨 run 去重与冲突暴露），运行时会话状态/队列/checkpoint/预算引擎已落地（M1-3A，独立会话存储）；候选尚未接入 Evidence Graph 写入事务，claim 级聚合与语义改写合并没有方案；runtime 引擎尚无 CLI 与 live provider 运行接线（M1-3B）；
 - 没有来源质量权重；
 - 没有处理复杂逻辑表达式、概率置信度或循环依赖；
 - 没有定义真实网页版本检测；
@@ -1530,12 +1553,13 @@ python -m veritas.evaluation.extraction_runner \
 - 没有并发、多进程、规模或性能结果。
 - Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
-因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化），以及 Gate M1-2 收口评审（D-033，携带 C1～C3）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（两轮真实基线均为 0/30，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3），以及 M1-3A 的会话/队列/checkpoint/预算引擎（D-034，中断恢复与预算测试通过）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（两轮真实基线均为 0/30，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 28. 变更记录
+## 29. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-3A | Research Runtime 引擎（D-034）：独立会话存储 `research-runtime-1`（sessions/work_items）+ `ResearchRuntime` 引擎；逐项 checkpoint 事务，恢复跳过终态、规格漂移/预算下降/已完成会话重跑均拒绝；预算 reserve-then-call 原子预留（崩溃宁少花不超支）、耗尽干净停止、提额恢复；契约拒绝即终态记录错误码；候选经 D-032 身份幂等落库（run 归属 `session:<id>`）；13 项新测试含崩溃恢复收敛与无崩溃参考 run 等价断言；134/134 tests |
 | 2026-08-30 | Gate M1-2 | 收口评审：出口条件三条逐项核验（校准 CI 绿/真实录制可重放/30 题基线），评审日 HEAD 复跑 121/121 + 双 suite + 校准零 diff；结论通过、携带 C1～C3（真实口径输入、聚合只暴露不合并、单轮方差）；M1-2 收口，M1-3 进入条件更新（D-033） |
 | 2026-08-30 | M1-2D | 抽取候选事务持久化：新增 `CandidateStore`（schema `extraction-candidates-1`，独立于 P0 冻结存储），身份 `(source_version_id, canonical_key, content_hash)`、`INSERT OR IGNORE` 去重、观测表记录 run 归属（D-032）；完整性守卫（key 重派生比对/relation 白名单/空内容/schema 漂移）整批回滚；`on_case_done` 升级携带 bundle，fixture/live 双路径 `--store-out` 逐 case 事务落库，summary 逐字节不变；冻结证据：fixture 金标准并集 32 幂等重放、live 52 候选（51 key，同 key 跨源分立）、quickstart@0.28.1 十五候选十五 key 且 EX-014 gold key 全部缺席（改写噪声入库）、跨 run 合库 84/84/80 且 live 对金标准零命中；121/121 tests |
 | 2026-08-30 | M1-2C2 | 契约 v2（`evidence-assertion-2`/`httpx-extractor-2`）：模型只提 statement/relation/quote，canonical_key 由 `derive_canonical_key` 从 statement 确定性派生（D-031）；评分身份下沉到 key 级；`canonical_key_conflict` 删除、`invalid_statement` 新增；benchmark v3.0.0（30 题 superset，gold 无 canonical_key）；v1/v2 数据集退役出 CI，v1/v2 时代测试退役或重写；v3 fixture 基线 30/30；真实重跑 EX02 9→0、EX03 9→4、citation alignment 0.4→0.8667、critical=0，成本 ≈0.50 元；v3 live 证据入库 + 重放测试；110/110 tests |
