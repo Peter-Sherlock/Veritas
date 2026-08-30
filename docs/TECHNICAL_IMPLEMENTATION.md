@@ -1699,7 +1699,22 @@ python -m veritas.runtime \
 
 `tests/scenarios/test_autonomy_loop_m3.py` 在真实本地语料上跑完整弧线：T0（聚类）claim accepted + 结论 pass@1 → 真实修订后无聚类再研究（pre-M2 路径）→ claim unsupported、结论 unknown@2 → `plan_re_research` 产出 spec（question = 原 claim statement、query = "httpx retries connection setup failures"）→ 聚类再研究 bundle 经刷新写回 → claim 回 ACCEPTED、结论 pass@3；重复刷新幂等（实体计数不变）。
 
-## 36. 当前限制
+## 36. M3-B watch 模式与一条命令闭环
+
+### 36.1 漂移检测与四段编排（D-043）
+
+`autonomy/watch.py`：`detect_drift(repository, corpus)` 用新增的 `list_source_versions()` 枚举演化库源、以 `source_is_active`（派生 current-view）取每源当前版本，对照语料 manifest 最新版；版本标签相同或内容哈希相同都不是漂移（M1-5B SAME 步语义的一致延伸）。`run_watch_loop` 四段：
+
+1. **漂移**：bridge revise 事件**不带新 claims** 应用——claim 失去支持、结论翻 unknown（"源已变、再研究待做"的诚实中间态）；模型调用为零；
+2. **规划**：`plan_re_research` 从非 PASS 结论生成 runtime spec；
+3. **研究**：真实 runtime 会话（预算/checkpoint/聚类）执行计划；引擎新增 `on_item_bundle` 回调把每个解析后 bundle 交给循环；
+4. **刷新**：`apply_research_refresh` 写回；报告含漂移清单、计划、会话账目、刷新明细、最终结论状态。
+
+### 36.2 CLI 与无操作不变式
+
+`python -m veritas.autonomy`（`autonomy/cli.py`）：live/replay 双 provider、录制、`--output` 报告落盘，与 runtime CLI 同一风格。空计划跳过会话（runtime 拒绝空会话是契约，不绕开）。**第二轮无操作不变式**有测试钉死：世界没变、结论全 PASS 时——零漂移、空计划、零请求、零刷新。自主系统的安全声明：没有可做的工作时，agent 一步都不走。
+
+## 37. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
@@ -1716,10 +1731,11 @@ python -m veritas.runtime \
 
 因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034）、M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035）、M1-4 的确定性重规划（D-036，触发场景测试通过）、M1-5A 的 GraphBridge 三层翻译与真实语料修订闭环（D-037，index 0.24.1→0.25.2 驱动结论 pass→unknown），以及 M1-5B 的真实历史规模基准（D-038，13 个真实修订事件逐事件等价、selective 23/185 求值）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 37. 变更记录
+## 38. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M3-B | watch 模式与一条命令闭环（D-043）：`detect_drift` + `run_watch_loop` 四段编排（漂移→规划→预算会话→刷新，漂移事件不带 claims）；CLI `python -m veritas.autonomy`；引擎 `on_item_bundle`、存储 `list_source_versions`；一轮修复 unknown@2→pass@3 + 二轮无操作不变式；190/190 tests |
 | 2026-08-30 | M3-A | 自主闭环前两块拼图（D-042）：`src/veritas/autonomy/`——`plan_re_research`（非 PASS 结论 → runtime spec 格式确定性研究计划）+ `apply_research_refresh`（活跃源守卫、引擎同款转换契约、`research_refreshes` 审计表、幂等）；存储层新增 `source_is_active`；修复弧线 pass@1→unknown@2→pass@3 场景钉死；188/188 tests |
 | 2026-08-30 | M2-2 | 簇级结论与冻结校准（D-041）：校准提升为正式模块 + 冻结 artifact（exact 3/32、cluster 19/32、19 组配对明细）+ CI 零 diff；演化侧对照场景钉死聚合价值——开簇改写再研究重入同一 claim（零 churn、结论停 v1 pass），关簇改写 churn（结论 pass@1→unknown@2）；179/179 tests |
 | 2026-08-30 | M2-1 | 候选语义聚合（D-040）：`src/veritas/aggregation/`——相似度 + 数字/否定硬守卫、`ClaimClusterStore`（代表冻结/单趟指派/审计行/policy_drift）、`resolve_bundle` 身份重映射；运行时可选接入默认全关、CLI `--cluster-store`；阈值从真录校准冻结 0.375（真改写 ≥0.385 / 异事实 ≤0.364，零假合并），簇级覆盖 19/32 vs 精确 key 3/32；178/178 tests |

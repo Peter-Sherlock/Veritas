@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-188%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-190%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -282,7 +282,7 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas has **closed M1** (gate review D-039), is inside **M2: from candidates to a trustworthy graph**, and has started **M3: the autonomous research loop**. M2-1 delivered candidate aggregation (D-040): a deterministic clusterer with hard number/negation guards maps a real model's rewordings onto the claim of their cluster representative — calibrated on the live DeepSeek recording, cluster-level coverage of the gold assertions rises from 3/32 (exact keys) to **19/32** with zero observed false merges (frozen artifact, CI-reproducible). M2-2 proved the payoff on the evolution side (D-041): with clustering enabled, a paraphrased re-research after a real revision re-enters the same claim and the conclusion stays at v1 pass — zero churn; without it, the same event flips the conclusion to unknown. M3-A built the loop's decision core (D-042): the planner turns every non-PASS conclusion into a deterministic runtime session spec, and the refresh applier writes re-research results back into the graph under the engine's exact transition contract — a churned conclusion is repaired pass@1 → unknown@2 → pass@3 in a frozen scenario.
+Veritas has **closed M1** (gate review D-039), is inside **M2: from candidates to a trustworthy graph**, and has built **M3: the autonomous research loop**. M2-1 delivered candidate aggregation (D-040): a deterministic clusterer with hard number/negation guards maps a real model's rewordings onto the claim of their cluster representative — calibrated on the live DeepSeek recording, cluster-level coverage of the gold assertions rises from 3/32 (exact keys) to **19/32** with zero observed false merges (frozen artifact, CI-reproducible). M2-2 proved the payoff on the evolution side (D-041): with clustering enabled, a paraphrased re-research after a real revision re-enters the same claim and the conclusion stays at v1 pass — zero churn; without it, the same event flips the conclusion to unknown. M3 turned detection into action (D-042/D-043): one command — `python -m veritas.autonomy` — detects real corpus drift, plans re-research from every non-PASS conclusion, runs a budgeted session, and refreshes the graph, repairing a churned conclusion pass@1 → unknown@2 → pass@3; a second pass over an unchanged world is a guaranteed no-op.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
 - 161 automated tests on Python 3.11 and 3.14

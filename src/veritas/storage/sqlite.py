@@ -334,6 +334,12 @@ class SQLiteRepository:
         ).fetchone()
         return row is not None
 
+    def list_source_versions(self) -> list[SourceVersion]:
+        rows = self.connection.execute(
+            "SELECT * FROM source_versions ORDER BY version_id"
+        ).fetchall()
+        return [self._source_from_row(row) for row in rows]
+
     def source_is_active(self, version_id: str) -> bool:
         """The derived current-view test: a source is active while nothing
         supersedes it and no retract/expire event names it."""

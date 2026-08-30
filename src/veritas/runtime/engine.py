@@ -154,6 +154,7 @@ class ResearchRuntime:
         budget_requests: int,
         observed_at: str,
         on_item_done: Callable[[dict[str, Any]], None] | None = None,
+        on_item_bundle: Callable[[Any], None] | None = None,
     ) -> dict[str, Any]:
         """Run or resume the session until it lands or the budget stops it.
 
@@ -163,6 +164,9 @@ class ResearchRuntime:
         fires after every item reaches a terminal state (and once when the
         budget stops mid-item), receiving the updated work-item row — the
         hook for progress streaming and crash-safe recording.
+        ``on_item_bundle`` fires when an item's extraction contract holds,
+        receiving the (possibly cluster-resolved) candidate bundle — the
+        hook the autonomy loop uses to feed the refresh applier.
         """
         self._budgeted.bind(session_id)
         self._store.create_session(
@@ -222,6 +226,8 @@ class ResearchRuntime:
                         bundle = resolve_bundle(
                             bundle, self._cluster_store, observed_at=observed_at
                         )
+                    if on_item_bundle is not None:
+                        on_item_bundle(bundle)
                     if self._candidate_store is not None:
                         records = [
                             record
