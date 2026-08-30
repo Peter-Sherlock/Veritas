@@ -1644,7 +1644,33 @@ python -m veritas.runtime \
 - **C4**：检索 MRR 0.7222 是词面基线上限，语义检索未评估。
 - M2 主题定为"**从候选到可信图**"（语义质量档）：M2-1 候选语义聚合（确定性相似度 + 硬守卫的簇身份层，候选存储保持只追加不动）、M2-2 簇级结论与冻结校准、M2-3 同契约重复运行。自主研究闭环（查询规划、watch 模式、自动再研究）排为 **M3**——自主性建在碎片化图上是在自动化噪声，先让图可信，自主决定才有可靠反馈。
 
-## 33. 当前限制
+## 33. M2-1 候选语义聚合
+
+### 33.1 确定性相似度与硬守卫（D-040）
+
+`src/veritas/aggregation/clusterer.py`：语句 → 小写 token（版本号整 token 化，`3.8` 不拆成 `3`/`8`），两类**硬守卫**在相似度计算前直接判"永不合"（返回 `None`）：
+
+1. **数字/版本守卫**：数字 token 集必须完全一致——`HTTPX requires Python 3.7 or later` 与 `3.8 or later` 永远分开（P0 真实 floor 修订的直接教训：词面相似不等于事实相同）；
+2. **否定守卫**：否定 token 集必须一致——正/反陈述分开。
+
+守卫之外，相似度 = 内容 token Jaccard（数字 token 排除在内容集外由守卫管理；否定词不进停用词表而是被守卫管理）。停用词表冻结在模块内。
+
+### 33.2 ClaimClusterStore 与身份重映射
+
+`store.py`（schema `claim-clusters-1`）：
+
+- **代表冻结**：簇的 representative key 在创建时定格，成员只挂靠、不改键——下游 claim id 终生稳定；
+- **单趟指派**：新语句与所有簇代表（按 key 排序）算相似度，加入得分最高且 ≥ 阈值的簇（平局取字典序最小代表），否则自立新簇；簇创建后不再合并（文档化的召回换稳定性取舍）；
+- **审计行**：成员行携带 method（founder/lexical）与 score；
+- **打开守卫**：schema 漂移 → `schema_drift`；阈值不一致 → `policy_drift`（不同阈值下的决策不可比）；key 与语句重派生不匹配 → `canonical_key_mismatch`。
+
+`resolve.py` 的 `resolve_bundle` 在运行时抽取后执行：逐 claim 经簇存储解析 → claim id 重算为 `claim_id_for(representative_key)` → 证据边重挂（边 id 重算）→ 同簇塌缩去重。证据 span 与原始 assertion 记录不动，候选存储保持 pre-aggregation 真相（C2 的"只暴露"层不被动）。
+
+### 33.3 冻结校准（真录 52 候选 × 32 gold）
+
+阈值 0.375 从 M1-2C2 真录（DeepSeek V4-Flash）与 gold 断言的成对分布校准并冻结：真改写配对最低 **0.385**（EX-027 CA bundle 句），异事实配对最高 **0.364**（EX-012 JSON 编码句），逐对人工审核零假合并。结果：**簇级覆盖 19/32**（精确 key 基线 3/32，≈6.3 倍）；4 个被契约拒绝的 case 无候选不参与；EX-029（版本号钉死）与 EX-030 由数字守卫正确排除。校准钉进 `tests/scenarios/test_aggregation_m2_1.py`。
+
+## 34. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
@@ -1661,10 +1687,11 @@ python -m veritas.runtime \
 
 因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034）、M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035）、M1-4 的确定性重规划（D-036，触发场景测试通过）、M1-5A 的 GraphBridge 三层翻译与真实语料修订闭环（D-037，index 0.24.1→0.25.2 驱动结论 pass→unknown），以及 M1-5B 的真实历史规模基准（D-038，13 个真实修订事件逐事件等价、selective 23/185 求值）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 34. 变更记录
+## 35. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M2-1 | 候选语义聚合（D-040）：`src/veritas/aggregation/`——相似度 + 数字/否定硬守卫、`ClaimClusterStore`（代表冻结/单趟指派/审计行/policy_drift）、`resolve_bundle` 身份重映射；运行时可选接入默认全关、CLI `--cluster-store`；阈值从真录校准冻结 0.375（真改写 ≥0.385 / 异事实 ≤0.364，零假合并），簇级覆盖 19/32 vs 精确 key 3/32；178/178 tests |
 | 2026-08-30 | Gate M1 | 收口评审（D-039）：出口条件五条核验通过（基线 6ea0dad、CI run 33321253704 六任务成功）；携带 C2/C3-R/C4 进 M2；M2 主题"从候选到可信图"、自主闭环排 M3；M1 关闭 |
 | 2026-08-30 | M1-5B | 规模演化 benchmark（D-038）：`evolution_benchmark` 六文档 T0 图 + 13 个真实内容修订事件（9 幸存 + 4 watched 事实移除，manifest `published_at` 排序、SAME 哈希步跳过）；逐事件 full-recompute 等价 oracle（漂移即 `equivalence_violation`）；冻结成本声明 selective 23 vs 全量 185 求值（ratio 0.1243），summary 提交 + 测试字节复现 + CI 零 diff；161/161 tests |
 | 2026-08-30 | M1-5A | 端到端集成（D-037）：`GraphBridge`（语料→SourceVersion 对齐管线 id、bundle→演进库+T0 评估/结论、manifest 历史→revise 事件）；真实修订 index 0.24.1→0.25.2（Python 3.7+→3.8+）驱动 P0 引擎在真实抽取图上完成演化闭环，结论 pass@1→unknown@2，apply 幂等；152/152 tests |

@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-161%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-178%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -281,7 +281,7 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas has **closed M1** (gate review D-039): extraction calibration with a passed gate review, the research runtime (engine + CLI + a real live session), dynamic replanning, and end-to-end evolution integration benchmarked at scale on real corpus history. The next stage, **M2: from candidates to a trustworthy graph**, attacks the dominant quality gap — semantic paraphrasing fragments real-model extraction into distinct claims (key-level recall 2/32) — via candidate aggregation with deterministic guards; the autonomous research loop follows in M3.
+Veritas has **closed M1** (gate review D-039) and started **M2: from candidates to a trustworthy graph**. M2-1 delivered candidate aggregation (D-040): a deterministic clusterer with hard number/negation guards maps a real model's rewordings onto the claim of their cluster representative — calibrated on the live DeepSeek recording, cluster-level coverage of the gold assertions rises from 3/32 (exact keys) to **19/32** with zero observed false merges. The autonomous research loop follows in M3.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
 - 161 automated tests on Python 3.11 and 3.14

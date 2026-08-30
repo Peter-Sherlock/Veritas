@@ -14,6 +14,7 @@ from typing import Any, Callable, Sequence
 from veritas.extraction.models import ExtractionContractError
 from veritas.extraction.pipeline import ResearchExtractionPipeline
 from veritas.extraction.store import CandidateStore, candidates_from_document
+from veritas.aggregation.resolve import resolve_bundle
 from veritas.runtime.store import (
     SESSION_ACTIVE,
     SESSION_COMPLETED,
@@ -130,10 +131,12 @@ class ResearchRuntime:
         store: RuntimeStore,
         source_namespace: str,
         candidate_store: CandidateStore | None = None,
+        cluster_store: Any = None,
         policy: ReplanPolicy = ReplanPolicy(),
     ) -> None:
         self._store = store
         self._candidate_store = candidate_store
+        self._cluster_store = cluster_store
         self._source_namespace = source_namespace
         self._policy = policy
         self._budgeted = _BudgetedProvider(store, provider)
@@ -211,6 +214,14 @@ class ResearchRuntime:
                         session_id, item_id, exc.code, observed_at
                     )
                 else:
+                    if self._cluster_store is not None:
+                        # Claim identity clustering (D-040): paraphrase
+                        # variants re-enter the claim of their cluster
+                        # representative. The raw candidate records below
+                        # stay pre-aggregation.
+                        bundle = resolve_bundle(
+                            bundle, self._cluster_store, observed_at=observed_at
+                        )
                     if self._candidate_store is not None:
                         records = [
                             record

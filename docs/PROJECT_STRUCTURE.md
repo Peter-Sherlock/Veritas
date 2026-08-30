@@ -73,6 +73,10 @@ Veritas/
 │   ├── extraction/
 │   │   ├── models.py         # contract error、抽取结果与 candidate bundle
 │   │   └── pipeline.py       # strict parser、quote alignment、候选物化
+│   ├── aggregation/
+│   │   ├── clusterer.py       # 确定性相似度 + 数字/否定硬守卫（D-040）
+│   │   ├── store.py           # ClaimClusterStore：代表冻结/单趟指派/审计行
+│   │   └── resolve.py         # resolve_bundle：claim 身份重映射
 │   ├── evaluation/
 │   │   ├── scenario.py
 │   │   ├── metrics.py
@@ -584,6 +588,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：M1 出口条件定为五条并逐项核验：(1) 校准 CI 绿（extraction-calibration 任务重生成零 diff，run 33321253704）；(2) 运行时可操作且有真实会话证据可重放（M1-3B 三题 DeepSeek 会话 + 重放测试）；(3) 真实语料历史驱动演化闭环且规模等价/成本冻结（M1-5A 闭环 + M1-5B 13 事件 23/185 求值逐事件等价，CI 零 diff）；(4) 预算/重规划以真实口径定标（C1 已落实：budget_requests 必填 + 降级轴）；(5) 双文档与决策记录完整（D-029..D-038、完成记录 11.6..11.15 无欠账）。评审结论：**通过**。携带进 M2 的差距：**C2**（候选聚合仍只暴露不合并——真实模型 key 级 recall 2/32、改写碎片是图可信度的主导威胁）、**C3-R**（同一契约下重复运行对照未做，单轮方差不能当能力定值）、**C4**（检索 MRR 0.7222 为词面基线上限，语义检索未评估）。M2 进入条件：Gate M1 通过；M2 主题定为"从候选到可信图"（语义质量档），M2-1 = 候选语义聚合（确定性相似度 + 硬守卫的簇身份层，候选存储保持只追加不动）。自主研究闭环（查询规划、watch 模式、自动再研究）排为 M3，理由：自主性建在碎片化图上是在自动化噪声——先让图可信，自主决定才有可靠反馈。
 - 原因：M1 的原始目标是"初始研究与搜索"——协议、校准、运行时、集成四件事都已有可复现证据，继续在 M1 内加切片只会推迟质量问题的正面处理。Gate 的价值在于把"完成"定义清楚并显式携带差距：C2 不解决，M1-5B 的幸存事件在真实模型下会退化为改写 churn（旧 claim unsupported + 新 claim supported 的空转）；C3-R 不解决，所有模型能力声明都缺一致性口径；两者都指向同一个 M2 主题，因此 Gate 结论与 M2 进入条件一并登记。
 
+### D-040：候选聚合以"确定性相似度 + 数字/否定硬守卫"落地，阈值从真录校准冻结为 0.375
+
+- 状态：Implemented for M2-1
+- 日期：2026-08-30
+- 决策：新增 `src/veritas/aggregation/`（clusterer / store / resolve）。相似度 = 内容 token Jaccard（版本号整 token 化、冻结停用词表），两类硬守卫直接判"永不合"：数字/版本 token 集必须完全一致（3.7 vs 3.8 永远分开）、否定 token 集必须一致（正/反陈述分开）。`ClaimClusterStore`（schema `claim-clusters-1`）：簇代表在创建时冻结——成员只挂靠、不改键，claim id 终生稳定；单趟指派——簇创建后不再合并，新语句加入得分最高且过阈值的簇，否则自立新簇；join 决策（method/score）持久化为成员审计行；重开时阈值不一致 = `policy_drift` 拒绝、schema 漂移 = `schema_drift` 拒绝。阈值从 M1-2C2 真录（DeepSeek V4-Flash 重放 52 候选）对 32 条 gold 断言的成对分布校准：真改写下限 0.385（EX-027）、异事实上限 0.364（EX-012），冻结 **0.375**——簇级覆盖 **19/32** vs 精确 key **3/32**，逐对人工审核零假合并。运行时可选接入（`cluster_store=None` 默认全关，M1 行为逐位保留）：`resolve_bundle` 在抽取后把 claim 身份重映射到簇代表（claim/边 id 重算、同簇塌缩；证据与原始候选记录不动——候选存储保持 pre-aggregation 真相）；CLI `--cluster-store`。
+- 原因：C2 携带项要求"有证据方案的合并"，其第一步必须落在确定性层：数字与否定守卫把"绝不能合并"的配对在构造上排除——这是 P0 Python floor 事件的直接教训，词面相似不等于事实相同；Jaccard 在守卫之外给出可审计的连续分数。阈值用真录校准并冻结，此后每次重跑都是对同一契约的度量，而不是重新调参。代表冻结 + 簇不合并牺牲少量召回换取 claim id 稳定性——演化引擎的 claim 身份不能漂移，这是聚类进入演进系统的代价约束。负向校准：`canonical_key_mismatch`、`invalid_statement`、`policy_drift`、`schema_drift`，另有边界配对钉死（0.385 进 / 0.364 出 / EX-029 版本号守卫）。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -616,7 +627,7 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | Gate M1 | 判断初始研究与搜索是否达到进入 M2 的完成度 | M1-5B 完成 | M1 出口条件逐项核验、遗留差距显式携带进 M2 | 已评审：通过（附携带项 C2/C3-R/C4，D-039） |
 | M1 | 初始研究与搜索 | Gate P0 通过 | 见 Gate M1 出口条件（D-039） | 已完成（M1-1/1R、M1-2 全部、M1-3、M1-4、M1-5） |
 | M2 | 从候选到可信图（语义质量档） | Gate M1 通过 | 簇级身份落地、真实模型簇级基线重测、方差口径钉死 | 进行中（M2-1 未开始） |
-| M2-1 | 候选语义聚合 | Gate M1 通过 | 确定性相似度 + 硬守卫的簇存储、运行时可选接入、真录簇级校准与负向校准 | 未开始 |
+| M2-1 | 候选语义聚合 | Gate M1 通过 | 确定性相似度 + 硬守卫的簇存储、运行时可选接入、真录簇级校准与负向校准 | 已完成：178/178 tests；真录簇级覆盖 19/32 vs 精确 key 3/32，阈值 0.375 冻结 |
 
 如果 Gate P0 不通过，不进入 Web Search 集成；先分析图粒度、规则语义和 benchmark 是否支持项目假设。
 
@@ -807,6 +818,15 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] M2 进入条件与主题登记（从候选到可信图；M2-1 = 候选语义聚合），自主闭环排为 M3 并记录排序理由；
 - [x] 技术实现文档新增 Gate M1 评审节，双文档变更记录同步。
 
+### 11.17 M2-1 完成记录（2026-08-30）
+
+- [x] `src/veritas/aggregation/`：clusterer（相似度 + 数字/否定硬守卫 + 冻结停用词表）、store（`ClaimClusterStore`，schema `claim-clusters-1`，代表冻结/单趟指派/审计行/policy_drift）、resolve（`resolve_bundle` claim 身份重映射）；
+- [x] 阈值校准：M1-2C2 真录重放 52 候选 × 32 gold 断言成对分布——真改写 ≥0.385、异事实 ≤0.364，冻结 0.375；簇级覆盖 19/32 vs 精确 key 3/32，零假合并；
+- [x] 运行时可选接入：`ResearchRuntime(cluster_store=...)` 默认 None 行为逐位不变，抽取后 `resolve_bundle` 重映射 claim/边 id，同簇塌缩，候选存储保持原始 key；CLI `--cluster-store`；
+- [x] 负向校准：`canonical_key_mismatch`、`invalid_statement`、`policy_drift`、`schema_drift` + 边界配对（EX-027 0.385 进 / EX-012 0.364 出 / EX-029 数字守卫）；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式 178/178 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -856,6 +876,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M2-1 | 候选语义聚合（D-040）：`src/veritas/aggregation/`（相似度 + 数字/否定硬守卫、`ClaimClusterStore` 代表冻结/单趟指派/policy_drift、`resolve_bundle` 身份重映射）；运行时可选接入默认全关，CLI `--cluster-store`；阈值从真录校准冻结 0.375（真改写 ≥0.385 / 异事实 ≤0.364，零假合并），簇级覆盖 19/32 vs 精确 key 3/32；178/178 tests |
 | 2026-08-30 | Gate M1 | 收口评审（D-039）：M1 出口条件五条核验通过（基线 6ea0dad，CI run 33321253704 六任务成功）；携带 C2（候选聚合只暴露不合并）、C3-R（同契约重复运行）、C4（检索词面基线）进 M2；M2 主题定为"从候选到可信图"，自主闭环排为 M3；M1 关闭 |
 | 2026-08-30 | M1-5B | 规模演化 benchmark（D-038）：六文档真实语料历史 13 个内容修订事件（9 幸存 + 4 watched 事实移除），逐事件 full-recompute 等价 oracle，冻结成本声明 selective 23 vs 全量 185 求值（ratio 0.1243）+ CI 重生成零 diff 校验；161/161 tests |
 | 2026-08-30 | M1-5A | 端到端集成桥（D-037）：`GraphBridge` 三层翻译（语料→SourceVersion、bundle→演进库、manifest 历史→revise 事件）；真实修订 index 0.24.1→0.25.2（Python 3.7+→3.8+）驱动 P0 引擎在真实抽取图上完成演化闭环（结论 pass→unknown、幂等）；152/152 tests |

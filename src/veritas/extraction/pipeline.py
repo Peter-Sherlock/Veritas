@@ -52,6 +52,16 @@ def _stable_id(prefix: str, *parts: str) -> str:
     return f"{prefix}:{digest}"
 
 
+def claim_id_for(canonical_key: str) -> str:
+    """The claim id a canonical key materializes to (public for aggregation)."""
+    return _stable_id("claim", canonical_key)
+
+
+def edge_id_for(evidence_id: str, edge_type: str, claim_id: str) -> str:
+    """The evidence-edge id for one (evidence, type, claim) triple."""
+    return _stable_id("edge", evidence_id, edge_type, claim_id)
+
+
 def build_extraction_prompt(question: str, document: VersionedDocument) -> str:
     if not question or not question.strip():
         raise ValueError("question must not be empty")
@@ -236,7 +246,7 @@ class ResearchExtractionPipeline:
                     # an identical key can only mean an identical normalized
                     # statement: attach the evidence to the existing claim.
                     existing = Claim(
-                        claim_id=_stable_id("claim", assertion.canonical_key),
+                        claim_id=claim_id_for(assertion.canonical_key),
                         statement=assertion.statement,
                         created_at=reasoned_at,
                         canonical_key=assertion.canonical_key,
@@ -271,11 +281,8 @@ class ResearchExtractionPipeline:
                 )
                 edges.append(
                     DependencyEdge(
-                        edge_id=_stable_id(
-                            "edge",
-                            evidence.evidence_id,
-                            edge_type.value,
-                            existing.claim_id,
+                        edge_id=edge_id_for(
+                            evidence.evidence_id, edge_type.value, existing.claim_id
                         ),
                         edge_type=edge_type,
                         from_id=evidence.evidence_id,
