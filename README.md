@@ -281,7 +281,7 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas has closed **M1-2: extraction calibration** with a passed gate review, **completed M1-3: research runtime** (engine + CLI + a real live session), **completed M1-4: dynamic replanning**, and **completed M1-5: end-to-end evolution integration** — the research half and the evolution engine are connected and the connection is benchmarked at scale. The deterministic fixture baseline, two real-provider recordings, a contract revision that eliminated all integrity failures, transactional candidate persistence, the M1-2 gate review, the runtime engine (session state, work queue, checkpoints, request budget), a spec-driven CLI driving real DeepSeek sessions, and a scaled evolution benchmark over real corpus history are complete; the remaining quality gap is semantic paraphrasing.
+Veritas has **closed M1** (gate review D-039): extraction calibration with a passed gate review, the research runtime (engine + CLI + a real live session), dynamic replanning, and end-to-end evolution integration benchmarked at scale on real corpus history. The next stage, **M2: from candidates to a trustworthy graph**, attacks the dominant quality gap — semantic paraphrasing fragments real-model extraction into distinct claims (key-level recall 2/32) — via candidate aggregation with deterministic guards; the autonomous research loop follows in M3.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
 - 161 automated tests on Python 3.11 and 3.14

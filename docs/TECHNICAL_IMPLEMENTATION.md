@@ -1623,7 +1623,28 @@ python -m veritas.runtime \
 
 四项负面校准独立可触发：`quote_not_in_corpus`（计划句不在钉住版本或出现多次）、`unknown_corpus_version`（计划引用语料外版本）、`equivalence_violation`（oracle 可失败——向 `assert_equivalent` 注入漂移态）、`unplanned_extraction_era`（目标文档在计划外时代被检索到即 fail fast），另有事件重放守卫（同一事件包重复 apply 返回同一 run、实体计数与成本不重复累计）。CI 新增 `evolution-benchmark` 任务：重生成 summary 并对已提交 artifact `git diff --exit-code`。
 
-## 32. 当前限制
+## 32. Gate M1 收口评审
+
+### 32.1 出口条件与核验（D-039）
+
+| 条件 | 核验证据 | 结果 |
+| --- | --- | --- |
+| 校准 CI 绿 | extraction-calibration 任务重生成零 diff（run 33321253704） | 通过 |
+| 运行时可操作且有真实会话证据可重放 | M1-3B 三题 DeepSeek 会话（7 请求）+ CLI 重放测试逐字段钉死 | 通过 |
+| 真实语料历史驱动演化闭环且规模等价/成本冻结 | M1-5A 修订闭环 + M1-5B 13 事件逐事件等价、23/185 求值冻结 artifact（CI 零 diff） | 通过 |
+| 预算/重规划以真实口径定标（C1） | budget_requests 必填、降级轴确定性触发 | 通过 |
+| 双文档与决策记录完整 | D-029..D-038、完成记录 11.6..11.15、双变更记录无欠账 | 通过 |
+
+评审基线：commit 6ea0dad（分支 `codex/m1-5-evolution-integration`），CI run 33321253704 六任务全部成功。结论：**Gate M1 通过**，M1 关闭。
+
+### 32.2 携带项与 M2 进入条件
+
+- **C2**：候选聚合仍只暴露不合并——真实模型 key 级 recall 2/32、quickstart@0.28.1 十五候选十五 key 的改写碎片是图可信度的主导威胁；M1-5B 的幸存事件在真实模型下会退化为改写 churn。
+- **C3-R**：同一契约下的重复运行对照未做，单轮方差不能当作模型能力定值。
+- **C4**：检索 MRR 0.7222 是词面基线上限，语义检索未评估。
+- M2 主题定为"**从候选到可信图**"（语义质量档）：M2-1 候选语义聚合（确定性相似度 + 硬守卫的簇身份层，候选存储保持只追加不动）、M2-2 簇级结论与冻结校准、M2-3 同契约重复运行。自主研究闭环（查询规划、watch 模式、自动再研究）排为 **M3**——自主性建在碎片化图上是在自动化噪声，先让图可信，自主决定才有可靠反馈。
+
+## 33. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
@@ -1640,10 +1661,11 @@ python -m veritas.runtime \
 
 因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034）、M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035）、M1-4 的确定性重规划（D-036，触发场景测试通过）、M1-5A 的 GraphBridge 三层翻译与真实语料修订闭环（D-037，index 0.24.1→0.25.2 驱动结论 pass→unknown），以及 M1-5B 的真实历史规模基准（D-038，13 个真实修订事件逐事件等价、selective 23/185 求值）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 33. 变更记录
+## 34. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | Gate M1 | 收口评审（D-039）：出口条件五条核验通过（基线 6ea0dad、CI run 33321253704 六任务成功）；携带 C2/C3-R/C4 进 M2；M2 主题"从候选到可信图"、自主闭环排 M3；M1 关闭 |
 | 2026-08-30 | M1-5B | 规模演化 benchmark（D-038）：`evolution_benchmark` 六文档 T0 图 + 13 个真实内容修订事件（9 幸存 + 4 watched 事实移除，manifest `published_at` 排序、SAME 哈希步跳过）；逐事件 full-recompute 等价 oracle（漂移即 `equivalence_violation`）；冻结成本声明 selective 23 vs 全量 185 求值（ratio 0.1243），summary 提交 + 测试字节复现 + CI 零 diff；161/161 tests |
 | 2026-08-30 | M1-5A | 端到端集成（D-037）：`GraphBridge`（语料→SourceVersion 对齐管线 id、bundle→演进库+T0 评估/结论、manifest 历史→revise 事件）；真实修订 index 0.24.1→0.25.2（Python 3.7+→3.8+）驱动 P0 引擎在真实抽取图上完成演化闭环，结论 pass@1→unknown@2，apply 幂等；152/152 tests |
 | 2026-08-30 | M1-4 | 动态重规划（D-036）：`ReplanPolicy`——拒绝以 top_k-1 重排一次（降级宽度持久化、max_attempts/min_top_k 双终止）、预算压力运行前确定性降级适配（最大优先/平局按队列序/触底不伪装）；schema `research-runtime-2`（effective_top_k 与规格身份分离）；CLI 旗标与摘要暴露；M1-3B 冻结摘要由同一录制重导；148/148 tests |
