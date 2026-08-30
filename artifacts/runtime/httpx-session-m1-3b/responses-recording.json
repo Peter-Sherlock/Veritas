@@ -1,0 +1,12 @@
+{
+  "model_id": "deepseek-v4-flash",
+  "responses": {
+    "5315ffcf694da5619fe3386d578d3b0e8842986b64b020f60d98622870838b5f": "{\"assertions\": []}",
+    "55966c5eb782ce8d3e56cd54c8c00b757ab662b5b16c6fb5656b214919d11da7": "{\"assertions\": []}",
+    "7bdba113a32cfb6cb8de67f72f49062dbdaf0f4d3d65e5b1db7e3848205e37e0": "{\"assertions\": [{\"statement\": \"HTTPX does not follow redirects by default for all HTTP methods.\", \"relation\": \"contradicts\", \"quote\": \"By default, HTTPX will **not** follow redirects for all HTTP methods, although this can be explicitly enabled.\"}]}",
+    "90b6b150d8e7479d235722fedfaa31c96d66abbbd4a5a53fd088707c54c94698": "{\"assertions\":[{\"statement\":\"HTTPX 0.24.1 documentation requires Python 3.7+\",\"relation\":\"supports\",\"quote\":\"HTTPX requires Python 3.7+\"}]}",
+    "96e5f88abd8574770b47d368ab4868af87bf85300cddbf4b9a099e16fcf0f668": "{\n  \"assertions\": [\n    {\n      \"statement\": \"HTTPX does not follow redirects by default.\",\n      \"relation\": \"contradicts\",\n      \"quote\": \"Unlike `requests`, HTTPX does **not follow redirects by default**.\"\n    }\n  ]\n}",
+    "98158f7b96b208ab75564b302c8392c7a8869551025323438a9658cfd7824cf8": "{\"assertions\": []}",
+    "fab5b48ad2573098adb992888d9e21c55bc9e5b2d75ec58dbd35d8f8aecb39f8": "{\"assertions\":[{\"statement\":\"HTTP/2 is enabled on an HTTPX async client by instantiating httpx.AsyncClient with http2=True.\",\"relation\":\"supports\",\"quote\":\"client = httpx.AsyncClient(http2=True)\"}]}"
+  }
+}

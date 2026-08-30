@@ -9,7 +9,7 @@ exactly the one that was calibrated in M1-2.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from veritas.extraction.models import ExtractionContractError
 from veritas.extraction.pipeline import ResearchExtractionPipeline
@@ -117,12 +117,16 @@ class ResearchRuntime:
         items: Sequence[WorkItem],
         budget_requests: int,
         observed_at: str,
+        on_item_done: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         """Run or resume the session until it lands or the budget stops it.
 
         Budget exhaustion is a clean stop, not an error: the session flips
         to ``budget_exhausted`` with pending items intact, and raising
-        ``budget_requests`` on a later call resumes them.
+        ``budget_requests`` on a later call resumes them. ``on_item_done``
+        fires after every item reaches a terminal state (and once when the
+        budget stops mid-item), receiving the updated work-item row — the
+        hook for progress streaming and crash-safe recording.
         """
         self._budgeted.bind(session_id)
         self._store.create_session(
@@ -149,28 +153,39 @@ class ResearchRuntime:
                 )
             except BudgetExhausted:
                 self._store.mark_session_budget_exhausted(session_id, observed_at)
+                self._notify(on_item_done, session_id, item["item_id"])
                 return self._result(session_id)
             except ExtractionContractError as exc:
                 self._store.mark_item_rejected(
                     session_id, item["item_id"], exc.code, observed_at
                 )
-                continue
-            if self._candidate_store is not None:
-                records = [
-                    record
-                    for document in bundle.documents
-                    for record in candidates_from_document(
-                        document, source_namespace=self._source_namespace
+            else:
+                if self._candidate_store is not None:
+                    records = [
+                        record
+                        for document in bundle.documents
+                        for record in candidates_from_document(
+                            document, source_namespace=self._source_namespace
+                        )
+                    ]
+                    self._candidate_store.persist(
+                        records,
+                        run_id=f"session:{session_id}",
+                        observed_at=observed_at,
                     )
-                ]
-                self._candidate_store.persist(
-                    records,
-                    run_id=f"session:{session_id}",
-                    observed_at=observed_at,
-                )
-            self._store.mark_item_completed(session_id, item["item_id"], observed_at)
+                self._store.mark_item_completed(session_id, item["item_id"], observed_at)
+            self._notify(on_item_done, session_id, item["item_id"])
         self._store.mark_session_completed(session_id, observed_at)
         return self._result(session_id)
+
+    def _notify(
+        self,
+        callback: Callable[[dict[str, Any]], None] | None,
+        session_id: str,
+        item_id: str,
+    ) -> None:
+        if callback is not None:
+            callback(self._store.get_item(session_id, item_id))
 
     def _result(self, session_id: str) -> dict[str, Any]:
         state = self._store.session_state(session_id)

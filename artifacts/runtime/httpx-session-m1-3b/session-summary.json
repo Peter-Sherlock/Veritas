@@ -1,0 +1,48 @@
+{
+  "budget_requests": 15,
+  "candidate_store": {
+    "candidates": 1,
+    "distinct_canonical_keys": 1,
+    "observations": 1
+  },
+  "content_hash": "84377057a172a259ef1f10d2b224e448fdbbd2ebc5d24df57d6656728efbbe66",
+  "items": [
+    {
+      "as_of": null,
+      "attempts": 1,
+      "item_id": "EX-001",
+      "last_error": "citation_ambiguous",
+      "query": "http2 optional dependencies http2 true",
+      "question": "How is HTTP/2 enabled on an HTTPX async client?",
+      "status": "rejected",
+      "top_k": 3
+    },
+    {
+      "as_of": null,
+      "attempts": 1,
+      "item_id": "EX-017",
+      "last_error": "citation_not_found",
+      "query": "redirects follow default requests unlike",
+      "question": "Does HTTPX follow redirects by default like requests?",
+      "status": "rejected",
+      "top_k": 3
+    },
+    {
+      "as_of": "2023-06-01T00:00:00Z",
+      "attempts": 1,
+      "item_id": "EX-029",
+      "last_error": null,
+      "query": "requires python installation pip",
+      "question": "Which Python version did the HTTPX 0.24.1 documentation require?",
+      "status": "completed",
+      "top_k": 3
+    }
+  ],
+  "items_completed": 1,
+  "items_pending": 0,
+  "items_rejected": 2,
+  "items_total": 3,
+  "requests_spent": 7,
+  "session_id": "httpx-session-m1-3b",
+  "status": "completed"
+}

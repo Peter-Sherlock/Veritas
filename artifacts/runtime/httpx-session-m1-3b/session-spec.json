@@ -1,0 +1,25 @@
+{
+  "session_id": "httpx-session-m1-3b",
+  "budget_requests": 15,
+  "items": [
+    {
+      "item_id": "EX-001",
+      "query": "http2 optional dependencies http2 true",
+      "question": "How is HTTP/2 enabled on an HTTPX async client?",
+      "top_k": 3
+    },
+    {
+      "item_id": "EX-017",
+      "query": "redirects follow default requests unlike",
+      "question": "Does HTTPX follow redirects by default like requests?",
+      "top_k": 3
+    },
+    {
+      "item_id": "EX-029",
+      "query": "requires python installation pip",
+      "question": "Which Python version did the HTTPX 0.24.1 documentation require?",
+      "top_k": 3,
+      "as_of": "2023-06-01T00:00:00Z"
+    }
+  ]
+}

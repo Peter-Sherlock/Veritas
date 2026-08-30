@@ -269,6 +269,18 @@ class RuntimeStore:
         )
         return cursor.rowcount == 1
 
+    def find_session(self, session_id: str) -> dict[str, Any] | None:
+        """Session state or None when the session does not exist yet."""
+        row = self.connection.execute(
+            "SELECT * FROM sessions WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        state = dict(row)
+        state["items"] = self.list_items(session_id)
+        return state
+
     def session_state(self, session_id: str) -> dict[str, Any]:
         row = self.connection.execute(
             "SELECT * FROM sessions WHERE session_id = ?",
@@ -279,6 +291,14 @@ class RuntimeStore:
         state = dict(row)
         state["items"] = self.list_items(session_id)
         return state
+
+    def get_item(self, session_id: str, item_id: str) -> dict[str, Any]:
+        self._require_item(session_id, item_id)
+        row = self.connection.execute(
+            "SELECT * FROM work_items WHERE session_id = ? AND item_id = ?",
+            (session_id, item_id),
+        ).fetchone()
+        return dict(row)
 
     def list_items(self, session_id: str) -> list[dict[str, Any]]:
         rows = self.connection.execute(
