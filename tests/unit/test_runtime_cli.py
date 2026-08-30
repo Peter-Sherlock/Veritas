@@ -132,6 +132,88 @@ class RuntimeCliTests(unittest.TestCase):
             self.assertIn("already completed", stderr)
             self.assertEqual(summary, json.loads(summary_path.read_text(encoding="utf-8")))
 
+    def test_retry_rejected_flag_rescues_an_item(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            spec = {
+                "session_id": "cli-replan",
+                "budget_requests": 10,
+                "items": [
+                    {
+                        "item_id": "q-http2",
+                        "query": "http2",
+                        "question": "How is HTTP/2 enabled on an HTTPX async client?",
+                        "top_k": 2,
+                    }
+                ],
+            }
+            spec_path = tmp_path / "spec.json"
+            spec_path.write_text(json.dumps(spec), encoding="utf-8")
+
+            # attempt 1 (top_k 2) retrieves http2 + index; the index doc's
+            # response breaks the citation contract. attempt 2 (top_k 1)
+            # retrieves only http2 and completes.
+            corpus = LocalCorpusProvider(CORPUS_ROOT)
+            responses: dict[str, str] = {}
+            for result in corpus.search("http2", top_k=2):
+                document = corpus.fetch(result.doc_id, result.version_id)
+                if result.doc_id == "index":
+                    payload = {
+                        "assertions": [
+                            {
+                                "statement": "Anything at all",
+                                "relation": "supports",
+                                "quote": "not a substring of any document",
+                            }
+                        ]
+                    }
+                else:
+                    payload = {
+                        "assertions": [
+                            {
+                                "statement": "HTTP/2 is enabled by constructing "
+                                "AsyncClient with http2=True",
+                                "relation": "supports",
+                                "quote": document.content,
+                            }
+                        ]
+                    }
+                key = fixture_key(
+                    EXTRACTION_SYSTEM_PROMPT,
+                    build_extraction_prompt(spec["items"][0]["question"], document),
+                )
+                responses[key] = json.dumps(payload, ensure_ascii=False)
+            recording = tmp_path / "recording.json"
+            recording.write_text(
+                json.dumps({"model_id": "cli-replay-model", "responses": responses}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            summary_path = tmp_path / "summary.json"
+
+            code, stderr = _run_cli(
+                [
+                    "--spec", str(spec_path),
+                    "--corpus-root", str(CORPUS_ROOT),
+                    "--runtime-store", str(tmp_path / "runtime.db"),
+                    "--candidates-out", str(tmp_path / "candidates.db"),
+                    "--provider", "replay",
+                    "--record-in", str(recording),
+                    "--observed-at", OBSERVED_AT,
+                    "--retry-rejected",
+                    "--output", str(summary_path),
+                ]
+            )
+            self.assertEqual(0, code)
+            self.assertIn("research session: status=completed", stderr)
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            item = summary["items"][0]
+            self.assertEqual("completed", item["status"])
+            self.assertEqual(2, item["attempts"])
+            self.assertEqual(2, item["top_k"])
+            self.assertEqual(1, item["effective_top_k"])
+            self.assertEqual(3, summary["requests_spent"])
+            self.assertEqual(1, summary["candidate_store"]["candidates"])
+
     def test_spec_validation_failures_are_clean_errors(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)

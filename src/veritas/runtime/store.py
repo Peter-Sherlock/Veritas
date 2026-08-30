@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Iterator, Sequence
 
 
-RUNTIME_SCHEMA = "research-runtime-1"
+RUNTIME_SCHEMA = "research-runtime-2"
 SESSION_ACTIVE = "active"
 SESSION_COMPLETED = "completed"
 SESSION_BUDGET_EXHAUSTED = "budget_exhausted"
@@ -106,6 +106,7 @@ class RuntimeStore:
                 attempts INTEGER NOT NULL DEFAULT 0,
                 last_error TEXT,
                 completed_at TEXT,
+                effective_top_k INTEGER NOT NULL,
                 PRIMARY KEY (session_id, item_id)
             );
             """
@@ -185,8 +186,9 @@ class RuntimeStore:
                         """
                         INSERT INTO work_items (
                             session_id, item_id, seq, query, question, top_k,
-                            as_of, status, attempts, last_error, completed_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
+                            as_of, status, attempts, last_error, completed_at,
+                            effective_top_k
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL, ?)
                         """,
                         (
                             session_id,
@@ -197,6 +199,7 @@ class RuntimeStore:
                             item["top_k"],
                             item.get("as_of"),
                             _ITEM_PENDING,
+                            item["top_k"],
                         ),
                     )
             else:
@@ -364,6 +367,78 @@ class RuntimeStore:
                 """,
                 (_ITEM_REJECTED, observed_at, code, session_id, item_id),
             )
+
+    def requeue_item(self, session_id: str, item_id: str, new_top_k: int) -> None:
+        """Put a rejected item back into the queue with a degraded top_k.
+
+        The replanned top_k is persisted immediately, so an interrupted
+        retry resumes at the degraded breadth instead of re-spending at the
+        original one. The previous rejection code is cleared: the item is
+        pending again, and its retry history stays visible via ``attempts``.
+        """
+        if not isinstance(new_top_k, int) or new_top_k < 1:
+            raise RuntimeStoreError("invalid_item", "requeue needs a top_k >= 1")
+        with self.transaction():
+            self._require_item(session_id, item_id)
+            self.connection.execute(
+                """
+                UPDATE work_items
+                SET status = ?, effective_top_k = ?, last_error = NULL,
+                    completed_at = NULL
+                WHERE session_id = ? AND item_id = ?
+                """,
+                (_ITEM_PENDING, new_top_k, session_id, item_id),
+            )
+
+    def degrade_queue_to_fit(
+        self,
+        session_id: str,
+        available_requests: int,
+        *,
+        min_top_k: int,
+        observed_at: str,
+    ) -> list[dict[str, Any]]:
+        """Degrade pending items' effective top_k until the worst case fits.
+
+        Deterministic: while the queue's worst-case request count exceeds
+        the available budget, the pending item with the largest effective
+        top_k (ties broken by queue order) is reduced by one, floored at
+        ``min_top_k``. Items that cannot fit even at the floor stay as they
+        are — the run will then stop at the budget as usual. Only pending
+        items are touched and every reduction is persisted in the same
+        transaction, so resume sees exactly the replanned queue.
+        """
+        if available_requests < 0:
+            raise RuntimeStoreError("invalid_budget", "available_requests must be >= 0")
+        degraded: list[dict[str, Any]] = []
+        with self.transaction():
+            rows = [
+                dict(row)
+                for row in self.connection.execute(
+                    """
+                    SELECT item_id, seq, effective_top_k FROM work_items
+                    WHERE session_id = ? AND status = ?
+                    ORDER BY seq
+                    """,
+                    (session_id, _ITEM_PENDING),
+                )
+            ]
+            worst_case = sum(int(row["effective_top_k"]) for row in rows)
+            while worst_case > available_requests:
+                candidates = [row for row in rows if int(row["effective_top_k"]) > min_top_k]
+                if not candidates:
+                    break
+                target = max(candidates, key=lambda row: (int(row["effective_top_k"]), -row["seq"]))
+                target["effective_top_k"] = int(target["effective_top_k"]) - 1
+                worst_case -= 1
+                self.connection.execute(
+                    "UPDATE work_items SET effective_top_k = ? "
+                    "WHERE session_id = ? AND item_id = ?",
+                    (target["effective_top_k"], session_id, target["item_id"]),
+                )
+                if target not in degraded:
+                    degraded.append(target)
+        return degraded
 
     def mark_session_budget_exhausted(self, session_id: str, observed_at: str) -> None:
         with self.transaction():

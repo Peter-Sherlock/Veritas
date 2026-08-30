@@ -1560,11 +1560,34 @@ python -m veritas.runtime \
 
 `artifacts/runtime/httpx-session-m1-3b/`：spec + 7 条 DeepSeek V4-Flash 录制 + 会话摘要（content_hash `84377057…`）。3 题、7/15 请求：EX-001 `citation_ambiguous`、EX-017 `citation_not_found`（均被契约拦截、记为终态拒绝、不落库）；EX-029（as_of 0.24.1 历史视图）完成，1 条候选入库（run 归属 `session:httpx-session-m1-3b`）。两项重放测试钉死：CLI replay 与已提交摘要逐字段相等；完成会话重跑重印同一摘要。本轮 2/3 引用拒绝高于上轮全量跑的 4/30 比例——再次确认单轮方差（D-033 C3），单轮分布不作能力定值。
 
-## 29. 当前限制
+## 29. M1-4 动态重规划
+
+### 29.1 设计（D-036）
+
+`ReplanPolicy`（默认全关，M1-3 行为逐位保留）定义两个确定性触发器；重试只沿"收窄检索"一条轴——确定性重放下原样重试只会复现同一拒绝，top_k 是运行时唯一可确定性收紧的自由度：
+
+- **拒绝重试（`retry_rejected`）**：item 契约拒绝后，若 `attempts < max_attempts` 且 `effective_top_k > min_top_k`，以 `top_k - 1` 重排一次。重排是事务（`requeue_item`）：状态回 pending、降级宽度持久化、previous 错误码清除——崩溃后重试仍按降级宽度进行，不会回退到原始宽度重复花费。到达次数上限或 top_k 下限即终态拒绝。
+- **预算联动（`degrade_to_fit_budget`）**：run/resume 开始时若 pending 队列最坏情况（∑ effective_top_k）超过剩余预算（budget − spent），`degrade_queue_to_fit` 在单事务内确定性降级：每次取最大 effective_top_k 的 pending item（平局取队列序靠前者）减一，floor 为 min_top_k；触底仍不够则不伪装适配，照常在预算处干净停止。预算联动在运行前而非耗尽后——耗尽时剩余预算为零，降级已无意义。
+
+存储 schema 升为 `research-runtime-2`：`work_items.effective_top_k` 与规格身份 `top_k` 分离（规格漂移校验仍用 `top_k`），降级只写 checkpoint 存储。引擎结果暴露 `degraded_items`，CLI 新增 `--retry-rejected`/`--degrade-to-fit` 并在摘要逐 item 暴露 `effective_top_k`；M1-3B 冻结会话摘要由同一录制确定性重导以纳入新字段（原始录制未动，EX-001/017/029 状态与花费逐位不变）。
+
+### 29.2 触发场景验证
+
+7 项新测试（141 → 148）：
+
+- 默认策略保留 M1-3 终态语义（拒绝即终态、宽度不动、无重排）；
+- **降级救援**：第二篇文档违约（top_k 2 失败）→ 重排 top_k 1 只见首篇 → 完成（attempts=2、花费 3、1 候选）；
+- 双重终止：max_attempts 耗尽后终态；item 已在 top_k 下限时从不重排；
+- 预算降级 [3,3]→[2,2] 恰好适配 budget 4（花费 4、4 候选、两 item 完成）；
+- 降级触底仍超预算 → 照常干净停止（budget_exhausted、pending 保留）；
+- resume 联动：首跑 budget 4 中断于 item-b，resume 提额到 6 且开降级 → 按剩余 2 降级 item-b 至 top_k 2 后完成（总花费 6）；
+- CLI 级：`--retry-rejected` 驱动同一救援故事（录制含违约响应），摘要显示 attempts=2、effective_top_k=1。
+
+## 30. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
-- 抽取候选已事务持久化（M1-2D CandidateStore，含跨 run 去重与冲突暴露），运行时会话状态/队列/checkpoint/预算引擎已落地（M1-3A，独立会话存储）并可经 CLI 操作真实 live/replay 会话（M1-3B，含真实 3 题会话证据）；候选尚未接入 Evidence Graph 写入事务，claim 级聚合与语义改写合并没有方案；重规划（M1-4）尚未实现，预算与重规划未联动；
+- 抽取候选已事务持久化（M1-2D CandidateStore，含跨 run 去重与冲突暴露），运行时会话状态/队列/checkpoint/预算引擎已落地（M1-3A，独立会话存储）并可经 CLI 操作真实 live/replay 会话（M1-3B，含真实 3 题会话证据）；动态重规划覆盖"收窄检索"一条确定性轴（M1-4，拒绝降级重试 + 预算预降级）；候选尚未接入 Evidence Graph 写入事务，claim 级聚合与语义改写合并没有方案；更大尺度的重规划（换查询、换模型、跨 item 资源重分配）未设计；
 - 没有来源质量权重；
 - 没有处理复杂逻辑表达式、概率置信度或循环依赖；
 - 没有定义真实网页版本检测；
@@ -1575,12 +1598,13 @@ python -m veritas.runtime \
 - 没有并发、多进程、规模或性能结果。
 - Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
-因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034），以及 M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034）、M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035），以及 M1-4 的确定性重规划（D-036，触发场景测试通过）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 30. 变更记录
+## 31. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-4 | 动态重规划（D-036）：`ReplanPolicy`——拒绝以 top_k-1 重排一次（降级宽度持久化、max_attempts/min_top_k 双终止）、预算压力运行前确定性降级适配（最大优先/平局按队列序/触底不伪装）；schema `research-runtime-2`（effective_top_k 与规格身份分离）；CLI 旗标与摘要暴露；M1-3B 冻结摘要由同一录制重导；148/148 tests |
 | 2026-08-30 | M1-3B | Runtime CLI（D-035）：spec 驱动会话 + live/replay 双 provider + 逐项进度流与崩溃安全录制 + 重跑安全 + 确定性摘要；引擎新增 `on_item_done`；真实 DeepSeek 3 题会话证据入库（7 请求、2 引用拒绝被契约拦截、1 完成）并由 CLI 重放测试逐字段钉死；M1-3 阶段收口；141/141 tests |
 | 2026-08-30 | M1-3A | Research Runtime 引擎（D-034）：独立会话存储 `research-runtime-1`（sessions/work_items）+ `ResearchRuntime` 引擎；逐项 checkpoint 事务，恢复跳过终态、规格漂移/预算下降/已完成会话重跑均拒绝；预算 reserve-then-call 原子预留（崩溃宁少花不超支）、耗尽干净停止、提额恢复；契约拒绝即终态记录错误码；候选经 D-032 身份幂等落库（run 归属 `session:<id>`）；13 项新测试含崩溃恢复收敛与无崩溃参考 run 等价断言；134/134 tests |
 | 2026-08-30 | Gate M1-2 | 收口评审：出口条件三条逐项核验（校准 CI 绿/真实录制可重放/30 题基线），评审日 HEAD 复跑 121/121 + 双 suite + 校准零 diff；结论通过、携带 C1～C3（真实口径输入、聚合只暴露不合并、单轮方差）；M1-2 收口，M1-3 进入条件更新（D-033） |

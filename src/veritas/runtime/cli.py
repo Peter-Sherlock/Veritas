@@ -17,7 +17,7 @@ from typing import Any
 
 from veritas.extraction.store import CandidateStore
 from veritas.providers.llm import FixtureLLM, OpenAICompatibleClient, RecordingLLM
-from veritas.runtime.engine import ResearchRuntime, WorkItem
+from veritas.runtime.engine import ReplanPolicy, ResearchRuntime, WorkItem
 from veritas.runtime.store import RuntimeStore, RuntimeStoreError
 from veritas.search.local_corpus import LocalCorpusProvider
 
@@ -102,6 +102,7 @@ def _session_summary(
                 "query": item["query"],
                 "question": item["question"],
                 "top_k": int(item["top_k"]),
+                "effective_top_k": int(item["effective_top_k"]),
                 "as_of": item["as_of"],
                 "status": item["status"],
                 "attempts": int(item["attempts"]),
@@ -148,6 +149,18 @@ def main(argv: list[str] | None = None) -> int:
         "--observed-at",
         help="ISO timestamp used for session checkpoints and evidence timestamps "
         "(defaults to the current UTC time)",
+    )
+    parser.add_argument(
+        "--retry-rejected",
+        action="store_true",
+        help="replan on rejection: requeue a rejected item once with top_k-1 "
+        "(degradation is the only retry axis; terminal at the floor)",
+    )
+    parser.add_argument(
+        "--degrade-to-fit",
+        action="store_true",
+        help="replan on budget pressure: degrade pending items' top_k before the "
+        "run so the worst case fits the remaining budget",
     )
     parser.add_argument("--output", help="optional path for the session summary JSON")
     args = parser.parse_args(argv)
@@ -214,6 +227,10 @@ def main(argv: list[str] | None = None) -> int:
             store=store,
             source_namespace=corpus.corpus_id,
             candidate_store=candidates,
+            policy=ReplanPolicy(
+                retry_rejected=args.retry_rejected,
+                degrade_to_fit_budget=args.degrade_to_fit,
+            ),
         )
 
         item_total = len(items)

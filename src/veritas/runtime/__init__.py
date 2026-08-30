@@ -7,6 +7,7 @@ reserve-then-call accounting so a crash can underspend but never overspend.
 
 from veritas.runtime.engine import (
     BudgetExhausted,
+    ReplanPolicy,
     ResearchRuntime,
     RuntimeSessionError,
     WorkItem,
@@ -23,6 +24,7 @@ from veritas.runtime.store import (
 __all__ = [
     "BudgetExhausted",
     "RUNTIME_SCHEMA",
+    "ReplanPolicy",
     "ResearchRuntime",
     "RuntimeSessionError",
     "RuntimeStore",

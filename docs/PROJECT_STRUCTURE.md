@@ -555,6 +555,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：新增 `veritas.runtime.cli`（`python -m veritas.runtime`）。会话由 spec JSON 定义（session_id/budget_requests/items，逐项校验，空队列/重复 id/预算<1 拒绝）；`--provider live` 走 `OpenAICompatibleClient`（key 只读 `VERITAS_LLM_API_KEY`，缺失即干净 CLI 错误、非 traceback）并可 `--record-out` 录制，`--provider replay` 从既有录制确定性重跑（录制进重放、重放不录制）。引擎新增 `on_item_done` 回调：CLI 用它做逐项进度流（`[session] N/M …`）与逐项录制保存（崩溃最多丢当前 item 的交换）。CLI 重跑安全：已完成的会话重跑直接重印摘要而非报错；resume 时规格漂移与预算下降以干净 CLI 错误浮出。会话摘要确定性生成（状态/计数/item 明细 + content_hash），live 证据目录 `artifacts/runtime/httpx-session-m1-3b/`（spec + 录制 + 摘要）由重放测试钉死——CLI replay 重跑与已提交摘要逐字段相等。
 - 原因：M1-3A 引擎只在测试层可用，"中断恢复"必须在真实命令行上可操作才算数——同一命令崩溃后重跑即续跑、完成后重跑即重印，是长会话的最小可用性。逐项录制保存沿用 M1-2C-pre 的崩溃安全语义（全量录制在逐题保存下已被证明可断点续传）。live 证据只提交 JSON（spec/录制/摘要）不提交 SQLite：存储可由 spec+录制确定性重建，二进制入库无审查价值。本次真实会话（3 题、7 请求、1 完成 2 引用拒绝）再次确认单轮方差：拒绝率与上轮全量跑不同，单轮分布不作能力定值（D-033 C3）。
 
+### D-036：动态重规划只沿"降级"一条轴——拒绝以收窄检索重排，预算压力在运行前降级适配
+
+- 状态：Implemented for M1-4
+- 日期：2026-08-30
+- 决策：新增 `ReplanPolicy`（默认全关，M1-3 行为逐位保留），两个确定性触发器。(1) **拒绝重试**：item 契约拒绝且 `attempts < max_attempts` 且 `effective_top_k > min_top_k` 时，以 `top_k - 1` 重排一次——`requeue_item` 事务持久化降级宽度（崩溃后重试仍按降级宽度，不回退不重复花费）；到达次数上限或 top_k 下限即终态拒绝。(2) **预算联动**：run/resume 开始时若 pending 队列最坏情况请求超过剩余预算，`degrade_queue_to_fit` 确定性降级（最大 effective_top_k 优先、平局按队列序、逐次 -1、floor min_top_k，单事务持久化）；降到下限仍不够则照常在预算处干净停止。存储 schema 升为 `research-runtime-2`（`work_items` 增加 `effective_top_k` 列；`top_k` 保留为规格身份，规格漂移校验不变）。引擎结果暴露 `degraded_items`，CLI 摘要逐 item 暴露 `effective_top_k`；M1-3B 冻结会话摘要由同一录制确定性重导以纳入新字段（原始录制未动）。
+- 原因：确定性重放下"原样重试"只会复现同一拒绝（fixture 重放）或盲目烧预算（live 单轮方差），所以重试必须改变输入——top_k 是运行时唯一可确定性收紧的自由度（换查询、换模型都是更大的机制，不属于运行时）。预算联动放在 run 开始而非预算耗尽后：耗尽时剩余预算为零，任何降级都无济于事；事前降级把"质量换覆盖"的决定显式化，且 `effective_top_k < top_k` 本身就是可审计的证据。降级只持久化到 checkpoint 存储，演进库与候选存储的追加语义不受影响。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -580,6 +587,7 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-3 | Research Runtime（状态/队列/checkpoint/预算） | Gate M1-2 通过 | 中断恢复与预算测试通过 | 已完成（M1-3A 引擎 + M1-3B CLI/live 接线） |
 | M1-3A | Runtime 引擎：会话/队列/checkpoint/预算 | Gate M1-2 通过 | 中断恢复收敛、预算耗尽干净停止、拒绝即终态均有测试 | 已完成：134/134 tests |
 | M1-3B | Runtime CLI 与 live 接线 | M1-3A 完成 | spec 驱动 CLI、live 录制逐项保存、重跑安全、live 证据入库并可重放 | 已完成：141/141 tests；3 题真实会话（7 请求）证据钉死 |
+| M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 已完成：148/148 tests；拒绝降级重试与预算预降级触发场景均有测试 |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
 | M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 未开始 |
 | M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-2 已收口；M1-3 未开始） |
@@ -737,6 +745,16 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] Python 3.14.7 严格 `ResourceWarning` 模式 141/141 tests 通过；
 - [x] README、技术实现文档和项目结构文档同步更新。
 
+### 11.13 M1-4 完成记录（2026-08-30）
+
+- [x] `ReplanPolicy`（默认全关）：`retry_rejected`（拒绝以 top_k-1 重排一次，`requeue_item` 持久化降级宽度，max_attempts/min_top_k 双重终止条件）与 `degrade_to_fit_budget`（运行前按剩余预算确定性降级 pending 队列，最大优先、平局按队列序）；
+- [x] 存储升为 `research-runtime-2`：`work_items.effective_top_k` 列，`top_k` 仍为规格身份（漂移校验不变）；降级只写 checkpoint 存储；
+- [x] 触发场景测试 6 项：默认策略保留 M1-3 终态语义、降级重试救援违约 item（top_k 2→1 完成、attempts=2）、max_attempts/min_top_k 双终止、预算降级 [3,3]→[2,2] 恰好适配、降级触底后预算照常干净停止、resume 时按剩余预算降级后续跑完成；
+- [x] CLI：`--retry-rejected`/`--degrade-to-fit` 旗标 + 摘要逐 item `effective_top_k`；CLI 级救援测试（录制中第二篇文档违约，降级后完成）；
+- [x] M1-3B 冻结会话摘要由同一录制确定性重导（原始录制未动，新增 effective_top_k 字段）；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式 148/148 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -777,7 +795,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - 真实模型的 canonical_key 已由确定性层派生（D-031），键格式与键冲突类完整性风险在构造上消除；派生 slug 以完整 TEXT 存储（D-032），可读性与可分组性优先于字节开销；
 - EX01～EX05 校准的是抽取链路已编码的失败路径；两轮真实运行显示三类失败均出现且与分类语义吻合，但失败样本仍只有 30 题 × 单模型 × 每轮一次；
 - 抽取候选已有独立事务存储与跨 run 去重/冲突暴露（D-032），但尚未接入 Evidence Graph 写入事务；候选层按设计保留全部身份变体，语义改写合并仍无方案，噪声将原样进入后续聚合阶段；
-- M1-3A/M1-3B 运行时已可经 CLI 操作并有真实 3 题会话证据，但规模仍是单机单进程小会话；崩溃恢复由测试内桩模拟而非真实进程中断；重规划（M1-4）尚未实现，预算与重规划未联动；
+- M1-3/M1-4 运行时已可经 CLI 操作、有真实 3 题会话证据，重规划只覆盖"收窄检索"一条确定性轴：换查询措辞、换模型、跨 item 资源重分配等更大尺度的重规划尚未设计；崩溃恢复由测试内桩模拟而非真实进程中断；重规划的效果只有确定性触发场景证据，真实 live 会话上的重规划收益未测量；
 - Suite 2.0.0 的 `4 / 11` 重算比例来自受控图结构，不能外推到真实研究任务；
 - 空 semantic-change 场景需要严格遵守空集合指标约定，否则容易产生误导性的 precision；
 - 已配置 GitHub Actions CI（3.11/3.14 测试、suite 1.0.0/2.0.0、extraction calibration + artifact 零 diff），但尚无分支保护或 release 策略。
@@ -786,6 +804,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-4 | 动态重规划（D-036）：`ReplanPolicy` 两触发器——拒绝以 top_k-1 重排一次（降级宽度持久化、双重终止条件）、预算压力运行前确定性降级适配剩余预算；存储 schema `research-runtime-2`（effective_top_k）；CLI 旗标与摘要暴露；148/148 tests |
 | 2026-08-30 | M1-3B | Runtime CLI 接线（D-035）：`python -m veritas.runtime`，spec 驱动会话、live/replay 双 provider、逐项进度流与崩溃安全录制、完成会话重跑安全、确定性摘要含 content_hash；真实 DeepSeek 3 题会话（7 请求、2 引用拒绝被拦截、1 完成入库）证据入库并由重放测试钉死；141/141 tests |
 | 2026-08-30 | M1-3A | Research Runtime 引擎（D-034）：独立会话存储（`research-runtime-1`）+ 引擎；逐项 checkpoint、恢复跳过终态、规格漂移/预算下降/已完成重跑拒绝；reserve-then-call 预算（崩溃宁少花不超支）、耗尽干净停止、提额恢复；契约拒绝即终态；候选经 D-032 幂等落库；崩溃恢复与无崩溃参考 run 终态等价有测试钉死；134/134 tests |
 | 2026-08-30 | Gate M1-2 | 收口评审：三条出口条件逐项核验通过（校准 CI 绿、真实校准记录可重放、30 题基线），评审日 HEAD 复跑三类 CI 验证全绿；结论为通过并携带 C1～C3（真实口径输入、聚合只暴露不合并、单轮方差）（D-033）；M1-2 阶段表收口，M1-3 进入条件改为 Gate M1-2 通过；评审记录 11.10 |

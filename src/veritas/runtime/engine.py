@@ -53,6 +53,31 @@ class WorkItem:
         }
 
 
+@dataclass(frozen=True)
+class ReplanPolicy:
+    """Deterministic replanning policy for a session (D-036).
+
+    Degradation is the only retry axis. A contract rejection means the
+    model's answer for a specific document violated the contract, so
+    retrying the exact same prompt would deterministically reproduce the
+    rejection (fixture replay) or waste budget (live variance); retrying
+    with a narrower retrieval changes the prompts instead. Likewise,
+    budget pressure is resolved before the run by degrading the queue to
+    fit the remaining budget, not by hoping to squeeze through.
+    """
+
+    retry_rejected: bool = False
+    degrade_to_fit_budget: bool = False
+    max_attempts: int = 2
+    min_top_k: int = 1
+
+
+@dataclass(frozen=True)
+class _RejectDecision:
+    requeue: bool
+    new_top_k: int
+
+
 class _BudgetedProvider:
     """Reserves one budget unit before every provider call (D-034).
 
@@ -89,6 +114,12 @@ class ResearchRuntime:
     the pending ones. Redone items are safe against the candidate store's
     identity dedup (D-032) — an item whose candidates were persisted before
     a crash contributes no duplicates when re-extracted.
+
+    With a :class:`ReplanPolicy`, two deterministic replans become active:
+    a rejected item is requeued once with a narrower retrieval (the
+    degraded breadth is persisted, so retries survive crashes), and a queue
+    that cannot fit the remaining budget is degraded to fit before the run
+    starts.
     """
 
     def __init__(
@@ -99,10 +130,12 @@ class ResearchRuntime:
         store: RuntimeStore,
         source_namespace: str,
         candidate_store: CandidateStore | None = None,
+        policy: ReplanPolicy = ReplanPolicy(),
     ) -> None:
         self._store = store
         self._candidate_store = candidate_store
         self._source_namespace = source_namespace
+        self._policy = policy
         self._budgeted = _BudgetedProvider(store, provider)
         self._pipeline = ResearchExtractionPipeline(
             search,
@@ -141,42 +174,73 @@ class ResearchRuntime:
                 f"session {session_id!r} is already completed; "
                 "open a new session to retry its questions",
             )
+        if self._policy.degrade_to_fit_budget:
+            state = self._store.session_state(session_id)
+            available = int(state["budget_requests"]) - int(state["requests_spent"])
+            self._store.degrade_queue_to_fit(
+                session_id,
+                available,
+                min_top_k=self._policy.min_top_k,
+                observed_at=observed_at,
+            )
         for item in self._store.pending_items(session_id):
-            self._store.start_item(session_id, item["item_id"])
-            try:
-                bundle = self._pipeline.run(
-                    query=item["query"],
-                    question=item["question"],
-                    reasoned_at=observed_at,
-                    top_k=int(item["top_k"]),
-                    as_of=item["as_of"],
-                )
-            except BudgetExhausted:
-                self._store.mark_session_budget_exhausted(session_id, observed_at)
-                self._notify(on_item_done, session_id, item["item_id"])
-                return self._result(session_id)
-            except ExtractionContractError as exc:
-                self._store.mark_item_rejected(
-                    session_id, item["item_id"], exc.code, observed_at
-                )
-            else:
-                if self._candidate_store is not None:
-                    records = [
-                        record
-                        for document in bundle.documents
-                        for record in candidates_from_document(
-                            document, source_namespace=self._source_namespace
-                        )
-                    ]
-                    self._candidate_store.persist(
-                        records,
-                        run_id=f"session:{session_id}",
-                        observed_at=observed_at,
+            item_id = item["item_id"]
+            while True:
+                row = self._store.get_item(session_id, item_id)
+                self._store.start_item(session_id, item_id)
+                try:
+                    bundle = self._pipeline.run(
+                        query=item["query"],
+                        question=item["question"],
+                        reasoned_at=observed_at,
+                        top_k=int(row["effective_top_k"]),
+                        as_of=item["as_of"],
                     )
-                self._store.mark_item_completed(session_id, item["item_id"], observed_at)
-            self._notify(on_item_done, session_id, item["item_id"])
+                except BudgetExhausted:
+                    self._store.mark_session_budget_exhausted(session_id, observed_at)
+                    self._notify(on_item_done, session_id, item_id)
+                    return self._result(session_id)
+                except ExtractionContractError as exc:
+                    decision = self._decide_reject_retry(session_id, item_id)
+                    if decision.requeue:
+                        # Degrade-and-retry: the narrowed breadth is
+                        # persisted, so the retry survives a crash.
+                        self._store.requeue_item(session_id, item_id, decision.new_top_k)
+                        continue
+                    self._store.mark_item_rejected(
+                        session_id, item_id, exc.code, observed_at
+                    )
+                else:
+                    if self._candidate_store is not None:
+                        records = [
+                            record
+                            for document in bundle.documents
+                            for record in candidates_from_document(
+                                document, source_namespace=self._source_namespace
+                            )
+                        ]
+                        self._candidate_store.persist(
+                            records,
+                            run_id=f"session:{session_id}",
+                            observed_at=observed_at,
+                        )
+                    self._store.mark_item_completed(session_id, item_id, observed_at)
+                self._notify(on_item_done, session_id, item_id)
+                break
         self._store.mark_session_completed(session_id, observed_at)
         return self._result(session_id)
+
+    def _decide_reject_retry(self, session_id: str, item_id: str) -> _RejectDecision:
+        row = self._store.get_item(session_id, item_id)
+        attempts = int(row["attempts"])
+        effective = int(row["effective_top_k"])
+        if (
+            self._policy.retry_rejected
+            and attempts < self._policy.max_attempts
+            and effective > self._policy.min_top_k
+        ):
+            return _RejectDecision(requeue=True, new_top_k=effective - 1)
+        return _RejectDecision(requeue=False, new_top_k=effective)
 
     def _notify(
         self,
@@ -197,6 +261,11 @@ class ResearchRuntime:
             "items_completed": sum(1 for i in items if i["status"] == "completed"),
             "items_rejected": sum(1 for i in items if i["status"] == "rejected"),
             "items_pending": sum(1 for i in items if i["status"] == "pending"),
+            "degraded_items": [
+                i["item_id"]
+                for i in items
+                if int(i["effective_top_k"]) < int(i["top_k"])
+            ],
             "requests_spent": int(state["requests_spent"]),
             "budget_requests": int(state["budget_requests"]),
         }
@@ -204,6 +273,7 @@ class ResearchRuntime:
 
 __all__ = [
     "BudgetExhausted",
+    "ReplanPolicy",
     "ResearchRuntime",
     "RuntimeSessionError",
     "WorkItem",
