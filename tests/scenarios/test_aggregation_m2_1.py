@@ -7,18 +7,14 @@ import unittest
 from pathlib import Path
 
 from veritas.aggregation import ClaimClusterStore
-from veritas.aggregation.clusterer import similarity
-from veritas.extraction.pipeline import (
-    EXTRACTION_SYSTEM_PROMPT,
-    ResearchExtractionPipeline,
-    build_extraction_prompt,
-    claim_id_for,
-    derive_canonical_key,
+from veritas.evaluation.aggregation_calibration import (
+    run_calibration,
+    write_summary,
 )
+from veritas.extraction.pipeline import claim_id_for, derive_canonical_key
 from veritas.extraction.store import CandidateStore
 from veritas.providers.llm import FixtureLLM, fixture_key
 from veritas.runtime import ResearchRuntime, RuntimeStore, WorkItem
-from veritas.search.local_corpus import LocalCorpusProvider
 from veritas.search.provider import SearchResult, VersionedDocument
 
 
@@ -32,6 +28,7 @@ RECORDING = (
     / "responses-recording.json"
 )
 CORPUS_ROOT = REPO_ROOT / "datasets" / "corpus" / "httpx-docs"
+COMMITTED_SUMMARY = REPO_ROOT / "artifacts" / "aggregation" / "m2-1-calibration" / "summary.json"
 
 REASONED_AT = "2026-08-30T00:00:00Z"
 QUESTION = "Does HTTPX retry failed connection setups?"
@@ -88,6 +85,11 @@ class _SingleDocSearch:
 
 def _recording(corpus: _SingleDocSearch, assertions: dict[str, tuple[str, str]]) -> FixtureLLM:
     """One (statement, quote) assertion per document, keyed by pipeline prompts."""
+    from veritas.extraction.pipeline import (
+        EXTRACTION_SYSTEM_PROMPT,
+        build_extraction_prompt,
+    )
+
     responses: dict[str, str] = {}
     for doc_id, (statement, quote) in assertions.items():
         document = corpus.fetch(doc_id, "1.0")
@@ -100,46 +102,12 @@ def _recording(corpus: _SingleDocSearch, assertions: dict[str, tuple[str, str]])
     return FixtureLLM(responses, model_id="m2-1-model")
 
 
-def _live_candidates() -> dict[tuple[str, str], str]:
-    """(doc_id, canonical_key) -> statement, replayed from the frozen live recording."""
+def _gold(case_id: str) -> str:
     benchmark = json.loads(BENCHMARK.read_text(encoding="utf-8"))
-    recording = json.loads(RECORDING.read_text(encoding="utf-8"))
-    corpus = LocalCorpusProvider(CORPUS_ROOT)
-    pipeline = ResearchExtractionPipeline(
-        corpus,
-        FixtureLLM(recording["responses"], model_id=recording["model_id"]),
-        source_namespace=corpus.corpus_id,
-    )
-    candidates: dict[tuple[str, str], str] = {}
     for case in benchmark["cases"]:
-        try:
-            bundle = pipeline.run(
-                query=case["query"],
-                question=case["question"],
-                reasoned_at=benchmark["reasoned_at"],
-                top_k=case["top_k"],
-                as_of=case.get("as_of"),
-            )
-        except Exception:
-            # Contract-rejected cases contribute no candidates; the frozen
-            # failure distribution is pinned by the live replay tests.
-            continue
-        for document in bundle.documents:
-            for assertion in document.assertions:
-                candidates.setdefault(
-                    (document.doc_id, derive_canonical_key(assertion.statement)),
-                    assertion.statement,
-                )
-    return candidates
-
-
-def _gold_assertions() -> list[tuple[str, str, str]]:
-    benchmark = json.loads(BENCHMARK.read_text(encoding="utf-8"))
-    return [
-        (case["case_id"], item["doc_id"], item["statement"])
-        for case in benchmark["cases"]
-        for item in case["expected_assertions"]
-    ]
+        if case["case_id"] == case_id:
+            return case["expected_assertions"][0]["statement"]
+    raise AssertionError(f"unknown case {case_id}")
 
 
 class AggregationCalibrationM21Tests(unittest.TestCase):
@@ -148,58 +116,36 @@ class AggregationCalibrationM21Tests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.live = _live_candidates()
-        cls.gold = _gold_assertions()
-
-    def _best_match(self, doc_id: str, statement: str) -> float | None:
-        best: float | None = None
-        for (doc, _key), candidate in self.live.items():
-            if doc != doc_id:
-                continue
-            score = similarity(statement, candidate)
-            if score is None:
-                continue
-            if best is None or score > best:
-                best = score
-        return best
-
-    def test_cluster_coverage_rises_from_three_to_nineteen_of_thirty_two(self) -> None:
-        exact = sum(
-            1
-            for _case, doc, statement in self.gold
-            if (doc, derive_canonical_key(statement)) in self.live
+        cls.summary = run_calibration(
+            benchmark_path=BENCHMARK,
+            recording_path=RECORDING,
+            corpus_root=CORPUS_ROOT,
         )
-        self.assertEqual(3, exact)
-        covered = 0
-        for _case, doc, statement in self.gold:
-            score = self._best_match(doc, statement)
-            if score is not None and score >= 0.375:
-                covered += 1
-        self.assertEqual(19, covered)
+
+    def test_frozen_calibration_matches_committed_artifact(self) -> None:
+        self.assertEqual(3, self.summary["counts"]["exact_key_covered"])
+        self.assertEqual(19, self.summary["counts"]["cluster_covered"])
+        self.assertEqual(32, self.summary["counts"]["gold_assertions"])
+        self.assertEqual(0.375, self.summary["policy"]["min_jaccard"])
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "summary.json"
+            write_summary(self.summary, output)
+            self.assertEqual(COMMITTED_SUMMARY.read_bytes(), output.read_bytes())
 
     def test_boundary_true_paraphrase_merges_and_false_pair_stays_out(self) -> None:
+        scores = {item["case_id"]: item["score"] for item in self.summary["matched_pairs"]}
         # EX-027: true paraphrase at 0.385 — above the frozen threshold.
-        self.assertGreaterEqual(self._best_match("advanced", _gold("EX-027")), 0.375)
-        # EX-012: different fact at 0.364 — below it; must not merge.
-        score_12 = self._best_match("quickstart", _gold("EX-012"))
-        self.assertIsNotNone(score_12)
-        self.assertLess(score_12, 0.375)
-
-    def test_versioned_gold_facts_stay_guarded_from_live_variants(self) -> None:
-        # EX-029 pins the Python floor at 0.24.1/3.7; the live recording
-        # only holds the 3.8 floor. The number guard keeps them apart
-        # regardless of wording.
-        gold_29 = _gold("EX-029")
-        live_floor = "HTTPX requires Python 3.8 or later."
-        self.assertIsNone(similarity(gold_29, live_floor))
-
-
-def _gold(case_id: str) -> str:
-    benchmark = json.loads(BENCHMARK.read_text(encoding="utf-8"))
-    for case in benchmark["cases"]:
-        if case["case_id"] == case_id:
-            return case["expected_assertions"][0]["statement"]
-    raise AssertionError(f"unknown case {case_id}")
+        self.assertGreaterEqual(scores["EX-027"], 0.375)
+        pair_27 = next(
+            item for item in self.summary["matched_pairs"] if item["case_id"] == "EX-027"
+        )
+        self.assertIn("verify parameter", pair_27["live_statement"])
+        # EX-012: a different fact at 0.364 — must not be in the merged set.
+        self.assertNotIn("EX-012", scores)
+        self.assertLess(0.364, self.summary["policy"]["min_jaccard"])
+        # EX-029/EX-030 pin version numbers; the number guard keeps them out.
+        self.assertNotIn("EX-029", scores)
+        self.assertNotIn("EX-030", scores)
 
 
 class RuntimeClusterIntegrationTests(unittest.TestCase):
@@ -213,15 +159,21 @@ class RuntimeClusterIntegrationTests(unittest.TestCase):
             },
         )
         store = RuntimeStore(tmp / "runtime.sqlite3")
-        candidates = CandidateStore(tmp / "candidates.sqlite3") if cluster_store is not None else None
-        return ResearchRuntime(
-            search=search,
-            provider=provider,
-            store=store,
-            source_namespace="fixture-corpus",
-            candidate_store=candidates,
-            cluster_store=cluster_store,
-        ), store, candidates
+        candidates = (
+            CandidateStore(tmp / "candidates.sqlite3") if cluster_store is not None else None
+        )
+        return (
+            ResearchRuntime(
+                search=search,
+                provider=provider,
+                store=store,
+                source_namespace="fixture-corpus",
+                candidate_store=candidates,
+                cluster_store=cluster_store,
+            ),
+            store,
+            candidates,
+        )
 
     def test_paraphrase_research_reenters_the_cluster_claim(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -241,8 +193,6 @@ class RuntimeClusterIntegrationTests(unittest.TestCase):
                     )
                     self.assertEqual("completed", result["status"])
 
-                    # The two phrasings collapsed into one cluster whose
-                    # representative is the founder's key.
                     founder_key = derive_canonical_key(FOUNDER_STATEMENT)
                     paraphrase_key = derive_canonical_key(PARAPHRASE_STATEMENT)
                     self.assertEqual(
@@ -252,14 +202,10 @@ class RuntimeClusterIntegrationTests(unittest.TestCase):
                         (paraphrase_key, founder_key), clusters.find_cluster(paraphrase_key)
                     )
                     self.assertEqual({"clusters": 1, "members": 2}, clusters.counts())
-
-                    # The paraphrase materializes to the founder claim id...
                     self.assertEqual(
                         claim_id_for(founder_key),
                         claim_id_for(clusters.representative_key(paraphrase_key)),
                     )
-                    # ...while the candidate store keeps both raw keys as
-                    # separate pre-aggregation observations.
                     self.assertIsNotNone(candidates)
                     self.assertEqual(2, candidates.counts()["candidates"])
                 finally:
@@ -279,8 +225,6 @@ class RuntimeClusterIntegrationTests(unittest.TestCase):
                     budget_requests=4,
                     observed_at=REASONED_AT,
                 )
-                # Default behavior is unchanged: two canonical keys, two
-                # claims — the pre-M2 churn pattern.
                 self.assertNotEqual(
                     derive_canonical_key(FOUNDER_STATEMENT),
                     derive_canonical_key(PARAPHRASE_STATEMENT),

@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-178%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-179%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -160,6 +160,7 @@ Choose the path that matches what you want to explore:
 | See how sessions checkpoint and respect budgets | [runtime store and engine](src/veritas/runtime/) |
 | See research graphs enter the evolution engine | [graph bridge](src/veritas/integration/graph_bridge.py) |
 | See the scaled cost claim on real corpus history | [evolution benchmark](src/veritas/evaluation/evolution_benchmark.py) and the [frozen summary](artifacts/evolution/m1-5b-benchmark/summary.json) |
+| See how paraphrase noise is aggregated away | [claim clusterer](src/veritas/aggregation/clusterer.py) and the [frozen calibration](artifacts/aggregation/m2-1-calibration/summary.json) |
 | Run a resumable research session | [runtime CLI](src/veritas/runtime/cli.py) and the [frozen live session](artifacts/runtime/httpx-session-m1-3b/session-summary.json) |
 | Inspect the 30-question extraction benchmark | [benchmark](datasets/extraction/httpx-m1-2c/benchmark.json) and [summary](artifacts/extraction/httpx-initial-extraction-3.0.0/summary.json) |
 | Inspect the real-provider calibration baselines | [v2 contract](artifacts/extraction/httpx-initial-extraction-2.0.0-deepseek-v4-flash/) and [v3 contract](artifacts/extraction/httpx-initial-extraction-3.0.0-deepseek-v4-flash/) (DeepSeek V4-Flash) |
@@ -281,7 +282,7 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas has **closed M1** (gate review D-039) and started **M2: from candidates to a trustworthy graph**. M2-1 delivered candidate aggregation (D-040): a deterministic clusterer with hard number/negation guards maps a real model's rewordings onto the claim of their cluster representative — calibrated on the live DeepSeek recording, cluster-level coverage of the gold assertions rises from 3/32 (exact keys) to **19/32** with zero observed false merges. The autonomous research loop follows in M3.
+Veritas has **closed M1** (gate review D-039) and is inside **M2: from candidates to a trustworthy graph**. M2-1 delivered candidate aggregation (D-040): a deterministic clusterer with hard number/negation guards maps a real model's rewordings onto the claim of their cluster representative — calibrated on the live DeepSeek recording, cluster-level coverage of the gold assertions rises from 3/32 (exact keys) to **19/32** with zero observed false merges (frozen artifact, CI-reproducible). M2-2 proved the payoff on the evolution side (D-041): with clustering enabled, a paraphrased re-research after a real revision re-enters the same claim and the conclusion stays at v1 pass — zero churn; without it, the same event flips the conclusion to unknown. The autonomous research loop follows in M3.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
 - 161 automated tests on Python 3.11 and 3.14

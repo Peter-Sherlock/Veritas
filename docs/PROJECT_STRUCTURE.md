@@ -595,6 +595,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：新增 `src/veritas/aggregation/`（clusterer / store / resolve）。相似度 = 内容 token Jaccard（版本号整 token 化、冻结停用词表），两类硬守卫直接判"永不合"：数字/版本 token 集必须完全一致（3.7 vs 3.8 永远分开）、否定 token 集必须一致（正/反陈述分开）。`ClaimClusterStore`（schema `claim-clusters-1`）：簇代表在创建时冻结——成员只挂靠、不改键，claim id 终生稳定；单趟指派——簇创建后不再合并，新语句加入得分最高且过阈值的簇，否则自立新簇；join 决策（method/score）持久化为成员审计行；重开时阈值不一致 = `policy_drift` 拒绝、schema 漂移 = `schema_drift` 拒绝。阈值从 M1-2C2 真录（DeepSeek V4-Flash 重放 52 候选）对 32 条 gold 断言的成对分布校准：真改写下限 0.385（EX-027）、异事实上限 0.364（EX-012），冻结 **0.375**——簇级覆盖 **19/32** vs 精确 key **3/32**，逐对人工审核零假合并。运行时可选接入（`cluster_store=None` 默认全关，M1 行为逐位保留）：`resolve_bundle` 在抽取后把 claim 身份重映射到簇代表（claim/边 id 重算、同簇塌缩；证据与原始候选记录不动——候选存储保持 pre-aggregation 真相）；CLI `--cluster-store`。
 - 原因：C2 携带项要求"有证据方案的合并"，其第一步必须落在确定性层：数字与否定守卫把"绝不能合并"的配对在构造上排除——这是 P0 Python floor 事件的直接教训，词面相似不等于事实相同；Jaccard 在守卫之外给出可审计的连续分数。阈值用真录校准并冻结，此后每次重跑都是对同一契约的度量，而不是重新调参。代表冻结 + 簇不合并牺牲少量召回换取 claim id 稳定性——演化引擎的 claim 身份不能漂移，这是聚类进入演进系统的代价约束。负向校准：`canonical_key_mismatch`、`invalid_statement`、`policy_drift`、`schema_drift`，另有边界配对钉死（0.385 进 / 0.364 出 / EX-029 版本号守卫）。
 
+### D-041：聚合的价值在演化侧闭环证明——改写再研究重入同一 claim，结论零 churn
+
+- 状态：Implemented for M2-2
+- 日期：2026-08-30
+- 决策：(1) 校准提升为正式模块 `veritas.evaluation.aggregation_calibration`（CLI + canonical JSON + output_hash），冻结 artifact `artifacts/aggregation/m2-1-calibration/summary.json`（exact 3/32、cluster 19/32、全部配对明细），测试字节复现 + CI `aggregation-calibration` 任务重生成零 diff；(2) 新增演化侧对照场景（`tests/scenarios/test_cluster_evolution_m2_2.py`）：真实本地语料（两版本、真实内容变更）驱动同一次修订跑两遍——**开簇**：T1 模型改写同一事实（同引文不同表述，真实 C2 噪声模式），`resolve_bundle` 把改写重入 T0 claim 的簇，新证据重挂同一 claim，claim 保持 accepted（`rechecked_unchanged`）、结论停在 v1 pass、`recomputed_conclusions` 为空——**零 churn**；**关簇**：改写成为新 claim，旧 claim unsupported、结论 pass@1→unknown@2——正是 M1-5B 幸存故事在真实模型行为下的退化形式，现在被聚合消除。
+- 原因：M2-1 的 19/32 校准只证明了"能配对"，没证明"配对了有什么用"。演化系统的价值主张是结论与证据同步，而 C2 churn 的具体代价就是：事实没变、措辞变了、结论翻 unknown——这是假警报的确定性来源。把对照场景钉在真实语料修订 + 真实改写模式上，聚合的收益就从"召回数字"变成"演化行为差异"；两路径同fixture 同事件，唯一的自由度是 cluster_store 的有无，因此结论差异完全归因于聚合。校准进 CI 后，阈值、真录与 gold 三者任一漂移都会被零 diff 检查拦下。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -628,6 +635,7 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1 | 初始研究与搜索 | Gate P0 通过 | 见 Gate M1 出口条件（D-039） | 已完成（M1-1/1R、M1-2 全部、M1-3、M1-4、M1-5） |
 | M2 | 从候选到可信图（语义质量档） | Gate M1 通过 | 簇级身份落地、真实模型簇级基线重测、方差口径钉死 | 进行中（M2-1 未开始） |
 | M2-1 | 候选语义聚合 | Gate M1 通过 | 确定性相似度 + 硬守卫的簇存储、运行时可选接入、真录簇级校准与负向校准 | 已完成：178/178 tests；真录簇级覆盖 19/32 vs 精确 key 3/32，阈值 0.375 冻结 |
+| M2-2 | 簇级结论与冻结校准 | M2-1 完成 | 演化侧改写幸存 vs churn 对照场景、校准 artifact 进 CI 零 diff | 已完成：179/179 tests；开簇零 churn（结论停 v1）/ 关簇 churn（pass→unknown）对照钉死 |
 
 如果 Gate P0 不通过，不进入 Web Search 集成；先分析图粒度、规则语义和 benchmark 是否支持项目假设。
 
@@ -827,6 +835,15 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] Python 3.14.7 严格 `ResourceWarning` 模式 178/178 tests 通过；
 - [x] README、技术实现文档和项目结构文档同步更新。
 
+- [x] README、技术实现文档和项目结构文档同步更新。
+
+### 11.18 M2-2 完成记录（2026-08-30）
+
+- [x] 校准提升为正式模块 `veritas.evaluation.aggregation_calibration`（CLI `--output`、canonical JSON + output_hash），冻结 artifact `artifacts/aggregation/m2-1-calibration/summary.json`（exact 3/32、cluster 19/32、19 组配对明细）；
+- [x] 演化侧对照场景（真实本地语料 + 真实内容修订）：开簇路径改写重入同一 claim、证据重挂、claim 保持 accepted、结论停 v1 pass、零重算；关簇路径旧 claim unsupported、结论 pass@1→unknown@2；
+- [x] CI 新增 `aggregation-calibration` 任务（重生成 + 零 diff）；Python 3.14.7 严格 `ResourceWarning` 模式 179/179 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -876,6 +893,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M2-2 | 簇级结论与冻结校准（D-041）：校准提升为正式模块 + 冻结 artifact（exact 3/32、cluster 19/32、配对明细）+ CI 零 diff；演化侧对照场景钉死聚合价值——开簇改写再研究重入同一 claim（零 churn、结论停 v1 pass），关簇改写 churn（结论 pass@1→unknown@2）；179/179 tests |
 | 2026-08-30 | M2-1 | 候选语义聚合（D-040）：`src/veritas/aggregation/`（相似度 + 数字/否定硬守卫、`ClaimClusterStore` 代表冻结/单趟指派/policy_drift、`resolve_bundle` 身份重映射）；运行时可选接入默认全关，CLI `--cluster-store`；阈值从真录校准冻结 0.375（真改写 ≥0.385 / 异事实 ≤0.364，零假合并），簇级覆盖 19/32 vs 精确 key 3/32；178/178 tests |
 | 2026-08-30 | Gate M1 | 收口评审（D-039）：M1 出口条件五条核验通过（基线 6ea0dad，CI run 33321253704 六任务成功）；携带 C2（候选聚合只暴露不合并）、C3-R（同契约重复运行）、C4（检索词面基线）进 M2；M2 主题定为"从候选到可信图"，自主闭环排为 M3；M1 关闭 |
 | 2026-08-30 | M1-5B | 规模演化 benchmark（D-038）：六文档真实语料历史 13 个内容修订事件（9 幸存 + 4 watched 事实移除），逐事件 full-recompute 等价 oracle，冻结成本声明 selective 23 vs 全量 185 求值（ratio 0.1243）+ CI 重生成零 diff 校验；161/161 tests |

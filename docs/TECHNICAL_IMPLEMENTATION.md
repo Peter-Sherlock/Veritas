@@ -1670,7 +1670,22 @@ python -m veritas.runtime \
 
 阈值 0.375 从 M1-2C2 真录（DeepSeek V4-Flash）与 gold 断言的成对分布校准并冻结：真改写配对最低 **0.385**（EX-027 CA bundle 句），异事实配对最高 **0.364**（EX-012 JSON 编码句），逐对人工审核零假合并。结果：**簇级覆盖 19/32**（精确 key 基线 3/32，≈6.3 倍）；4 个被契约拒绝的 case 无候选不参与；EX-029（版本号钉死）与 EX-030 由数字守卫正确排除。校准钉进 `tests/scenarios/test_aggregation_m2_1.py`。
 
-## 34. 当前限制
+## 34. M2-2 簇级结论与冻结校准
+
+### 34.1 校准的正式化（D-041）
+
+`veritas.evaluation.aggregation_calibration` 把 M2-1 的校准从测试内助手提升为正式模块：重放 committed 录制 → 候选配对 → `run_calibration` 返回 canonical JSON（policy、counts、exact/cluster 覆盖 case 列表、19 组 matched_pairs 明细）→ `write_summary` 加 output_hash。冻结 artifact `artifacts/aggregation/m2-1-calibration/summary.json` 由测试字节复现，CI `aggregation-calibration` 任务重生成并 `git diff --exit-code`——阈值、真录、gold 三者任一漂移都会被拦下。
+
+### 34.2 演化侧对照：改写幸存 vs churn
+
+`tests/scenarios/test_cluster_evolution_m2_2.py` 在真实本地语料（retries 文档 1.0→2.0，watched 句幸存、内容真实变更）上驱动同一次修订跑两遍，唯一自由度是 `cluster_store` 的有无：
+
+- **开簇**：T1 模型改写同一事实（同引文、不同表述——真实 C2 噪声模式），`resolve_bundle` 使改写重入 T0 claim 的簇，claim id 不变；引擎侧旧证据经 supersession 失活、新证据重挂同一 claim → claim 保持 ACCEPTED（`rechecked_unchanged`）、结论停在 v1 pass、`recomputed_conclusions` 为空——**零 churn**；
+- **关簇**：改写成为新 claim → 旧 claim UNSUPPORTED、结论 pass@1→unknown@2——M1-5B 幸存故事在真实模型行为下的退化形式。
+
+这一对照把 M2-1 的召回数字转译为演化行为差异：聚合消除的是"事实未变而结论翻 unknown"的假警报来源。
+
+## 35. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
@@ -1687,10 +1702,11 @@ python -m veritas.runtime \
 
 因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034）、M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035）、M1-4 的确定性重规划（D-036，触发场景测试通过）、M1-5A 的 GraphBridge 三层翻译与真实语料修订闭环（D-037，index 0.24.1→0.25.2 驱动结论 pass→unknown），以及 M1-5B 的真实历史规模基准（D-038，13 个真实修订事件逐事件等价、selective 23/185 求值）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 35. 变更记录
+## 36. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M2-2 | 簇级结论与冻结校准（D-041）：校准提升为正式模块 + 冻结 artifact（exact 3/32、cluster 19/32、19 组配对明细）+ CI 零 diff；演化侧对照场景钉死聚合价值——开簇改写再研究重入同一 claim（零 churn、结论停 v1 pass），关簇改写 churn（结论 pass@1→unknown@2）；179/179 tests |
 | 2026-08-30 | M2-1 | 候选语义聚合（D-040）：`src/veritas/aggregation/`——相似度 + 数字/否定硬守卫、`ClaimClusterStore`（代表冻结/单趟指派/审计行/policy_drift）、`resolve_bundle` 身份重映射；运行时可选接入默认全关、CLI `--cluster-store`；阈值从真录校准冻结 0.375（真改写 ≥0.385 / 异事实 ≤0.364，零假合并），簇级覆盖 19/32 vs 精确 key 3/32；178/178 tests |
 | 2026-08-30 | Gate M1 | 收口评审（D-039）：出口条件五条核验通过（基线 6ea0dad、CI run 33321253704 六任务成功）；携带 C2/C3-R/C4 进 M2；M2 主题"从候选到可信图"、自主闭环排 M3；M1 关闭 |
 | 2026-08-30 | M1-5B | 规模演化 benchmark（D-038）：`evolution_benchmark` 六文档 T0 图 + 13 个真实内容修订事件（9 幸存 + 4 watched 事实移除，manifest `published_at` 排序、SAME 哈希步跳过）；逐事件 full-recompute 等价 oracle（漂移即 `equivalence_violation`）；冻结成本声明 selective 23 vs 全量 185 求值（ratio 0.1243），summary 提交 + 测试字节复现 + CI 零 diff；161/161 tests |
