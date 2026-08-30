@@ -1583,7 +1583,23 @@ python -m veritas.runtime \
 - resume 联动：首跑 budget 4 中断于 item-b，resume 提额到 6 且开降级 → 按剩余 2 降级 item-b 至 top_k 2 后完成（总花费 6）；
 - CLI 级：`--retry-rejected` 驱动同一救援故事（录制含违约响应），摘要显示 attempts=2、effective_top_k=1。
 
-## 30. 当前限制
+## 30. M1-5A 端到端集成桥与真实变更事件
+
+### 30.1 GraphBridge 三层翻译（D-037）
+
+`src/veritas/integration/graph_bridge.py` 连接研究侧（M1-2/M1-3 管线与运行时）与演化侧（P0 引擎）：
+
+1. **语料 → SourceVersion**：id 方案与抽取管线一致（`<corpus_id>:<doc_id>@<version>`），证据 `source_version_id` 直接对上已注册源；canonical_uri、content_hash、published_at 全部来自语料 manifest/快照；
+2. **会话 bundle → 演进库**：claims/evidence/edges 事务插入（INSERT OR IGNORE，跨会话幂等）；T0 补齐初始 claim 评估（复用 P0 `evaluate_claim`）与 `all_accepted` 结论 v1 + DEPENDS_ON 边——引擎的结论重算依赖这些边；
+3. **manifest 历史 → ChangeEvent**：`revision_event(doc, old, new)` 从真实版本表导出 revise 事件，`external_event_id = <corpus_id>/<doc>@<new>` 作幂等键，observed/effective_at 取新版本真实 published_at，新 SourceVersion 预挂 supersedes；`changed_locators` 为空 = 整版本变更范围（无语义 diff 时的诚实默认，宁多验证不漏验证）。
+
+### 30.2 真实修订闭环（冻结场景测试）
+
+用真实语料内容变化驱动完整演化（`tests/scenarios/test_evolution_integration_v1.py`）：index 文档 0.24.1→0.25.2 的 Python 下限句真实修订（"HTTPX requires Python 3.7+" → "HTTPX requires Python 3.8+"，两句均为真实快照原文、唯一定位）。闭环：T0（as_of 2023-06-01）抽取 → 入库 → 旧 claim（`httpx_requires_python_3_7_or_later`）accepted、结论 `python_floor_claim_supported` pass@1 → 真实 revise 事件 → T1 重抽取（as_of 2023-12-01）作为 new_claims 包 → 引擎 apply：旧 claim accepted→**unsupported**（supersession 派生失活，不写 valid_to）、新 claim（`httpx_requires_python_3_8_or_later`）**accepted**、watching 结论 **pass@1 → unknown@2**（fail_statement："no longer supported; re-research required"）；重复 apply 幂等返回同一 run_id、实体计数不变。
+
+负面校准 3 项：`unknown_corpus_version`、`unregistered_old_source_version`、`unregistered_source_version`（namespace 失配证据拒入库，FK 兜底）。
+
+## 31. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
@@ -1598,12 +1614,13 @@ python -m veritas.runtime \
 - 没有并发、多进程、规模或性能结果。
 - Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
-因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034）、M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035），以及 M1-4 的确定性重规划（D-036，触发场景测试通过）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034）、M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035），以及 M1-4 的确定性重规划（D-036，触发场景测试通过）已经通过可复现验证、M1-5A 的 GraphBridge 三层翻译与真实语料修订闭环（D-037，index 0.24.1→0.25.2 驱动结论 pass→unknown）”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 31. 变更记录
+## 32. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-5A | 端到端集成（D-037）：`GraphBridge`（语料→SourceVersion 对齐管线 id、bundle→演进库+T0 评估/结论、manifest 历史→revise 事件）；真实修订 index 0.24.1→0.25.2（Python 3.7+→3.8+）驱动 P0 引擎在真实抽取图上完成演化闭环，结论 pass@1→unknown@2，apply 幂等；152/152 tests |
 | 2026-08-30 | M1-4 | 动态重规划（D-036）：`ReplanPolicy`——拒绝以 top_k-1 重排一次（降级宽度持久化、max_attempts/min_top_k 双终止）、预算压力运行前确定性降级适配（最大优先/平局按队列序/触底不伪装）；schema `research-runtime-2`（effective_top_k 与规格身份分离）；CLI 旗标与摘要暴露；M1-3B 冻结摘要由同一录制重导；148/148 tests |
 | 2026-08-30 | M1-3B | Runtime CLI（D-035）：spec 驱动会话 + live/replay 双 provider + 逐项进度流与崩溃安全录制 + 重跑安全 + 确定性摘要；引擎新增 `on_item_done`；真实 DeepSeek 3 题会话证据入库（7 请求、2 引用拒绝被契约拦截、1 完成）并由 CLI 重放测试逐字段钉死；M1-3 阶段收口；141/141 tests |
 | 2026-08-30 | M1-3A | Research Runtime 引擎（D-034）：独立会话存储 `research-runtime-1`（sessions/work_items）+ `ResearchRuntime` 引擎；逐项 checkpoint 事务，恢复跳过终态、规格漂移/预算下降/已完成会话重跑均拒绝；预算 reserve-then-call 原子预留（崩溃宁少花不超支）、耗尽干净停止、提额恢复；契约拒绝即终态记录错误码；候选经 D-032 身份幂等落库（run 归属 `session:<id>`）；13 项新测试含崩溃恢复收敛与无崩溃参考 run 等价断言；134/134 tests |

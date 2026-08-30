@@ -562,6 +562,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：新增 `ReplanPolicy`（默认全关，M1-3 行为逐位保留），两个确定性触发器。(1) **拒绝重试**：item 契约拒绝且 `attempts < max_attempts` 且 `effective_top_k > min_top_k` 时，以 `top_k - 1` 重排一次——`requeue_item` 事务持久化降级宽度（崩溃后重试仍按降级宽度，不回退不重复花费）；到达次数上限或 top_k 下限即终态拒绝。(2) **预算联动**：run/resume 开始时若 pending 队列最坏情况请求超过剩余预算，`degrade_queue_to_fit` 确定性降级（最大 effective_top_k 优先、平局按队列序、逐次 -1、floor min_top_k，单事务持久化）；降到下限仍不够则照常在预算处干净停止。存储 schema 升为 `research-runtime-2`（`work_items` 增加 `effective_top_k` 列；`top_k` 保留为规格身份，规格漂移校验不变）。引擎结果暴露 `degraded_items`，CLI 摘要逐 item 暴露 `effective_top_k`；M1-3B 冻结会话摘要由同一录制确定性重导以纳入新字段（原始录制未动）。
 - 原因：确定性重放下"原样重试"只会复现同一拒绝（fixture 重放）或盲目烧预算（live 单轮方差），所以重试必须改变输入——top_k 是运行时唯一可确定性收紧的自由度（换查询、换模型都是更大的机制，不属于运行时）。预算联动放在 run 开始而非预算耗尽后：耗尽时剩余预算为零，任何降级都无济于事；事前降级把"质量换覆盖"的决定显式化，且 `effective_top_k < top_k` 本身就是可审计的证据。降级只持久化到 checkpoint 存储，演进库与候选存储的追加语义不受影响。
 
+### D-037：端到端集成以 GraphBridge 翻译三层边界，变更事件从真实语料历史导出
+
+- 状态：Implemented for M1-5A
+- 日期：2026-08-30
+- 决策：新增 `src/veritas/integration/`（`GraphBridge`）。三个翻译：(1) 语料文档 → `SourceVersion`，id 采用管线同款 `<corpus_id>:<doc_id>@<version>` 方案，抽取证据直接落进演进库无需改写；(2) 会话 bundle → claims/evidence/edges + T0 初始评估与 `all_accepted` 结论（含 DEPENDS_ON 边），P0 规则引擎拿到完整初始状态；(3) 语料 manifest 历史 → 确定性 `revise` ChangeEvent（`external_event_id = <corpus_id>/<doc>@<new>` 做幂等键，observed/effective 取新版本真实 `published_at`，新 source 预先挂好 supersedes）。revise 事件 `changed_locators` 为空 = 整版本变更范围。端到端闭环用真实内容变化验证：index 文档 0.24.1→0.25.2 的 Python 下限句真实修订（3.7+→3.8+），T0 图经引擎演化后旧 claim 失去支持、新 claim 获支持、watching 结论 pass@1→unknown@2，重复 apply 幂等。
+- 原因：P0 演化引擎从未在真实文档图上运行过，Gate P0 的条件一要求"LLM 组件经确定性 fixture 校准"、M1-5 的存在意义就是补上"真实抽取图"这一环。三层翻译各自可测：源注册以 id 方案对齐免除改写（对齐错误由 `unregistered_source_version` 守卫拦截，FK 兜底）；T0 评估/结论装载复用 P0 规则函数不另起炉灶；事件从 manifest 导出而非手写，使"变更"和"内容"一样是真实数据。整版本变更范围是诚实默认——没有语义 diff 就声明全部受影响，宁多验证不漏验证。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -588,6 +595,7 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-3A | Runtime 引擎：会话/队列/checkpoint/预算 | Gate M1-2 通过 | 中断恢复收敛、预算耗尽干净停止、拒绝即终态均有测试 | 已完成：134/134 tests |
 | M1-3B | Runtime CLI 与 live 接线 | M1-3A 完成 | spec 驱动 CLI、live 录制逐项保存、重跑安全、live 证据入库并可重放 | 已完成：141/141 tests；3 题真实会话（7 请求）证据钉死 |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 已完成：148/148 tests；拒绝降级重试与预算预降级触发场景均有测试 |
+| M1-5A | 端到端集成桥与真实变更事件 | M1-4 完成 | 真实语料历史 ChangeEvent 驱动 P0 引擎在真实抽取图上完成一次演化 | 已完成：152/152 tests；index 0.24.1→0.25.2 真实修订闭环（结论 pass→unknown） |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
 | M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 未开始 |
 | M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-2 已收口；M1-3 未开始） |
@@ -755,6 +763,15 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] Python 3.14.7 严格 `ResourceWarning` 模式 148/148 tests 通过；
 - [x] README、技术实现文档和项目结构文档同步更新。
 
+### 11.14 M1-5A 完成记录（2026-08-30）
+
+- [x] `src/veritas/integration/`（`GraphBridge`）：语料→SourceVersion（id 与管线方案对齐）、会话 bundle→演进库候选图、manifest 历史→确定性 revise ChangeEvent（真实 published_at、supersedes 预接线、整版本变更范围）；
+- [x] T0 装载：初始 claim 评估（复用 `evaluate_claim`）+ `all_accepted` 结论 v1（DEPENDS_ON 边）；
+- [x] 端到端闭环（真实内容变化）：index@0.24.1→0.25.2（"HTTPX requires Python 3.7+"→"3.8+"）驱动 P0 引擎：旧 claim accepted→unsupported、新 claim 获支持、结论 pass@1→unknown@2、重复 apply 幂等返回同一 run；
+- [x] 负面校准 3 项：`unknown_corpus_version`（事件引用语料外版本）、`unregistered_old_source_version`（T0 未装载）、`unregistered_source_version`（namespace 失配的证据拒绝入库）；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式 152/152 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -804,6 +821,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-5A | 端到端集成桥（D-037）：`GraphBridge` 三层翻译（语料→SourceVersion、bundle→演进库、manifest 历史→revise 事件）；真实修订 index 0.24.1→0.25.2（Python 3.7+→3.8+）驱动 P0 引擎在真实抽取图上完成演化闭环（结论 pass→unknown、幂等）；152/152 tests |
 | 2026-08-30 | M1-4 | 动态重规划（D-036）：`ReplanPolicy` 两触发器——拒绝以 top_k-1 重排一次（降级宽度持久化、双重终止条件）、预算压力运行前确定性降级适配剩余预算；存储 schema `research-runtime-2`（effective_top_k）；CLI 旗标与摘要暴露；148/148 tests |
 | 2026-08-30 | M1-3B | Runtime CLI 接线（D-035）：`python -m veritas.runtime`，spec 驱动会话、live/replay 双 provider、逐项进度流与崩溃安全录制、完成会话重跑安全、确定性摘要含 content_hash；真实 DeepSeek 3 题会话（7 请求、2 引用拒绝被拦截、1 完成入库）证据入库并由重放测试钉死；141/141 tests |
 | 2026-08-30 | M1-3A | Research Runtime 引擎（D-034）：独立会话存储（`research-runtime-1`）+ 引擎；逐项 checkpoint、恢复跳过终态、规格漂移/预算下降/已完成重跑拒绝；reserve-then-call 预算（崩溃宁少花不超支）、耗尽干净停止、提额恢复；契约拒绝即终态；候选经 D-032 幂等落库；崩溃恢复与无崩溃参考 run 终态等价有测试钉死；134/134 tests |
