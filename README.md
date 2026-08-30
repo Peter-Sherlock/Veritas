@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-110%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-121%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -109,7 +109,7 @@ python -m veritas.evaluation.extraction_runner `
   --output artifacts/extraction/live/summary-live.json
 ```
 
-Every real exchange is recorded to `--record-out` and can be replayed deterministically afterwards; the fixture benchmark above is untouched by live runs. Progress streams per case to stderr (`[live] 5/30 EX-005 fail requests=15 ...`) and the recording file is rewritten after every case, so an interrupted run keeps all completed exchanges. The full 30-question live run makes ~90 sequential API calls and takes several minutes.
+Every real exchange is recorded to `--record-out` and can be replayed deterministically afterwards, and every case's contract-valid candidates are committed transactionally to the SQLite store given by `--store-out`; the fixture benchmark above is untouched by live runs. Progress streams per case to stderr (`[live] 5/30 EX-005 fail requests=15 ...`) and the recording file is rewritten after every case, so an interrupted run keeps all completed exchanges. The full 30-question live run makes ~90 sequential API calls and takes several minutes.
 
 Linux and macOS users can replace the environment setup with:
 
@@ -254,10 +254,10 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas is currently in **M1-2: extraction calibration**. The deterministic fixture baseline, two real-provider recordings, and a contract revision that eliminated all integrity failures are complete; the remaining quality gap is semantic paraphrasing.
+Veritas is currently in **M1-2: extraction calibration**. The deterministic fixture baseline, two real-provider recordings, a contract revision that eliminated all integrity failures, and transactional candidate persistence are complete; the remaining quality gap is semantic paraphrasing.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
-- 110 automated tests on Python 3.11 and 3.14
+- 121 automated tests on Python 3.11 and 3.14
 - five frozen scenarios covering revision, retraction, branch isolation, expiry, and multi-source conflict
 - provenance, snapshot-drift, idempotency, replay, and artifact-integrity checks
 - selective execution matches full recomputation in all scenarios while evaluating 4 of 11 conclusions instead of 11 of 11
@@ -265,13 +265,14 @@ Veritas is currently in **M1-2: extraction calibration**. The deterministic fixt
 - canonical LF corpus hashes, with CI covering both Python versions and both frozen suite manifests
 - strict extraction validation: exact JSON schema, unique verbatim citations and deterministic Evidence/Claim/edge IDs
 - canonical keys are derived by the deterministic layer from the statement (schema `evidence-assertion-2`) — the model proposes content only
+- contract-valid candidates persist transactionally to SQLite (`--store-out`) with content-hash identity, cross-run dedup and conflict queries; the store never merges or overwrites
 - a frozen 30-question fixture benchmark (v3.0.0, a superset of the 10-question M1-2A set): 30/30 cases, exact assertion precision/recall 1.0, citation alignment 1.0, including multi-assertion, contradicts and as_of version-view cases
 - an extraction failure taxonomy (EX01–EX05) with critical/major severity, each class independently triggered by negative calibration
 - retrieval hit@3 is 1.0 but MRR is 0.7222 on the expanded set; correct sources beyond rank one are kept as honest retrieval facts
 
 Gate P0 was reviewed on 2026-08-29 and **passed with conditions** (see [D-021](docs/PROJECT_STRUCTURE.md)): the mechanism is validated on controlled graphs; LLM extraction must be calibrated against deterministic fixtures in M1, and no cost claim may be extrapolated from the 4/11 ratio without a scaled benchmark.
 
-**M1-2B** added an extraction failure taxonomy: EX01 retrieval miss, EX02 contract rejection, and EX05 fixture drift are integrity failures, while EX03 citation rejection and EX04 assertion mismatch are quality gaps. **M1-2B2** expanded the frozen benchmark to 30 questions (multi-assertion, contradicts, and two as_of version-view cases from real HTTPX history). **M1-2C-pre** wired the live-provider path; **M1-2C** recorded DeepSeek V4-Flash against the frozen prompts: 0/30 exact match with 9 contract rejections (model-proposed keys with illegal characters), 9 citation rejections, and 12 assertion mismatches at ≈0.42 CNY — pinning exact-statement matching as an unattainable quality bar (D-030). **M1-2C2** acted on that finding (D-031): the model no longer proposes canonical keys — the deterministic layer derives them from statements — and the scoring identity dropped to key level. The re-run under contract v2 eliminated **all 9 integrity failures** (critical = 0), cut citation rejections from 9 to 4 (citation alignment 0.4 → 0.8667), and left semantic paraphrasing as the dominant, honestly-measured quality gap (26/30 cases). The next slice, **M1-2D**, persists extraction candidates into SQLite with claim-level dedup.
+**M1-2B** added an extraction failure taxonomy: EX01 retrieval miss, EX02 contract rejection, and EX05 fixture drift are integrity failures, while EX03 citation rejection and EX04 assertion mismatch are quality gaps. **M1-2B2** expanded the frozen benchmark to 30 questions (multi-assertion, contradicts, and two as_of version-view cases from real HTTPX history). **M1-2C-pre** wired the live-provider path; **M1-2C** recorded DeepSeek V4-Flash against the frozen prompts: 0/30 exact match with 9 contract rejections (model-proposed keys with illegal characters), 9 citation rejections, and 12 assertion mismatches at ≈0.42 CNY — pinning exact-statement matching as an unattainable quality bar (D-030). **M1-2C2** acted on that finding (D-031): the model no longer proposes canonical keys — the deterministic layer derives them from statements — and the scoring identity dropped to key level. The re-run under contract v2 eliminated **all 9 integrity failures** (critical = 0), cut citation rejections from 9 to 4 (citation alignment 0.4 → 0.8667), and left semantic paraphrasing as the dominant, honestly-measured quality gap (26/30 cases). **M1-2D** persisted the candidates (D-032): every contract-valid assertion lands in a dedicated transactional SQLite store keyed by (source version, canonical key, content hash), exact repeats dedup idempotently across runs, and disagreements are surfaced, never merged — the paraphrase noise is now frozen evidence (quickstart@0.28.1 holds 15 candidates with 15 distinct keys, neither EX-014 gold key among them).
 
 > [!WARNING]
 > This repository does not yet perform web search, autonomous planning, or production-scale concurrent execution. The 30/30 extraction result is deterministic fixture replay, not evidence of real-model quality; the two measured live baselines (DeepSeek V4-Flash, one run per contract) are 0/30, with integrity failures eliminated by construction under contract v2 but semantic paraphrasing (26/30) unsolved.

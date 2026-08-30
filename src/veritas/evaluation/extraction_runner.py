@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from veritas.extraction.models import ExtractionContractError
+from veritas.extraction.models import ExtractionCandidateBundle, ExtractionContractError
 from veritas.extraction.pipeline import (
     EXTRACTION_PROMPT_VERSION,
     EXTRACTION_SCHEMA_VERSION,
@@ -16,6 +16,7 @@ from veritas.extraction.pipeline import (
     build_extraction_prompt,
     derive_canonical_key,
 )
+from veritas.extraction.store import CandidateStore, candidates_from_document
 from veritas.providers.llm import (
     FixtureLLM,
     LLMProvider,
@@ -175,7 +176,7 @@ def evaluate_extraction_calibration(
     fixtures: dict[str, Any],
     corpus: LocalCorpusProvider,
     provider: Any,
-    on_case_done: Callable[[dict[str, Any]], None] | None = None,
+    on_case_done: Callable[[dict[str, Any], ExtractionCandidateBundle | None], None] | None = None,
 ) -> dict[str, Any]:
     if benchmark["prompt_version"] != EXTRACTION_PROMPT_VERSION:
         raise ValueError(
@@ -256,6 +257,7 @@ def evaluate_extraction_calibration(
             )
 
         contract_rejected = False
+        bundle: ExtractionCandidateBundle | None = None
         actual: set[IdentityKey] = set()
         actual_statement: dict[IdentityKey, str] = {}
         try:
@@ -334,7 +336,7 @@ def evaluate_extraction_calibration(
             }
         )
         if on_case_done is not None:
-            on_case_done(case_results[-1])
+            on_case_done(case_results[-1], bundle)
 
     case_count = len(case_results)
     passed_case_count = sum(result["status"] == "pass" for result in case_results)
@@ -394,22 +396,72 @@ def evaluate_extraction_calibration(
     return summary
 
 
+def _persist_case_candidates(
+    store: CandidateStore,
+    bundle: ExtractionCandidateBundle,
+    *,
+    source_namespace: str,
+    run_id: str,
+    observed_at: str,
+) -> dict[str, int]:
+    records = [
+        record
+        for document in bundle.documents
+        for record in candidates_from_document(document, source_namespace=source_namespace)
+    ]
+    return store.persist(records, run_id=run_id, observed_at=observed_at)
+
+
 def run_extraction_calibration(
     *,
     benchmark_path: str | Path,
     fixtures_path: str | Path,
     corpus_root: str | Path,
+    store_path: str | Path | None = None,
 ) -> dict[str, Any]:
     benchmark = _load_json(benchmark_path)
     fixtures = _load_json(fixtures_path)
     corpus = LocalCorpusProvider(corpus_root)
     provider = build_fixture_provider(benchmark, fixtures, corpus)
-    return evaluate_extraction_calibration(
-        benchmark=benchmark,
-        fixtures=fixtures,
-        corpus=corpus,
-        provider=provider,
-    )
+    store = CandidateStore(store_path) if store_path else None
+    try:
+        on_case_done = None
+        if store is not None:
+            run_id = f"fixture:{fixtures['fixture_id']}"
+
+            def on_case_done(
+                case_result: dict[str, Any],
+                bundle: ExtractionCandidateBundle | None,
+            ) -> None:
+                if bundle is not None:
+                    _persist_case_candidates(
+                        store,
+                        bundle,
+                        source_namespace=corpus.corpus_id,
+                        run_id=run_id,
+                        observed_at=benchmark["reasoned_at"],
+                    )
+
+        summary = evaluate_extraction_calibration(
+            benchmark=benchmark,
+            fixtures=fixtures,
+            corpus=corpus,
+            provider=provider,
+            on_case_done=on_case_done,
+        )
+        if store is not None:
+            counts = store.counts()
+            print(
+                "candidate store: "
+                f"candidates={counts['candidates']} "
+                f"observations={counts['observations']} "
+                f"distinct_canonical_keys={counts['distinct_canonical_keys']}",
+                file=sys.stderr,
+            )
+        return summary
+    finally:
+        if store is not None:
+            store.close()
 
 
 def run_live_extraction_calibration(
@@ -420,6 +472,7 @@ def run_live_extraction_calibration(
     base_url: str,
     record_path: str | Path,
     provider: LLMProvider | None = None,
+    store_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Run the frozen benchmark against a live provider and record responses.
 
@@ -428,6 +481,10 @@ def run_live_extraction_calibration(
     ``record_path`` so the run can later be replayed deterministically. The
     recording file is rewritten after every case, so an interrupted run keeps
     all completed exchanges, and per-case progress is streamed to stderr.
+    When ``store_path`` is given, each case's contract-valid candidates are
+    committed in their own transaction as the case completes, so an
+    interrupted run keeps every persisted case and a replayed run is
+    idempotent against the same store.
     """
     benchmark = _load_json(benchmark_path)
     corpus = LocalCorpusProvider(corpus_root)
@@ -440,39 +497,65 @@ def run_live_extraction_calibration(
             extra_payload={"thinking": {"type": "disabled"}},
         )
     recorder = RecordingLLM(provider)
-    record_output = Path(record_path)
-    record_output.parent.mkdir(parents=True, exist_ok=True)
-    case_total = len(benchmark["cases"])
-    case_done = 0
+    store = CandidateStore(store_path) if store_path else None
+    try:
+        store_run_id = f"live:{model}"
+        record_output = Path(record_path)
+        record_output.parent.mkdir(parents=True, exist_ok=True)
+        case_total = len(benchmark["cases"])
+        case_done = 0
 
-    def on_case_done(case_result: dict[str, Any]) -> None:
-        nonlocal case_done
-        case_done += 1
+        def on_case_done(
+            case_result: dict[str, Any],
+            bundle: ExtractionCandidateBundle | None,
+        ) -> None:
+            nonlocal case_done
+            case_done += 1
+            if store is not None and bundle is not None:
+                _persist_case_candidates(
+                    store,
+                    bundle,
+                    source_namespace=corpus.corpus_id,
+                    run_id=store_run_id,
+                    observed_at=benchmark["reasoned_at"],
+                )
+            recorder.save(record_output)
+            print(
+                f"[live] {case_done}/{case_total} {case_result['case_id']} "
+                f"{case_result['status']} requests={recorder.request_count} "
+                f"prompt_tokens={recorder.prompt_tokens}",
+                file=sys.stderr,
+                flush=True,
+            )
+
+        summary = evaluate_extraction_calibration(
+            benchmark=benchmark,
+            fixtures={"fixture_id": f"live-recording:{model}", "model_id": model},
+            corpus=corpus,
+            provider=recorder,
+            on_case_done=on_case_done,
+        )
         recorder.save(record_output)
         print(
-            f"[live] {case_done}/{case_total} {case_result['case_id']} "
-            f"{case_result['status']} requests={recorder.request_count} "
-            f"prompt_tokens={recorder.prompt_tokens}",
+            f"live provider recording: model={model} "
+            f"requests={recorder.request_count} "
+            f"prompt_tokens={recorder.prompt_tokens} "
+            f"completion_tokens={recorder.completion_tokens}",
             file=sys.stderr,
-            flush=True,
         )
-
-    summary = evaluate_extraction_calibration(
-        benchmark=benchmark,
-        fixtures={"fixture_id": f"live-recording:{model}", "model_id": model},
-        corpus=corpus,
-        provider=recorder,
-        on_case_done=on_case_done,
-    )
-    recorder.save(record_output)
-    print(
-        f"live provider recording: model={model} "
-        f"requests={recorder.request_count} "
-        f"prompt_tokens={recorder.prompt_tokens} "
-        f"completion_tokens={recorder.completion_tokens}",
-        file=sys.stderr,
-    )
-    return summary
+        if store is not None:
+            counts = store.counts()
+            print(
+                "candidate store: "
+                f"candidates={counts['candidates']} "
+                f"observations={counts['observations']} "
+                f"distinct_canonical_keys={counts['distinct_canonical_keys']}",
+                file=sys.stderr,
+            )
+        return summary
+    finally:
+        if store is not None:
+            store.close()
 
 
 def main() -> int:
@@ -500,6 +583,11 @@ def main() -> int:
         "--record-out",
         help="required with --provider live; path for the recorded responses",
     )
+    parser.add_argument(
+        "--store-out",
+        help="optional SQLite path; contract-valid candidates are persisted "
+        "transactionally per case with content-hash dedup",
+    )
     parser.add_argument("--output")
     parser.add_argument("--assert-pass", action="store_true")
     args = parser.parse_args()
@@ -511,6 +599,7 @@ def main() -> int:
             benchmark_path=args.benchmark,
             fixtures_path=args.fixtures,
             corpus_root=args.corpus_root,
+            store_path=args.store_out,
         )
     else:
         if not args.record_out:
@@ -522,6 +611,7 @@ def main() -> int:
                 model=args.model,
                 base_url=args.base_url,
                 record_path=args.record_out,
+                store_path=args.store_out,
             )
         except ValueError as exc:
             parser.error(str(exc))

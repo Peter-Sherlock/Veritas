@@ -1473,11 +1473,37 @@ python -m veritas.evaluation.extraction_runner \
 
 仍是单 provider 单次运行；主要质量差距是语义改写（26/30），当前评分对改写零容忍且无语义匹配；候选尚未持久化（M1-2D）；key 级评分使 claim 级聚合成为下一步可能，但"改写即新 claim"的聚合噪声需在 M1-2D 设计中处理。
 
-## 25. 当前限制
+## 25. M1-2D 抽取候选持久化（CandidateStore）
+
+### 25.1 设计（D-032）
+
+抽取候选获得独立的事务性 SQLite 存储层 `src/veritas/extraction/store.py`（`CandidateStore`，schema id `extraction-candidates-1`），与 P0 冻结的 `SQLiteRepository` 分离：候选是 claim 聚合之前的概率边界产物，而演进运行时 `claims.canonical_key UNIQUE` 约束按设计只接受单一身份——两者生命周期与不变量不同，不共用存储。
+
+核心语义：
+
+- **身份**：`(source_version_id, canonical_key, content_hash)`，content_hash 覆盖完整候选内容（statement/relation/quote 的 canonical JSON sha256）；`candidate_id = "cand:" + sha256(身份)[:20]`，确定性可复现；
+- **去重即幂等**：`INSERT OR IGNORE` 使任何 run 的精确重复候选塌缩为一行；同一 run 重放对存储零增量（fixture 重放二次运行 persisted=0、observations_new=0）；
+- **冲突只暴露不合并**：同 `(source_version_id, canonical_key)` 下的关系翻转（supports/contradicts）、措辞变体、不同引用跨度全部作为独立候选保留；`list_relation_conflicts()` 暴露关系冲突，canonical_key 分组查询暴露改写噪声——存储层不做任何语义合并，语义去重留待后续聚合阶段；
+- **存储权衡**：完整派生 slug（可超 100 字符）以 TEXT 存储并建索引——哈希化会摧毁暴露改写噪声的分组查询，且该长度对 SQLite 无压力；
+- **完整性守卫（负面校准）**：写入前重派生 canonical_key 比对（D-031 的 trust-but-verify，`canonical_key_mismatch`）、relation 白名单（`invalid_relation`）、空 statement/quote/空 key 拒绝（`invalid_candidate`）、schema id 漂移守卫（`schema_drift`）；整批单事务（`BEGIN IMMEDIATE`），任何守卫拒绝时整批回滚零残留；
+- **观测表**：`(candidate_id, run_id)` 主键的 observation 表记录"哪个 run 观察到哪个候选"；run_id 确定性派生（`fixture:<fixture_id>` / `live:<model>`），观察记录追加、内容永不改写。
+
+### 25.2 接线与崩溃安全
+
+`evaluate_extraction_calibration` 的 `on_case_done` 回调升级为 `(case_result, bundle)`（契约拒绝的 case bundle 为 None）。fixture/live 两条运行路径新增 `--store-out`：每个 case 的契约通过候选在 case 完成时提交独立事务，与录制保存相同的崩溃安全语义——中断保留已完成 case，重放幂等。候选持久化不触碰 summary（CI 的逐字节 diff 保持通过）。契约拒绝（含 EX03 中断 case 的前半部分文档）不产生候选。
+
+### 25.3 冻结证据
+
+- **fixture 重放**：金标准身份并集恰为 32（32 条 gold 断言无跨 case 重复），candidates/observations/distinct_keys = 32/32/32，关系冲突 0，二次重放零增量；
+- **v3 live recording 重放**：26 个契约通过 case 产出 52 候选，run 内零重复；distinct_keys=51——`httpx_does_not_follow_redirects_by_default` 在 compatibility@0.28.1 与 quickstart@0.28.1 两个独立来源上各有一条（同 key 跨源正确分立，不合并）；关系冲突 0；
+- **改写噪声量化钉住**：`quickstart@0.28.1` 上 15 个候选 15 个不同 key，EX-014 的两个 gold key 无一在列——"改写即新 claim"从 M1-2C2 的运行观察升格为存储层冻结证据；
+- **跨 run 合库**：fixture 32 + live 52 = 84 候选，live 对金标准候选零去重命中（与 0/30 exact match 一致），distinct_keys=80（3 个 key 因跨源或同源不同引用各多一行）。
+
+## 26. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
-- 抽取候选尚未写入 SQLite 或接入 initial-research graph transaction；
+- 抽取候选已事务持久化（M1-2D CandidateStore，含跨 run 去重与冲突暴露），但尚未接入 initial-research graph transaction，claim 级聚合与语义改写合并没有方案；
 - 没有来源质量权重；
 - 没有处理复杂逻辑表达式、概率置信度或循环依赖；
 - 没有定义真实网页版本检测；
@@ -1488,12 +1514,13 @@ python -m veritas.evaluation.extraction_runner \
 - 没有并发、多进程、规模或性能结果。
 - Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
-因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路、M1-2B 的五类抽取失败分类与 gate 分级、M1-2B2 的 30 题扩容 benchmark、M1-2C-pre 的 live provider 运行路径、M1-2C 的真实 provider 校准录制与失败分析，以及 M1-2C2 的 canonical_key 确定性派生与评分身份下沉已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（两轮真实基线均为 0/30，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路、M1-2B 的五类抽取失败分类与 gate 分级、M1-2B2 的 30 题扩容 benchmark、M1-2C-pre 的 live provider 运行路径、M1-2C 的真实 provider 校准录制与失败分析、M1-2C2 的 canonical_key 确定性派生与评分身份下沉，以及 M1-2D 的候选事务持久化（去重、冲突暴露、改写噪声量化）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（两轮真实基线均为 0/30，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 26. 变更记录
+## 27. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-2D | 抽取候选事务持久化：新增 `CandidateStore`（schema `extraction-candidates-1`，独立于 P0 冻结存储），身份 `(source_version_id, canonical_key, content_hash)`、`INSERT OR IGNORE` 去重、观测表记录 run 归属（D-032）；完整性守卫（key 重派生比对/relation 白名单/空内容/schema 漂移）整批回滚；`on_case_done` 升级携带 bundle，fixture/live 双路径 `--store-out` 逐 case 事务落库，summary 逐字节不变；冻结证据：fixture 金标准并集 32 幂等重放、live 52 候选（51 key，同 key 跨源分立）、quickstart@0.28.1 十五候选十五 key 且 EX-014 gold key 全部缺席（改写噪声入库）、跨 run 合库 84/84/80 且 live 对金标准零命中；121/121 tests |
 | 2026-08-30 | M1-2C2 | 契约 v2（`evidence-assertion-2`/`httpx-extractor-2`）：模型只提 statement/relation/quote，canonical_key 由 `derive_canonical_key` 从 statement 确定性派生（D-031）；评分身份下沉到 key 级；`canonical_key_conflict` 删除、`invalid_statement` 新增；benchmark v3.0.0（30 题 superset，gold 无 canonical_key）；v1/v2 数据集退役出 CI，v1/v2 时代测试退役或重写；v3 fixture 基线 30/30；真实重跑 EX02 9→0、EX03 9→4、citation alignment 0.4→0.8667、critical=0，成本 ≈0.50 元；v3 live 证据入库 + 重放测试；110/110 tests |
 | 2026-08-30 | M1-2C | DeepSeek `deepseek-v4-flash`（非思考、temperature=0、JSON mode）真实录制 30 题校准：67 请求、409K prompt tokens、≈0.42 元；0/30 exact-match（EX02×9、EX03×9、EX04×12、EX01×0），检索与 fixture 基线逐位一致，9 个完整性违规全部被契约拦截；归一化后 32 条 gold 仅 4 条匹配，精确 statement 匹配判定为对真实模型不可达（D-030）；录制可确定性重放并钉进测试；106/106 tests |
 | 2026-08-30 | M1-2C-pre | 交付 live provider 校准运行路径：`run_live_extraction_calibration` + CLI `--provider live`（`--model deepseek-v4-flash` 默认、`thinking` 禁用、`RecordingLLM` 录制与 token 计量、逐题进度与中断安全保存）；客户端默认模型更新为 `deepseek-v4-flash`、新增 `extra_payload`；104/104 tests，fixture 双摘要逐字节不变；登记 D-029 |

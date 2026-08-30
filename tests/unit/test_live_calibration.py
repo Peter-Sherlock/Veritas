@@ -12,6 +12,7 @@ from veritas.evaluation.extraction_runner import (
     run_live_extraction_calibration,
 )
 from veritas.extraction.pipeline import EXTRACTION_SYSTEM_PROMPT
+from veritas.extraction.store import CandidateStore
 from veritas.providers.llm import FixtureLLM, LLMResponse, fixture_key
 from veritas.search.local_corpus import LocalCorpusProvider
 
@@ -44,6 +45,7 @@ class LiveExtractionCalibrationTests(unittest.TestCase):
     def test_live_run_scores_and_records_replayable_responses(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             record_path = Path(tmp) / "recorded" / "responses.json"
+            store_path = Path(tmp) / "candidates.db"
             summary = run_live_extraction_calibration(
                 benchmark_path=BENCHMARK,
                 corpus_root=CORPUS_ROOT,
@@ -51,6 +53,7 @@ class LiveExtractionCalibrationTests(unittest.TestCase):
                 base_url="https://example.invalid",
                 record_path=record_path,
                 provider=_ReplayLiveLLM(FIXTURES),
+                store_path=store_path,
             )
             self.assertTrue(record_path.exists())
             self.assertEqual("live-replay-model", summary["model_id"])
@@ -58,6 +61,14 @@ class LiveExtractionCalibrationTests(unittest.TestCase):
             self.assertEqual(30, summary["case_count"])
             self.assertEqual(30, summary["passed_case_count"])
             self.assertTrue(summary["m1_2a_acceptance_candidate"])
+
+            # Contract-valid candidates are persisted under the live run id.
+            with CandidateStore(store_path) as store:
+                self.assertEqual(
+                    {"candidates": 32, "observations": 32, "distinct_canonical_keys": 32},
+                    store.counts(),
+                )
+                self.assertEqual([], store.list_relation_conflicts())
 
             # The recording must replay the exact live exchange afterwards.
             recorded = FixtureLLM.from_json(record_path)
@@ -79,6 +90,7 @@ class LiveExtractionCalibrationTests(unittest.TestCase):
     def test_live_run_records_contract_failures(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             record_path = Path(tmp) / "recorded.json"
+            store_path = Path(tmp) / "candidates.db"
             summary = run_live_extraction_calibration(
                 benchmark_path=BENCHMARK,
                 corpus_root=CORPUS_ROOT,
@@ -86,12 +98,19 @@ class LiveExtractionCalibrationTests(unittest.TestCase):
                 base_url="https://example.invalid",
                 record_path=record_path,
                 provider=_ReplayLiveLLM(FIXTURES, response_override="{not json"),
+                store_path=store_path,
             )
         self.assertEqual(0, summary["passed_case_count"])
         self.assertEqual(30, summary["failure_counts"]["EX02_CONTRACT_REJECTION"])
         self.assertEqual(30, summary["critical_failure_count"])
         self.assertEqual(0, summary["major_failure_count"])
         self.assertFalse(summary["m1_2a_acceptance_candidate"])
+        # Contract-rejected cases never materialize candidates.
+        with CandidateStore(store_path) as store:
+            self.assertEqual(
+                {"candidates": 0, "observations": 0, "distinct_canonical_keys": 0},
+                store.counts(),
+            )
 
     def test_live_run_streams_progress_and_saves_recording_per_case(self) -> None:
         import contextlib
