@@ -534,6 +534,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：新增 `src/veritas/extraction/store.py` 的 `CandidateStore`（schema id `extraction-candidates-1`，独立 SQLite 文件），候选身份为 `(source_version_id, canonical_key, content_hash)`，content_hash 覆盖 statement/relation/quote 的 canonical JSON；`INSERT OR IGNORE` 保证跨 run 幂等去重，`(candidate_id, run_id)` 观测表记录 run 归属（run_id 确定性派生：`fixture:<fixture_id>` / `live:<model>`）。关系翻转、措辞变体、不同引用一律作为独立候选保留，关系冲突经 `list_relation_conflicts()` 查询暴露，语义合并不做；完整派生 slug 以 TEXT 存储不哈希（哈希会摧毁暴露改写噪声的分组查询）。写入前重派生 key 比对（`canonical_key_mismatch`）、relation 白名单、空内容与 schema id 漂移守卫，整批单事务、失败即回滚零残留。fixture/live 双路径经 `--store-out` 逐 case 事务落库（与录制相同的崩溃安全语义），summary 不受影响（CI 逐字节 diff 保持通过）。
 - 原因：M1-2C2 把"改写即新 claim"的聚合噪声确立为主导质量差距，候选必须先于 claim 聚合持久化，否则后续聚合阶段没有可审计的输入。不放进 `SQLiteRepository` 是因为其 `claims.canonical_key UNIQUE` 约束表达的是"单一身份"不变量，而候选层的正确语义恰恰是保留全部身份变体（live 重放 52 候选 51 key、同 key 跨源分立）；把候选塞进演进库要么放松 P0 冻结约束，要么在写入前做语义合并——两者都以隐藏噪声为代价。噪声因此留在数据里（quickstart@0.28.1：15 候选 15 key，EX-014 gold key 全部缺席），由查询与测试钉住，合并策略留给有真实依据的后续阶段。
 
+### D-033：Gate M1-2 评审结论为通过（附三条携带项），允许启动 M1-3
+
+- 状态：Reviewed（2026-08-30）
+- 日期：2026-08-30
+- 决策：M1-2 三条出口条件逐项核验通过——(1) **校准 CI 绿**：extraction-calibration 任务在每个切片保持绿灯（最新 run 33312539577 五路成功），评审日于 HEAD 复跑全部三类 CI 验证（121/121 tests、双 suite exit 0、校准 `--assert-pass` exit 0 且 artifacts 零 diff）；(2) **真实 LLM 校准记录**：v2/v3 两份契约的 DeepSeek V4-Flash 录制入库且均可确定性重放（重放测试钉死），五类失败分类在真实运行（EX02/EX03/EX04）与负向校准（EX01/EX05）中均有触发证据；(3) **benchmark 基线**：10 题（M1-2A）扩至 30 题 v3.0.0 逐字 superset，fixture 基线 30/30、Hit@3=1.0、MRR=0.7222。评审结论：**通过，允许启动 M1-3**，携带三条非阻塞项：C1 语义改写（26/30）是主导质量差距，M1-3 的预算/重规划设计必须以真实口径（0/30 exact-match、改写噪声已入库）为输入，不得以 fixture 满分为假设；C2 候选聚合/语义合并是开放设计问题，在有任何证据支持的方案前，候选层保持"只暴露不合并"（D-032）；C3 单 provider 单轮方差，任何模型能力结论需要第二次运行对照，规模与成本声明仍由 M1-5 承接（继承 D-021 条件二）。
+- 原因：M1-2 的目标是校准 harness 与测量，不是抽取质量达标——0/30 的真实基线恰是 harness 诚实测量的证据而非阶段失败，质量差距不构成对"测量工具已就绪"的阻塞。遗留项若不显式携带，M1-3 极易以 fixture 满分为隐含假设设计预算与重规划，重蹈"以受控结果外推生产"的覆辙（D-021 的教训）；把假设写进决策，使 M1-3 的设计与评审有据可查。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -554,11 +561,12 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-2C | 真实 provider 校准与评审 | M1-2C-pre 完成 | 真实录制、fixture 对照、边界结论 | 已完成：0/30 live（critical=9/major=21）；录制可重放；106/106 tests |
 | M1-2C2 | canonical_key 确定性派生与契约 v2 | M1-2C 完成 | 派生实现、benchmark v3.0.0、真实重跑对照 | 已完成：EX02 9→0、citation 0.4→0.8667；110/110 tests |
 | M1-2D | 抽取候选事务持久化 | M1-2C2 完成 | CandidateStore 落地、双路径 `--store-out`、去重/守卫/冲突负面校准、噪声证据入库 | 已完成：121/121 tests；live 噪声量化钉住 |
-| M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 进行中（M1-2A/B/B2/C-pre/C/C2/D 已完成；gate 复审未做） |
-| M1-3 | Research Runtime（状态/队列/checkpoint/预算） | M1-2 完成 | 中断恢复与预算测试通过 | 未开始 |
+| M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 已完成（M1-2A/B/B2/C-pre/C/C2/D；基线扩至 30 题） |
+| Gate M1-2 | 判断校准 harness 是否足以支撑 Runtime | M1-2D 完成 | 出口条件逐项核验、遗留差距显式携带 | 已评审：通过（附三条携带项，D-033） |
+| M1-3 | Research Runtime（状态/队列/checkpoint/预算） | Gate M1-2 通过 | 中断恢复与预算测试通过 | 未开始 |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
 | M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 未开始 |
-| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-2A 已完成） |
+| M1 | 初始研究与搜索 | Gate P0 通过 | 另行定义 | 进行中（M1-2 已收口；M1-3 未开始） |
 
 如果 Gate P0 不通过，不进入 Web Search 集成；先分析图粒度、规则语义和 benchmark 是否支持项目假设。
 
@@ -684,6 +692,15 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] Python 3.14.7 严格 `ResourceWarning` 模式 121/121 tests 通过；
 - [x] README、技术实现文档和项目结构文档同步更新。
 
+### 11.10 Gate M1-2 评审记录（2026-08-30）
+
+评审输入：M1-2A～M1-2D 六个切片的完成记录与 CI 运行（33250938915、33297042264、33299526597、33302193024/33303359900、33305609433、33307278112、33312539577）、v2/v3 live 证据与重放测试、M1-2D 冻结存储证据；评审日于 HEAD 本地复跑全部三类 CI 验证通过（121/121 tests、双 suite exit 0、校准 `--assert-pass` exit 0 + artifacts 零 diff）。
+
+1. **出口条件判断：通过。** 校准 CI 绿、真实 LLM 校准记录、benchmark 基线三条逐项核验成立（核验细节见 D-033）。
+2. **遗留差距判断：不阻塞、显式携带。** 语义改写 26/30、候选聚合开放问题、单 provider 单轮方差三者在 D-033 中转化为 C1～C3 携带项。M1-2 未交付且不声称交付：抽取质量达标、语义匹配、聚合方案、多 provider 对照。
+
+正式结论：**Gate M1-2 通过，允许启动 M1-3**（决策全文见 D-033）。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -715,7 +732,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - Snapshot Registry 尚未经过多进程并发初始化或数据库迁移压力验证；
 - storage protocol 尚未覆盖读取和图查询，当前并非真正可替换存储；
 - `expire` 与 `retract` 在 P0 共享追加式 current-view 机制，as-of 历史查询与基于 `valid_to` 的自动过期尚未实现；多来源 `conflict` 只验证保留冲突、不做消解仲裁；
-- Gate P0 已附条件通过（D-021）；附加条件要求在 M1 中用确定性 fixture 校准 LLM 组件，并在规模声明前补规模化 benchmark；
+- Gate P0 已附条件通过（D-021）；附加条件要求在 M1 中用确定性 fixture 校准 LLM 组件，并在规模声明前补规模化 benchmark；Gate M1-2 已通过（D-033），携带 C1～C3：M1-3 设计必须以真实口径（0/30、改写噪声）为输入，候选层保持只暴露不合并，模型能力结论需第二次运行对照；
 - M1-1R 已消除语料 hash 的 CRLF/LF 平台漂移；后续新增语料必须继续遵守 canonical UTF-8/LF 契约；
 - 本地 TF-IDF 仍是词面基线；30 题 Hit@3=1.0 但 MRR=0.7222，advanced 文档的词面优势把多个 gold 来源压到第 2/3，不能宣称通用检索质量；
 - M1-2A/M1-2B2 的满分来自 `FixtureLLM` 重放；M1-2C 已获得首次真实基线（DeepSeek V4-Flash，0/30 exact-match，critical=9/major=21），但仅单 provider 单次运行，未测种子/温度方差，未测其他模型；
@@ -732,6 +749,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | Gate M1-2 | 收口评审：三条出口条件逐项核验通过（校准 CI 绿、真实校准记录可重放、30 题基线），评审日 HEAD 复跑三类 CI 验证全绿；结论为通过并携带 C1～C3（真实口径输入、聚合只暴露不合并、单轮方差）（D-033）；M1-2 阶段表收口，M1-3 进入条件改为 Gate M1-2 通过；评审记录 11.10 |
 | 2026-08-30 | M1-2D | 抽取候选事务持久化（D-032）：独立 `CandidateStore`（schema `extraction-candidates-1`），身份含内容哈希、`INSERT OR IGNORE` 跨 run 幂等、观测表记录 run 归属；key 重派生/relation/空内容/schema 漂移守卫整批回滚；冲突只暴露不合并；fixture/live 双路径 `--store-out` 逐 case 事务落库，summary 逐字节不变；冻结证据：fixture 并集 32 幂等、live 52 候选/51 key、quickstart@0.28.1 十五 key 且 EX-014 gold key 缺席、跨 run 合库 84/84/80；121/121 tests |
 | 2026-08-30 | M1-2C2 | 契约 v2：模型只提 statement/relation/quote，canonical_key 由确定性层派生（D-031）；评分身份下沉 key 级；benchmark v3.0.0 + v1/v2 退役出 CI；真实重跑 EX02 9→0、citation alignment 0.4→0.8667、critical=0（≈0.50 元）；v3 live 证据 + 重放测试；110/110 tests |
 | 2026-08-30 | M1-2C | DeepSeek `deepseek-v4-flash` 真实录制 30 题校准（67 请求、≈0.42 元）：0/30 exact-match，EX02×9/EX03×9/EX04×12/EX01×0，检索与 fixture 基线逐位一致，9 个完整性违规全被契约拦截；归一化 4/32 证明精确 statement 匹配不可达；证据入库 + 2 项重放测试钉死；106/106 tests；登记 D-030 |
