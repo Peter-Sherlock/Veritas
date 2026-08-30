@@ -17,8 +17,8 @@ from veritas.search.local_corpus import LocalCorpusProvider
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BENCHMARK = REPO_ROOT / "datasets" / "extraction" / "httpx-m1-2a" / "benchmark.json"
-FIXTURES = REPO_ROOT / "datasets" / "extraction" / "httpx-m1-2a" / "fixtures.json"
+BENCHMARK = REPO_ROOT / "datasets" / "extraction" / "httpx-m1-2c" / "benchmark.json"
+FIXTURES = REPO_ROOT / "datasets" / "extraction" / "httpx-m1-2c" / "fixtures.json"
 CORPUS_ROOT = REPO_ROOT / "datasets" / "corpus" / "httpx-docs"
 
 
@@ -55,8 +55,8 @@ class LiveExtractionCalibrationTests(unittest.TestCase):
             self.assertTrue(record_path.exists())
             self.assertEqual("live-replay-model", summary["model_id"])
             self.assertEqual("live-recording:live-replay-model", summary["fixture_id"])
-            self.assertEqual(10, summary["case_count"])
-            self.assertEqual(10, summary["passed_case_count"])
+            self.assertEqual(30, summary["case_count"])
+            self.assertEqual(30, summary["passed_case_count"])
             self.assertTrue(summary["m1_2a_acceptance_candidate"])
 
             # The recording must replay the exact live exchange afterwards.
@@ -88,8 +88,8 @@ class LiveExtractionCalibrationTests(unittest.TestCase):
                 provider=_ReplayLiveLLM(FIXTURES, response_override="{not json"),
             )
         self.assertEqual(0, summary["passed_case_count"])
-        self.assertEqual(10, summary["failure_counts"]["EX02_CONTRACT_REJECTION"])
-        self.assertEqual(10, summary["critical_failure_count"])
+        self.assertEqual(30, summary["failure_counts"]["EX02_CONTRACT_REJECTION"])
+        self.assertEqual(30, summary["critical_failure_count"])
         self.assertEqual(0, summary["major_failure_count"])
         self.assertFalse(summary["m1_2a_acceptance_candidate"])
 
@@ -110,12 +110,12 @@ class LiveExtractionCalibrationTests(unittest.TestCase):
                     provider=_ReplayLiveLLM(FIXTURES),
                 )
         lines = [line for line in stderr.getvalue().splitlines() if line.startswith("[live]")]
-        self.assertEqual(10, len(lines))
+        self.assertEqual(30, len(lines))
         self.assertIn("EX-001 pass", lines[0])
-        self.assertIn("10/10 EX-010", lines[-1])
+        self.assertIn("30/30 EX-030", lines[-1])
         self.assertIn("live provider recording:", stderr.getvalue())
         # A finished run must still leave a complete, replayable recording.
-        self.assertEqual(10, summary["passed_case_count"])
+        self.assertEqual(30, summary["passed_case_count"])
 
     def test_live_run_without_provider_requires_api_key(self) -> None:
         original = os.environ.pop("VERITAS_LLM_API_KEY", None)

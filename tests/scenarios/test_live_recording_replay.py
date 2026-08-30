@@ -10,8 +10,8 @@ from veritas.search.local_corpus import LocalCorpusProvider
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BENCHMARK = REPO_ROOT / "datasets" / "extraction" / "httpx-m1-2b" / "benchmark.json"
-LIVE_DIR = REPO_ROOT / "artifacts" / "extraction" / "httpx-initial-extraction-2.0.0-deepseek-v4-flash"
+BENCHMARK = REPO_ROOT / "datasets" / "extraction" / "httpx-m1-2c" / "benchmark.json"
+LIVE_DIR = REPO_ROOT / "artifacts" / "extraction" / "httpx-initial-extraction-3.0.0-deepseek-v4-flash"
 RECORDING = LIVE_DIR / "responses-recording.json"
 LIVE_SUMMARY = LIVE_DIR / "summary.json"
 CORPUS_ROOT = REPO_ROOT / "datasets" / "corpus" / "httpx-docs"
@@ -39,14 +39,14 @@ class LiveRecordingReplayTests(unittest.TestCase):
         self.assertEqual(30, committed["case_count"])
         self.assertEqual(0, committed["passed_case_count"])
         self.assertEqual(0, committed["failure_counts"]["EX01_RETRIEVAL_MISS"])
-        self.assertEqual(9, committed["failure_counts"]["EX02_CONTRACT_REJECTION"])
-        self.assertEqual(9, committed["failure_counts"]["EX03_CITATION_REJECTION"])
-        self.assertEqual(12, committed["failure_counts"]["EX04_ASSERTION_MISMATCH"])
+        self.assertEqual(0, committed["failure_counts"]["EX02_CONTRACT_REJECTION"])
+        self.assertEqual(4, committed["failure_counts"]["EX03_CITATION_REJECTION"])
+        self.assertEqual(26, committed["failure_counts"]["EX04_ASSERTION_MISMATCH"])
         self.assertEqual(0, committed["failure_counts"]["EX05_FIXTURE_DRIFT"])
-        self.assertEqual(9, committed["critical_failure_count"])
-        self.assertEqual(21, committed["major_failure_count"])
+        self.assertEqual(0, committed["critical_failure_count"])
+        self.assertEqual(30, committed["major_failure_count"])
         self.assertEqual(1.0, committed["metrics"]["retrieval_hit_at_k"])
-        self.assertEqual(0.4, committed["metrics"]["citation_exact_alignment"])
+        self.assertEqual(26 / 30, committed["metrics"]["citation_exact_alignment"])
         self.assertFalse(committed["m1_2a_acceptance_candidate"])
 
 

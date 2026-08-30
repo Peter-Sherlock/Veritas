@@ -14,6 +14,7 @@ from veritas.extraction.pipeline import (
     EXTRACTION_SYSTEM_PROMPT,
     ResearchExtractionPipeline,
     build_extraction_prompt,
+    derive_canonical_key,
 )
 from veritas.providers.llm import (
     FixtureLLM,
@@ -149,15 +150,23 @@ def build_fixture_provider(
     return FixtureLLM(responses, model_id=fixtures["model_id"])
 
 
+IdentityKey = tuple[str, str, str, str]
+
+
 def _identity(
     doc_id: str,
     *,
     statement: str,
-    canonical_key: str,
     relation: str,
     quote: str,
-) -> tuple[str, str, str, str, str]:
-    return doc_id, statement, canonical_key, relation, quote
+) -> tuple[IdentityKey, str]:
+    """Score assertions at canonical-key level (D-030).
+
+    The scoring identity is (doc_id, derived canonical_key, relation, quote);
+    the raw statement travels alongside for human-readable failure reports,
+    but case, punctuation and whitespace differences no longer break matching.
+    """
+    return (doc_id, derive_canonical_key(statement), relation, quote), statement
 
 
 def evaluate_extraction_calibration(
@@ -217,16 +226,17 @@ def evaluate_extraction_calibration(
         if retrieval_pass:
             retrieval_hits += 1
 
-        expected = {
-            _identity(
+        expected: set[IdentityKey] = set()
+        expected_statement: dict[IdentityKey, str] = {}
+        for item in case["expected_assertions"]:
+            identity, statement = _identity(
                 item["doc_id"],
                 statement=item["statement"],
-                canonical_key=item["canonical_key"],
                 relation=item["relation"],
                 quote=item["quote"],
             )
-            for item in case["expected_assertions"]
-        }
+            expected.add(identity)
+            expected_statement.setdefault(identity, statement)
         if len(expected) != len(case["expected_assertions"]):
             raise ValueError(f"duplicate expected assertion in {case_id}")
         case_failures: list[dict[str, Any]] = []
@@ -246,7 +256,8 @@ def evaluate_extraction_calibration(
             )
 
         contract_rejected = False
-        actual: set[tuple[str, str, str, str, str]] = set()
+        actual: set[IdentityKey] = set()
+        actual_statement: dict[IdentityKey, str] = {}
         try:
             bundle = pipeline.run(
                 query=case["query"],
@@ -257,15 +268,14 @@ def evaluate_extraction_calibration(
             )
             for document in bundle.documents:
                 for assertion in document.assertions:
-                    actual.add(
-                        _identity(
-                            document.doc_id,
-                            statement=assertion.statement,
-                            canonical_key=assertion.canonical_key,
-                            relation=assertion.relation,
-                            quote=assertion.quote,
-                        )
+                    identity, statement = _identity(
+                        document.doc_id,
+                        statement=assertion.statement,
+                        relation=assertion.relation,
+                        quote=assertion.quote,
                     )
+                    actual.add(identity)
+                    actual_statement.setdefault(identity, statement)
         except ExtractionContractError as exc:
             contract_rejected = True
             failure_code, severity = classify_contract_error(exc.code)
@@ -286,8 +296,8 @@ def evaluate_extraction_calibration(
         precision = true_positive / len(actual) if actual else float(not expected)
         recall = true_positive / len(expected) if expected else float(not actual)
         if not contract_rejected and expected != actual:
-            missing = sorted({identity[1] for identity in expected - actual})
-            unexpected = sorted({identity[1] for identity in actual - expected})
+            missing = sorted(expected_statement[identity] for identity in expected - actual)
+            unexpected = sorted(actual_statement[identity] for identity in actual - expected)
             case_failures.append(
                 _failure_record(
                     EX_ASSERTION_MISMATCH,

@@ -1424,9 +1424,58 @@ python -m veritas.evaluation.extraction_runner \
 
 本次是**单 provider、单次运行**的诚实基线：未测多种子/温度方差，未测其他模型，canonical_key 字符集修复与 prompt 迭代（M1-2C2）、评分身份下沉（canonical-key 级或归一化 statement 比较）、候选持久化（M1-2D）均为后续切片。0/30 不能外推为"真实模型不可用"——30 题中 12 题通过了完整契约并物化出候选（全部仅 EX04 措辞级不匹配），其余 18 题在契约边界被拒（9 键格式 + 9 引文精确性）；但"语义可用"的任何数字同样不能在评分身份变更前作为质量声明。
 
-## 24. 当前限制
+## 24. M1-2C2 canonical_key 确定性派生与 benchmark v3.0.0
 
-- 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准已完成首次录制（M1-2C，DeepSeek V4-Flash，0/30 exact-match），但仅此单 provider 单次运行，canonical_key 格式与引文精确性的 prompt 迭代尚未执行；
+### 24.1 契约 v2：模型只提出内容，key 由确定性层派生
+
+按 D-030 登记的方向，抽取契约升级为 `evidence-assertion-2`（prompt `httpx-extractor-2`）：
+
+- 模型只提出 `statement`/`relation`/`quote` 三个字段；`canonical_key` 从模型契约中移除（旧字段响应按未知字段直接拒绝）；
+- 新增 `derive_canonical_key(statement)`：statement 小写化后取 `[a-z0-9]+` token 以 `_` 连接。大小写、标点、空白差异共享同一身份，任何真实改写产生不同 claim；无字母数字内容的 statement 以 `invalid_statement` 拒绝；
+- `canonical_key_conflict` 检查随之删除：key 是 statement 的纯规范化，同 key ⇔ 同规范化 statement，"一键两义"在构造上不可能（v2 live 中 EX-004 的 `trust_env` 塌缩在新契约下自然成为两个独立 claim）；
+- `duplicate_assertion`（key+relation+quote 重复）保留；
+- 评分身份下沉（D-030）：identity 从 `(doc_id, statement, key, relation, quote)` 改为 `(doc_id, derived_key, relation, quote)`，原始 statement 仅用于失败报告可读性——仅差大小写/句尾标点的断言不再误计为 EX04；
+- system prompt 同步硬化引文要求："copied character-for-character ... keeping every backtick, punctuation mark, capital letter and space exactly as written"。
+
+### 24.2 benchmark v3.0.0 与旧版本退役
+
+`datasets/extraction/httpx-m1-2c/`（`httpx-initial-extraction` 3.0.0）由 `scripts/build_extraction_v3_fixtures.py` 从 v2.0.0 逐字携带全部 30 题，唯一变化是 gold assertions 与 fixture responses 去掉 `canonical_key`；检索、版本映射与引文验证逻辑不变（生成时重新验证）。运行时 schema 检查意味着 v1/v2 数据集与 v2 运行时不再兼容（旧 fixtures 携带 canonical_key 字段会被 v2 契约按未知字段拒绝），因此：
+
+- v1/v2 数据集与其 summary artifact 保留为冻结历史，不再进入 CI；
+- CI `extraction-calibration` 矩阵收敛为单条 v3 条目；
+- 退役测试：`test_extraction_calibration.py`（v1）、`test_extraction_calibration_v2.py`、旧 `test_live_recording_replay.py`（v2 live 证据）、`test_extraction_taxonomy.py` 重写为 v3 契约负向校准（含"旧 schema 响应被拒"回归）。v2 live 证据目录保留为历史，其重放以当时提交的测试钉死过。
+
+### 24.3 v3 fixture 基线
+
+30/30 cases，Hit@3=1.0、MRR=0.7222（与 v1/v2 逐位一致——检索层不变）、micro precision/recall=1.0、citation alignment=1.0、critical/major=0/0。summary 固化在 `artifacts/extraction/httpx-initial-extraction-3.0.0/summary.json`。
+
+### 24.4 v3 真实重跑：完整性违规清零
+
+| 指标 | v2 契约 live（M1-2C） | v3 契约 live（M1-2C2） |
+| --- | ---: | ---: |
+| Requests | 67 | 82 |
+| Tokens（prompt/completion） | 409,233 / 4,658 | 486,273 / 4,512 |
+| 成本（缓存未命中上限） | ≈0.42 元 | ≈0.50 元 |
+| EX02 契约拒绝（critical） | 9 | **0** |
+| EX03 引用拒绝（major） | 9 | **4** |
+| EX04 断言不匹配（major） | 12 | 26 |
+| Cases passed | 0/30 | 0/30 |
+| Citation exact alignment | 0.4 | **0.8667** |
+| Micro precision / recall | 0.0 / 0.0 | 0.0385 / 0.0625 |
+
+三个结论：
+
+1. **canonical_key 派生把完整性失败清零**：9 个 critical 全部消失，本轮无任何坏候选在契约边界之外产生——"确定性层拥有 provenance"（D-025）的强化版得到实证。
+2. **引文硬化有效**：character-for-character 指令使 EX03 从 9 降到 4（3× citation_not_found + 1× citation_ambiguous），citation alignment 从 0.4 升至 0.8667。
+3. **EX04 上升是评分入口打开的结果**：此前 18 个被契约拒绝的题现在进入断言评分，26/30 题为纯措辞改写级不匹配；本轮 EX-008 与 EX-017 的 gold 断言在 key 级完全匹配（"0 missing"），micro recall 2/32。注意单次运行方差：模型措辞逐轮不同（v2 轮 EX-015 仅差句号的匹配在本轮未复现），单轮数字不能当作模型能力定值。
+
+### 24.5 退出边界
+
+仍是单 provider 单次运行；主要质量差距是语义改写（26/30），当前评分对改写零容忍且无语义匹配；候选尚未持久化（M1-2D）；key 级评分使 claim 级聚合成为下一步可能，但"改写即新 claim"的聚合噪声需在 M1-2D 设计中处理。
+
+## 25. 当前限制
+
+- 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
 - 抽取候选尚未写入 SQLite 或接入 initial-research graph transaction；
 - 没有来源质量权重；
@@ -1439,12 +1488,13 @@ python -m veritas.evaluation.extraction_runner \
 - 没有并发、多进程、规模或性能结果。
 - Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
-因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路、M1-2B 的五类抽取失败分类与 gate 分级、M1-2B2 的 30 题扩容 benchmark、M1-2C-pre 的 live provider 运行路径，以及 M1-2C 的真实 provider 校准录制与失败分析已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（首次真实基线为 0/30 exact-match，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路、M1-2B 的五类抽取失败分类与 gate 分级、M1-2B2 的 30 题扩容 benchmark、M1-2C-pre 的 live provider 运行路径、M1-2C 的真实 provider 校准录制与失败分析，以及 M1-2C2 的 canonical_key 确定性派生与评分身份下沉已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（两轮真实基线均为 0/30，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 25. 变更记录
+## 26. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-2C2 | 契约 v2（`evidence-assertion-2`/`httpx-extractor-2`）：模型只提 statement/relation/quote，canonical_key 由 `derive_canonical_key` 从 statement 确定性派生（D-031）；评分身份下沉到 key 级；`canonical_key_conflict` 删除、`invalid_statement` 新增；benchmark v3.0.0（30 题 superset，gold 无 canonical_key）；v1/v2 数据集退役出 CI，v1/v2 时代测试退役或重写；v3 fixture 基线 30/30；真实重跑 EX02 9→0、EX03 9→4、citation alignment 0.4→0.8667、critical=0，成本 ≈0.50 元；v3 live 证据入库 + 重放测试；110/110 tests |
 | 2026-08-30 | M1-2C | DeepSeek `deepseek-v4-flash`（非思考、temperature=0、JSON mode）真实录制 30 题校准：67 请求、409K prompt tokens、≈0.42 元；0/30 exact-match（EX02×9、EX03×9、EX04×12、EX01×0），检索与 fixture 基线逐位一致，9 个完整性违规全部被契约拦截；归一化后 32 条 gold 仅 4 条匹配，精确 statement 匹配判定为对真实模型不可达（D-030）；录制可确定性重放并钉进测试；106/106 tests |
 | 2026-08-30 | M1-2C-pre | 交付 live provider 校准运行路径：`run_live_extraction_calibration` + CLI `--provider live`（`--model deepseek-v4-flash` 默认、`thinking` 禁用、`RecordingLLM` 录制与 token 计量、逐题进度与中断安全保存）；客户端默认模型更新为 `deepseek-v4-flash`、新增 `extra_payload`；104/104 tests，fixture 双摘要逐字节不变；登记 D-029 |
 | 2026-08-30 | M1-2B2 | 新增 20 题（EX-011～030）扩容 benchmark 至 `httpx-initial-extraction` 2.0.0；新增多断言 ×2、contradicts ×4、as_of 版本视图 ×2（index@0.24.1 Python 3.7+、troubleshooting@0.25.2 legacy proxies dict）；fixtures 由 `scripts/build_extraction_v2_fixtures.py` 确定性生成并内置 quote 唯一性与检索排名验证；30/30、Hit@3=1.0、MRR=0.7222、P/R/citation=1.0；CI 扩展为双校准矩阵；97/97 tests |

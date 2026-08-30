@@ -23,8 +23,8 @@ from veritas.search.local_corpus import LocalCorpusProvider
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-BENCHMARK = PROJECT_ROOT / "datasets" / "extraction" / "httpx-m1-2a" / "benchmark.json"
-FIXTURES = PROJECT_ROOT / "datasets" / "extraction" / "httpx-m1-2a" / "fixtures.json"
+BENCHMARK = PROJECT_ROOT / "datasets" / "extraction" / "httpx-m1-2c" / "benchmark.json"
+FIXTURES = PROJECT_ROOT / "datasets" / "extraction" / "httpx-m1-2c" / "fixtures.json"
 CORPUS = PROJECT_ROOT / "datasets" / "corpus" / "httpx-docs"
 
 
@@ -45,12 +45,19 @@ def _evaluate(benchmark: dict[str, Any], fixtures: dict[str, Any], provider: Any
     )
 
 
-class _TargetedResponseLLM:
-    """Delegates to the frozen fixture provider, replacing one document's response."""
+EX003_QUESTION_FRAGMENT = "async hot loop"
 
-    def __init__(self, inner: FixtureLLM, target_doc: str, response_text: str) -> None:
+
+class _TargetedResponseLLM:
+    """Delegates to the frozen fixture provider, replacing one case's responses.
+
+    Targeting is by case-unique question fragment: top-3 documents overlap
+    across the 30 cases, so a document id cannot isolate a single case.
+    """
+
+    def __init__(self, inner: FixtureLLM, target_fragment: str, response_text: str) -> None:
         self._inner = inner
-        self._target_doc = target_doc
+        self._target_fragment = target_fragment
         self._response_text = response_text
 
     @property
@@ -58,7 +65,7 @@ class _TargetedResponseLLM:
         return self._inner.model_id
 
     def complete(self, *, system: str, prompt: str, json_mode: bool = True) -> LLMResponse:
-        if f'"doc_id":"{self._target_doc}"' in prompt:
+        if self._target_fragment in prompt:
             return LLMResponse(text=self._response_text, model_id=self._inner.model_id)
         return self._inner.complete(system=system, prompt=prompt, json_mode=json_mode)
 
@@ -115,14 +122,14 @@ class ExtractionFailureTaxonomyTests(unittest.TestCase):
         self.assertEqual(0, summary["critical_failure_count"])
         self.assertEqual(1, summary["major_failure_count"])
         self.assertFalse(summary["m1_2a_acceptance_candidate"])
-        self.assertEqual(9, summary["passed_case_count"])
+        self.assertEqual(29, summary["passed_case_count"])
 
     def test_ex02_contract_rejection_is_critical_and_independently_triggered(self) -> None:
         benchmark = _load_benchmark()
         fixtures = _load_fixtures()
         corpus = LocalCorpusProvider(CORPUS)
         provider = build_fixture_provider(benchmark, fixtures, corpus)
-        broken = _TargetedResponseLLM(provider, "async", "{not json")
+        broken = _TargetedResponseLLM(provider, EX003_QUESTION_FRAGMENT, "{not json")
         summary = _evaluate(benchmark, fixtures, broken)
 
         case = next(case for case in summary["cases"] if case["case_id"] == "EX-003")
@@ -136,6 +143,55 @@ class ExtractionFailureTaxonomyTests(unittest.TestCase):
         self.assertEqual(0, summary["major_failure_count"])
         self.assertFalse(summary["m1_2a_acceptance_candidate"])
 
+    def test_ex02_rejects_legacy_schema_with_model_proposed_key(self) -> None:
+        benchmark = _load_benchmark()
+        fixtures = _load_fixtures()
+        corpus = LocalCorpusProvider(CORPUS)
+        provider = build_fixture_provider(benchmark, fixtures, corpus)
+        legacy = json.dumps(
+            {
+                "assertions": [
+                    {
+                        "statement": "A legacy assertion",
+                        "canonical_key": "test.legacy.key",
+                        "relation": "supports",
+                        "quote": "no such substring",
+                    }
+                ]
+            }
+        )
+        broken = _TargetedResponseLLM(provider, EX003_QUESTION_FRAGMENT, legacy)
+        summary = _evaluate(benchmark, fixtures, broken)
+
+        case = next(case for case in summary["cases"] if case["case_id"] == "EX-003")
+        record = case["failures"][0]
+        self.assertEqual(EX_CONTRACT_REJECTION, record["failure_code"])
+        self.assertEqual("invalid_schema", record["reason"]["pipeline_code"])
+        self.assertEqual(1, summary["critical_failure_count"])
+        self.assertEqual(0, summary["major_failure_count"])
+        self.assertFalse(summary["m1_2a_acceptance_candidate"])
+
+    def test_ex02_rejects_statement_without_alphanumeric_content(self) -> None:
+        benchmark = _load_benchmark()
+        fixtures = _load_fixtures()
+        corpus = LocalCorpusProvider(CORPUS)
+        provider = build_fixture_provider(benchmark, fixtures, corpus)
+        degenerate = json.dumps(
+            {
+                "assertions": [
+                    {"statement": "!!!", "relation": "supports", "quote": "ignored"}
+                ]
+            }
+        )
+        broken = _TargetedResponseLLM(provider, EX003_QUESTION_FRAGMENT, degenerate)
+        summary = _evaluate(benchmark, fixtures, broken)
+
+        case = next(case for case in summary["cases"] if case["case_id"] == "EX-003")
+        record = case["failures"][0]
+        self.assertEqual(EX_CONTRACT_REJECTION, record["failure_code"])
+        self.assertEqual("critical", record["severity"])
+        self.assertEqual("invalid_statement", record["reason"]["pipeline_code"])
+
     def test_ex03_citation_rejection_is_major_and_independently_triggered(self) -> None:
         benchmark = _load_benchmark()
         fixtures = _load_fixtures()
@@ -146,14 +202,13 @@ class ExtractionFailureTaxonomyTests(unittest.TestCase):
                 "assertions": [
                     {
                         "statement": "Ungrounded claim",
-                        "canonical_key": "test.ungrounded.claim",
                         "relation": "supports",
                         "quote": "no such substring exists in this document",
                     }
                 ]
             }
         )
-        broken = _TargetedResponseLLM(provider, "async", ungrounded)
+        broken = _TargetedResponseLLM(provider, EX003_QUESTION_FRAGMENT, ungrounded)
         summary = _evaluate(benchmark, fixtures, broken)
 
         case = next(case for case in summary["cases"] if case["case_id"] == "EX-003")
@@ -162,7 +217,7 @@ class ExtractionFailureTaxonomyTests(unittest.TestCase):
         self.assertEqual(EX_CITATION_REJECTION, record["failure_code"])
         self.assertEqual("major", record["severity"])
         self.assertEqual("citation_not_found", record["reason"]["pipeline_code"])
-        self.assertEqual(0.9, summary["metrics"]["citation_exact_alignment"])
+        self.assertEqual(29 / 30, summary["metrics"]["citation_exact_alignment"])
         self.assertEqual(0, summary["critical_failure_count"])
         self.assertEqual(1, summary["major_failure_count"])
 
@@ -189,6 +244,20 @@ class ExtractionFailureTaxonomyTests(unittest.TestCase):
         self.assertEqual(1, summary["major_failure_count"])
         self.assertFalse(summary["m1_2a_acceptance_candidate"])
 
+    def test_ex04_ignores_case_and_punctuation_differences(self) -> None:
+        benchmark = _load_benchmark()
+        gold_statement = benchmark["cases"][0]["expected_assertions"][0]["statement"]
+        benchmark["cases"][0]["expected_assertions"][0]["statement"] = (
+            gold_statement.lower().rstrip(".") + "."
+        )
+        provider = build_fixture_provider(benchmark, _load_fixtures(), LocalCorpusProvider(CORPUS))
+        summary = _evaluate(benchmark, _load_fixtures(), provider)
+
+        case = next(case for case in summary["cases"] if case["case_id"] == "EX-001")
+        self.assertEqual([], case["failures"])
+        self.assertTrue(case["exact_match"])
+        self.assertTrue(summary["m1_2a_acceptance_candidate"])
+
     def test_ex05_fixture_drift_is_rejected_with_taxonomy_code(self) -> None:
         benchmark = _load_benchmark()
         fixtures = _load_fixtures()
@@ -202,13 +271,15 @@ class ExtractionFailureTaxonomyTests(unittest.TestCase):
             build_fixture_provider(benchmark, canary_drift, LocalCorpusProvider(CORPUS))
 
         wrong_prompt = _load_benchmark()
-        wrong_prompt["prompt_version"] = "httpx-extractor-0"
+        wrong_prompt["prompt_version"] = "httpx-extractor-1"
         with self.assertRaisesRegex(ValueError, "EX05_FIXTURE_DRIFT"):
             evaluate_extraction_calibration(
                 benchmark=wrong_prompt,
                 fixtures=_load_fixtures(),
                 corpus=LocalCorpusProvider(CORPUS),
-                provider=build_fixture_provider(wrong_prompt, _load_fixtures(), LocalCorpusProvider(CORPUS)),
+                provider=build_fixture_provider(
+                    wrong_prompt, _load_fixtures(), LocalCorpusProvider(CORPUS)
+                ),
             )
 
 

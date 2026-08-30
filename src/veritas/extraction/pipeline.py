@@ -17,19 +17,34 @@ from veritas.providers.llm import LLMProvider
 from veritas.search.provider import SearchProvider, VersionedDocument
 
 
-EXTRACTION_SCHEMA_VERSION = "evidence-assertion-1"
-EXTRACTION_PROMPT_VERSION = "httpx-extractor-1"
+EXTRACTION_SCHEMA_VERSION = "evidence-assertion-2"
+EXTRACTION_PROMPT_VERSION = "httpx-extractor-2"
 EXTRACTION_SYSTEM_PROMPT = """You extract source-grounded technical assertions.
 Return one JSON object with exactly one key named "assertions".
-Each assertion must have exactly: statement, canonical_key, relation, quote.
+Each assertion must have exactly: statement, relation, quote.
 relation must be "supports" or "contradicts".
-quote must be a verbatim, uniquely occurring substring of the supplied document.
+statement must be one self-contained declarative sentence.
+quote must be copied character-for-character from the supplied document,
+keeping every backtick, punctuation mark, capital letter and space exactly
+as written; it must occur exactly once in the document.
 Do not answer from prior knowledge. Return an empty assertions list when the
 document does not contain evidence that answers the question."""
 
 _CANONICAL_KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._:=/-]*$")
-_ASSERTION_KEYS = {"statement", "canonical_key", "relation", "quote"}
+_ASSERTION_KEYS = {"statement", "relation", "quote"}
 _RELATIONS = {"supports", "contradicts"}
+
+
+def derive_canonical_key(statement: str) -> str:
+    """Deterministically derive a claim's canonical key from its statement.
+
+    The key is the statement lowercased and reduced to alphanumeric tokens
+    joined by underscores. Statements differing only in case, punctuation or
+    whitespace share one identity; any real rewording produces a distinct
+    claim. The model never proposes keys (D-025/D-030): identity is owned by
+    the deterministic layer.
+    """
+    return "_".join(re.findall(r"[a-z0-9]+", statement.lower()))
 
 
 def _stable_id(prefix: str, *parts: str) -> str:
@@ -91,15 +106,18 @@ def _parse_assertions(text: str, document: VersionedDocument) -> tuple[Extracted
                 f"assertions[{index}] must contain exactly {sorted(_ASSERTION_KEYS)}",
             )
         statement = _require_string(raw["statement"], f"assertions[{index}].statement")
-        canonical_key = _require_string(
-            raw["canonical_key"], f"assertions[{index}].canonical_key"
-        )
         relation = _require_string(raw["relation"], f"assertions[{index}].relation")
         quote = _require_string(raw["quote"], f"assertions[{index}].quote")
+        canonical_key = derive_canonical_key(statement)
+        if not canonical_key:
+            raise ExtractionContractError(
+                "invalid_statement",
+                f"assertions[{index}].statement contains no alphanumeric characters",
+            )
         if not _CANONICAL_KEY_PATTERN.fullmatch(canonical_key):
             raise ExtractionContractError(
                 "invalid_canonical_key",
-                f"assertions[{index}].canonical_key has unsupported characters",
+                f"assertions[{index}] derived canonical_key has unsupported characters",
             )
         if relation not in _RELATIONS:
             raise ExtractionContractError(
@@ -213,12 +231,10 @@ class ResearchExtractionPipeline:
             valid_from = document.published_at or reasoned_at
             for assertion in result.assertions:
                 existing = claims_by_key.get(assertion.canonical_key)
-                if existing is not None and existing.statement != assertion.statement:
-                    raise ExtractionContractError(
-                        "canonical_key_conflict",
-                        f"{assertion.canonical_key} maps to conflicting statements",
-                    )
                 if existing is None:
+                    # Derived keys are pure normalizations of the statement, so
+                    # an identical key can only mean an identical normalized
+                    # statement: attach the evidence to the existing claim.
                     existing = Claim(
                         claim_id=_stable_id("claim", assertion.canonical_key),
                         statement=assertion.statement,

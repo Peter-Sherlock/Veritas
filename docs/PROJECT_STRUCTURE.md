@@ -520,6 +520,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：M1-2C 的真实录制（DeepSeek `deepseek-v4-flash`，67 次请求、0/30 exact-match）连同 summary 以原始证据入库（`artifacts/extraction/httpx-initial-extraction-2.0.0-deepseek-v4-flash/`），并通过 `FixtureLLM` 重放测试钉死为可确定性重放。评分身份结论同步登记：真实模型在归一化（大小写/句尾标点/空白/反引号）后也仅匹配 32 条 gold 断言中的 4 条，**精确 statement 匹配不能作为真实模型的质量口径**；后续质量评估下沉到 canonical-key 级或归一化 statement 级，且 canonical_key 倾向由确定性层从 statement 派生而非模型提出（强化 D-025 的职责边界，M1-2C2 起执行）。
 - 原因：第一次真实校准的价值在于获得诚实的失败分布，而不是把 0/30 解释为模型不可用。失败分布（EX02×9 键格式、EX03×9 引文精确性、EX04×12 措辞、EX01×0）显示完整性与质量两类信号分离良好：9 个完整性违规全部被契约拦截，无坏候选物化。若不冻结证据而直接迭代 prompt，将失去"修复前后"的可对比基线；若继续用精确 statement 匹配当口径，任何真实模型都得 0 分，校准失去信息量。评分身份变更是方法论决策，必须与 prompt 迭代分开、显式登记后再实施。
 
+### D-031：canonical_key 改由确定性层从 statement 派生，契约与 benchmark 升级为 v2/v3.0.0
+
+- 状态：Implemented for M1-2C2
+- 日期：2026-08-30
+- 决策：模型契约从四字段收敛为三字段（`statement`/`relation`/`quote`），`canonical_key` 由 `derive_canonical_key(statement)`（小写化 + `[a-z0-9]+` token 以 `_` 连接）在确定性层生成；`canonical_key_conflict` 检查删除（同 key ⇔ 同规范化 statement，构造上不可能冲突），新增 `invalid_statement`（无字母数字内容拒绝）；评分身份从五元组下沉为 `(doc_id, derived_key, relation, quote)`，原始 statement 仅用于报告。benchmark 升级为 3.0.0（`datasets/extraction/httpx-m1-2c/`，30 题逐字携带自 v2.0.0、gold 无 canonical_key）；v1/v2 数据集与旧 summary 保留为冻结历史但退役出 CI（旧 fixtures 携带模型 key 字段，被 v2 契约按未知字段拒绝），对应测试退役或重写。
+- 原因：M1-2C 真实基线显示模型键产出不可靠（8× 格式违规、1× 键冲突塌缩），这是"完整性失败"而非"质量问题"，应当用结构修复而非 prompt 祈祷。派生使 EX02 键格式违规在构造上归零、大小写/标点差异不再污染 claim 身份，并把 D-025 的职责边界（模型提内容、确定性层拥有 provenance）贯彻到底。代价是 schema 演化必须连带退役旧基准——但 v3 是 v2 的 30 题逐字 superset，检索与版本映射不变，覆盖没有损失；旧证据目录保留以维持"修复前后"可对比性（EX02 9→0 的对照正来自它）。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -538,7 +545,8 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-2B2 | Benchmark 扩容至 30 题 | M1-2B 完成 | 新增 20 题冻结、fixtures 可重建、双校准 CI 绿 | 已完成：97/97 tests；30/30、MRR=0.7222；Actions #33299526597 六路成功 |
 | M1-2C-pre | Live provider 接入路径 | M1-2B2 完成 | live CLI/录制路径可运行，fixture 双摘要零 diff | 已完成：104/104 tests；真实录制待 API key |
 | M1-2C | 真实 provider 校准与评审 | M1-2C-pre 完成 | 真实录制、fixture 对照、边界结论 | 已完成：0/30 live（critical=9/major=21）；录制可重放；106/106 tests |
-| M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 进行中（M1-2A/B/B2/C-pre/C 已完成；候选持久化与 gate 复审未做） |
+| M1-2C2 | canonical_key 确定性派生与契约 v2 | M1-2C 完成 | 派生实现、benchmark v3.0.0、真实重跑对照 | 已完成：EX02 9→0、citation 0.4→0.8667；110/110 tests |
+| M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 进行中（M1-2A/B/B2/C-pre/C/C2 已完成；候选持久化与 gate 复审未做） |
 | M1-3 | Research Runtime（状态/队列/checkpoint/预算） | M1-2 完成 | 中断恢复与预算测试通过 | 未开始 |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
 | M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 未开始 |
@@ -647,6 +655,18 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] Python 3.14.7 严格 `ResourceWarning` 模式 106/106 tests 通过；
 - [x] README、技术实现文档和项目结构文档同步更新。
 
+### 11.8 M1-2C2 完成记录（2026-08-30）
+
+- [x] 契约 v2（`evidence-assertion-2`/`httpx-extractor-2`）：模型只提 statement/relation/quote，`derive_canonical_key` 确定性派生 key；`invalid_statement` 新增、`canonical_key_conflict` 删除；
+- [x] 评分身份下沉到 `(doc_id, derived_key, relation, quote)`，statement 仅用于失败报告；
+- [x] system prompt 硬化逐字引用要求（character-for-character，保留反引号/标点/大小写）；
+- [x] benchmark v3.0.0 由 `scripts/build_extraction_v3_fixtures.py` 生成（30 题逐字 superset，gold 无 canonical_key，检索/版本映射重新验证）；v3 fixture 基线 30/30、critical/major=0/0；
+- [x] v1/v2 数据集退役出 CI（保留为冻结历史），CI 校准矩阵收敛为单条 v3；对应测试退役或重写（taxonomy 重写含旧 schema 拒绝回归，v3 场景测试含 superset/覆盖形状/as_of/派生物化断言）；
+- [x] 真实重跑：82 请求、486,273 prompt + 4,512 completion tokens、≈0.50 元；EX02 9→**0**（critical=0）、EX03 9→4、EX04 12→26（评分入口打开所致）、citation alignment 0.4→0.8667、micro recall 2/32；
+- [x] v3 live 证据入库 `artifacts/extraction/httpx-initial-extraction-3.0.0-deepseek-v4-flash/` + 2 项重放测试钉死；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式 110/110 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -682,9 +702,10 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - M1-1R 已消除语料 hash 的 CRLF/LF 平台漂移；后续新增语料必须继续遵守 canonical UTF-8/LF 契约；
 - 本地 TF-IDF 仍是词面基线；30 题 Hit@3=1.0 但 MRR=0.7222，advanced 文档的词面优势把多个 gold 来源压到第 2/3，不能宣称通用检索质量；
 - M1-2A/M1-2B2 的满分来自 `FixtureLLM` 重放；M1-2C 已获得首次真实基线（DeepSeek V4-Flash，0/30 exact-match，critical=9/major=21），但仅单 provider 单次运行，未测种子/温度方差，未测其他模型；
-- 真实模型在归一化后仍仅匹配 4/32 gold 断言（D-030）：在评分身份下沉到 canonical-key/归一化 statement 级之前，exact-match 数字不能用来评价模型语义质量；
-- 真实模型的 canonical_key 产出不可靠（大写环境变量风格、跨语句键冲突），canonical_key 改由确定性层派生是 M1-2C2+ 的方向，实施前抽取契约保持现状；
-- EX01～EX05 校准的是抽取链路已编码的失败路径；首次真实运行显示三类失败均出现且与分类语义吻合，但失败样本仍只有 30 题 × 单模型；
+- 真实模型在 key 级评分下两轮仍为 0/30：语义改写（M1-2C2 轮 26/30 题）是当前主导质量差距，评分无语义匹配能力，"改写即新 claim"的聚合噪声是 M1-2D 设计输入；
+- 真实运行存在轮次方差（同一 temperature=0 下措辞逐轮不同），单轮失败分布不能当作模型能力定值；
+- 真实模型的 canonical_key 已由确定性层派生（D-031），键格式与键冲突类完整性风险在构造上消除，但派生 slug 较长，持久化时的存储与可读性权衡待 M1-2D 评审；
+- EX01～EX05 校准的是抽取链路已编码的失败路径；两轮真实运行显示三类失败均出现且与分类语义吻合，但失败样本仍只有 30 题 × 单模型 × 每轮一次；
 - extraction 当前只产出候选对象，尚未定义写入 Evidence Graph 的事务、去重与跨运行 canonical-key 冲突策略；
 - Suite 2.0.0 的 `4 / 11` 重算比例来自受控图结构，不能外推到真实研究任务；
 - 空 semantic-change 场景需要严格遵守空集合指标约定，否则容易产生误导性的 precision；
@@ -694,6 +715,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-2C2 | 契约 v2：模型只提 statement/relation/quote，canonical_key 由确定性层派生（D-031）；评分身份下沉 key 级；benchmark v3.0.0 + v1/v2 退役出 CI；真实重跑 EX02 9→0、citation alignment 0.4→0.8667、critical=0（≈0.50 元）；v3 live 证据 + 重放测试；110/110 tests |
 | 2026-08-30 | M1-2C | DeepSeek `deepseek-v4-flash` 真实录制 30 题校准（67 请求、≈0.42 元）：0/30 exact-match，EX02×9/EX03×9/EX04×12/EX01×0，检索与 fixture 基线逐位一致，9 个完整性违规全被契约拦截；归一化 4/32 证明精确 statement 匹配不可达；证据入库 + 2 项重放测试钉死；106/106 tests；登记 D-030 |
 | 2026-08-30 | M1-2C-pre | 交付 live provider 校准运行路径：CLI `--provider live`、`run_live_extraction_calibration`、`RecordingLLM` token 计量与录制重放闭环、逐题进度流与每题增量保存（中断安全）；客户端默认模型更新为 `deepseek-v4-flash`、新增 `extra_payload`（live 固定禁用 thinking）；104/104 tests，fixture 双摘要零 diff；登记 D-029 |
 | 2026-08-30 | M1-2B2 | 冻结 benchmark v2.0.0（v1 十题 + 20 新题：多断言 ×2、contradicts ×4、as_of 版本视图 ×2）；fixtures 由确定性脚本生成并内置三类验证；30/30、Hit@3=1.0、MRR=0.7222；CI 双校准矩阵；97/97 tests；登记 D-028 |

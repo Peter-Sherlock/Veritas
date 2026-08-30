@@ -48,12 +48,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: M1-2A
-            dataset: datasets/extraction/httpx-m1-2a
-            summary: artifacts/extraction/httpx-initial-extraction-1.0.0/summary.json
-          - name: M1-2B2
-            dataset: datasets/extraction/httpx-m1-2b
-            summary: artifacts/extraction/httpx-initial-extraction-2.0.0/summary.json
+          - name: M1-2C2
+            dataset: datasets/extraction/httpx-m1-2c
+            summary: artifacts/extraction/httpx-initial-extraction-3.0.0/summary.json
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

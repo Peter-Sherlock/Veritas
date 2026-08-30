@@ -81,7 +81,6 @@ class ExtractionContractTests(unittest.TestCase):
             "assertions": [
                 {
                     "statement": "HTTPX retries connection setup failures",
-                    "canonical_key": "httpx.retries.connection_setup=true",
                     "relation": "supports",
                     "quote": document.content,
                 }
@@ -118,7 +117,6 @@ class ExtractionContractTests(unittest.TestCase):
                     "assertions": [
                         {
                             "statement": "A",
-                            "canonical_key": "valid.key",
                             "relation": "maybe",
                             "quote": document.content,
                         }
@@ -127,17 +125,27 @@ class ExtractionContractTests(unittest.TestCase):
                 "invalid_relation",
             ),
             (
+                # Legacy schema (model-proposed canonical_key) is now an
+                # unknown-field rejection (D-030).
                 {
                     "assertions": [
                         {
                             "statement": "A",
-                            "canonical_key": "Invalid Key",
+                            "canonical_key": "valid.key",
                             "relation": "supports",
                             "quote": document.content,
                         }
                     ]
                 },
-                "invalid_canonical_key",
+                "invalid_schema",
+            ),
+            (
+                {
+                    "assertions": [
+                        {"statement": "!!!", "relation": "supports", "quote": document.content}
+                    ]
+                },
+                "invalid_statement",
             ),
         ]
         for payload, expected_code in cases:
@@ -160,7 +168,6 @@ class ExtractionContractTests(unittest.TestCase):
                 "assertions": [
                     {
                         "statement": "A",
-                        "canonical_key": "valid.key",
                         "relation": "supports",
                         "quote": quote,
                     }
@@ -183,7 +190,6 @@ class ExtractionPipelineTests(unittest.TestCase):
             "assertions": [
                 {
                     "statement": "HTTPX retries connection setup failures",
-                    "canonical_key": "httpx.retries.connection_setup=true",
                     "relation": "supports",
                     "quote": document.content,
                 }
@@ -224,7 +230,6 @@ class ExtractionPipelineTests(unittest.TestCase):
             "assertions": [
                 {
                     "statement": "HTTPX never retries connection setup failures",
-                    "canonical_key": "httpx.retries.connection_setup=true",
                     "relation": "contradicts",
                     "quote": document.content,
                 }
