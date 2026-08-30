@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-104%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-106%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -136,6 +136,7 @@ Choose the path that matches what you want to explore:
 | Inspect the LLM boundary | [`LLMProvider`, fixture replay and compatible client](src/veritas/providers/llm.py) |
 | Follow retrieval into grounded candidates | [strict extraction pipeline](src/veritas/extraction/pipeline.py) |
 | Inspect the 30-question extraction benchmark | [benchmark](datasets/extraction/httpx-m1-2b/benchmark.json) and [summary](artifacts/extraction/httpx-initial-extraction-2.0.0/summary.json) |
+| Inspect the real-provider calibration baseline | [live recording + summary](artifacts/extraction/httpx-initial-extraction-2.0.0-deepseek-v4-flash/) (DeepSeek V4-Flash, 0/30 exact-match) |
 | See how the fixture benchmark is generated | [`build_extraction_v2_fixtures.py`](scripts/build_extraction_v2_fixtures.py) |
 | Read the full technical specification | [Technical implementation](docs/TECHNICAL_IMPLEMENTATION.md) |
 | Understand design decisions and boundaries | [Project structure and design](docs/PROJECT_STRUCTURE.md) |
@@ -253,10 +254,10 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 
 ## Project status
 
-Veritas is currently in **M1-2: extraction calibration**. The deterministic fixture baselines are complete; the live-provider run path is wired, and the recording run awaits an API key.
+Veritas is currently in **M1-2: extraction calibration**. The deterministic fixture baselines and the first real-provider recording are complete; prompt iteration against the measured failure modes is next.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
-- 104 automated tests on Python 3.11 and 3.14
+- 106 automated tests on Python 3.11 and 3.14
 - five frozen scenarios covering revision, retraction, branch isolation, expiry, and multi-source conflict
 - provenance, snapshot-drift, idempotency, replay, and artifact-integrity checks
 - selective execution matches full recomputation in all scenarios while evaluating 4 of 11 conclusions instead of 11 of 11
@@ -269,10 +270,10 @@ Veritas is currently in **M1-2: extraction calibration**. The deterministic fixt
 
 Gate P0 was reviewed on 2026-08-29 and **passed with conditions** (see [D-021](docs/PROJECT_STRUCTURE.md)): the mechanism is validated on controlled graphs; LLM extraction must be calibrated against deterministic fixtures in M1, and no cost claim may be extrapolated from the 4/11 ratio without a scaled benchmark.
 
-**M1-2B** added an extraction failure taxonomy: EX01 retrieval miss, EX02 contract rejection, and EX05 fixture drift are integrity failures, while EX03 citation rejection and EX04 assertion mismatch are quality gaps that the upcoming live-provider calibration will measure. **M1-2B2** expanded the frozen benchmark to 30 questions, adding multi-assertion cases, contradicts relations, and two as_of version-view cases grounded in real HTTPX documentation history (the 0.24.1 Python floor and the pre-0.26 proxy configuration style). **M1-2C-pre** wired the live-provider path (`--provider live --model deepseek-v4-flash`, non-thinking, responses recorded for deterministic replay); the next slice, **M1-2C**, records the real provider against the same frozen prompts and compares it with the fixture baseline.
+**M1-2B** added an extraction failure taxonomy: EX01 retrieval miss, EX02 contract rejection, and EX05 fixture drift are integrity failures, while EX03 citation rejection and EX04 assertion mismatch are quality gaps that the upcoming live-provider calibration will measure. **M1-2B2** expanded the frozen benchmark to 30 questions, adding multi-assertion cases, contradicts relations, and two as_of version-view cases grounded in real HTTPX documentation history (the 0.24.1 Python floor and the pre-0.26 proxy configuration style). **M1-2C-pre** wired the live-provider path (`--provider live --model deepseek-v4-flash`, non-thinking, responses recorded for deterministic replay). **M1-2C** recorded DeepSeek V4-Flash against the same frozen prompts: **0/30 exact match** (9 contract rejections, 9 citation rejections, 12 assertion mismatches, 0 retrieval misses) at ≈0.42 CNY per run — all 9 integrity violations were blocked at the contract boundary, retrieval matched the deterministic baseline exactly, and even punctuation-normalized statements matched only 4 of 32 gold assertions, which pins exact-statement matching as an unattainable quality bar for real models (see D-030). The next slice, **M1-2C2**, iterates the extraction prompt (canonical-key charset constraint and examples) and re-measures against this frozen baseline.
 
 > [!WARNING]
-> This repository does not yet perform web search, verified live-LLM extraction, autonomous planning, or production-scale concurrent execution. The 30/30 extraction result is deterministic fixture replay, not evidence of real-model quality.
+> This repository does not yet perform web search, autonomous planning, or production-scale concurrent execution. The 30/30 extraction result is deterministic fixture replay, not evidence of real-model quality; the measured live baseline (DeepSeek V4-Flash, one run) is 0/30 under exact-match scoring, with the strict contract blocking all 9 integrity violations before any bad candidate materializes.
 
 ## Further reading
 

@@ -513,6 +513,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：真实 provider 校准的运行路径以 DeepSeek `deepseek-v4-flash` 为默认目标（`https://api.deepseek.com`，OpenAI 兼容）。客户端默认模型由已弃用的 `deepseek-chat` 更新为 `deepseek-v4-flash`，并新增 `extra_payload` 请求体合并参数；live 校准固定发送 `"thinking": {"type": "disabled"}`。CLI 以 `--provider live` 进入录制模式（`--record-out` 保存 `{model_id, responses}` 键值记录，可经 `FixtureLLM` 确定性重放），API key 只从 `VERITAS_LLM_API_KEY` 环境变量读取。benchmark、语料、prompt 与评分与 fixture 路径逐字节一致，仅替换 provider。
 - 原因：截至 2026-08-30 的国产 API 现价对比中，`deepseek-v4-flash` 是"付费里最便宜且质量有保底"的选项（输入未命中 1 元/1M、缓存命中 0.02 元/1M、输出 2 元/1M），原生支持 JSON Output 且 1M 上下文足够容纳 top-3 文档；30 题 × top-3 ≈ 90 次调用的校准成本在 1 元人民币量级。禁用思考模式换取低延迟、低成本与接近确定性的 JSON 输出（校准要度量的是抽取契约遵从，不是推理能力）。旧别名 `deepseek-chat` 已不是文档化的模型名，不再作为默认。录制文件先落原始记录，冻结（per-case 重排 + canary + 漂移校验）是录制完成后的独立步骤，避免把未评审的真实输出直接固化为 fixture。
 
+### D-030：真实校准证据冻结，精确 statement 匹配判定为不可达的质量口径
+
+- 状态：Implemented for M1-2C
+- 日期：2026-08-30
+- 决策：M1-2C 的真实录制（DeepSeek `deepseek-v4-flash`，67 次请求、0/30 exact-match）连同 summary 以原始证据入库（`artifacts/extraction/httpx-initial-extraction-2.0.0-deepseek-v4-flash/`），并通过 `FixtureLLM` 重放测试钉死为可确定性重放。评分身份结论同步登记：真实模型在归一化（大小写/句尾标点/空白/反引号）后也仅匹配 32 条 gold 断言中的 4 条，**精确 statement 匹配不能作为真实模型的质量口径**；后续质量评估下沉到 canonical-key 级或归一化 statement 级，且 canonical_key 倾向由确定性层从 statement 派生而非模型提出（强化 D-025 的职责边界，M1-2C2 起执行）。
+- 原因：第一次真实校准的价值在于获得诚实的失败分布，而不是把 0/30 解释为模型不可用。失败分布（EX02×9 键格式、EX03×9 引文精确性、EX04×12 措辞、EX01×0）显示完整性与质量两类信号分离良好：9 个完整性违规全部被契约拦截，无坏候选物化。若不冻结证据而直接迭代 prompt，将失去"修复前后"的可对比基线；若继续用精确 statement 匹配当口径，任何真实模型都得 0 分，校准失去信息量。评分身份变更是方法论决策，必须与 prompt 迭代分开、显式登记后再实施。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -529,9 +536,9 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-2A | 严格抽取契约与确定性基线 | M1-1R 完成 | 10 题 gold/fixture、candidate pipeline、双 Python 测试 | 已完成：10/10；85/85 tests；Actions #33250938915 五路成功 |
 | M1-2B | Failure Taxonomy 与 gate 硬化 | M1-2A 完成 | 每类失败独立可触发，正常集 critical=0 | 已完成：91/91 tests；EX01～EX05 负向校准；Actions #33297042264 五路成功 |
 | M1-2B2 | Benchmark 扩容至 30 题 | M1-2B 完成 | 新增 20 题冻结、fixtures 可重建、双校准 CI 绿 | 已完成：97/97 tests；30/30、MRR=0.7222；Actions #33299526597 六路成功 |
-| M1-2C-pre | Live provider 接入路径 | M1-2B2 完成 | live CLI/录制路径可运行，fixture 双摘要零 diff | 已完成：103/103 tests；真实录制待 API key |
-| M1-2C | 真实 provider 校准与评审 | M1-2C-pre 完成 | 真实录制、fixture 对照、边界结论 | 进行中（路径已就绪，待 `VERITAS_LLM_API_KEY`） |
-| M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 进行中（M1-2A/M1-2B/M1-2B2/M1-2C-pre 已完成） |
+| M1-2C-pre | Live provider 接入路径 | M1-2B2 完成 | live CLI/录制路径可运行，fixture 双摘要零 diff | 已完成：104/104 tests；真实录制待 API key |
+| M1-2C | 真实 provider 校准与评审 | M1-2C-pre 完成 | 真实录制、fixture 对照、边界结论 | 已完成：0/30 live（critical=9/major=21）；录制可重放；106/106 tests |
+| M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 进行中（M1-2A/B/B2/C-pre/C 已完成；候选持久化与 gate 复审未做） |
 | M1-3 | Research Runtime（状态/队列/checkpoint/预算） | M1-2 完成 | 中断恢复与预算测试通过 | 未开始 |
 | M1-4 | 动态重规划 | M1-3 完成 | 触发场景测试通过 | 未开始 |
 | M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 未开始 |
@@ -629,6 +636,17 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] Python 3.14.7 严格 `ResourceWarning` 模式 104/104 tests 通过；
 - [x] README、技术实现文档和项目结构文档同步更新。
 
+### 11.7 M1-2C 完成记录（2026-08-30）
+
+- [x] DeepSeek `deepseek-v4-flash`（非思考、temperature=0、JSON mode）对冻结 30 题真实录制：67 请求、409,233 prompt tokens + 4,658 completion tokens、≈0.42 元（缓存未命中上限估算）；
+- [x] 真实结果：0/30 exact-match；EX01×0、EX02×9（8 键格式 + 1 键冲突）、EX03×9（8 引文缺失 + 1 引文歧义）、EX04×12；critical=9、major=21；citation alignment=0.4；
+- [x] 检索层与 fixture 基线逐位一致（Hit@3=1.0、MRR=0.7222），实证检索模型无关；
+- [x] 9 个完整性违规全部被契约边界拦截，无坏候选物化，fixture gate 未被污染；
+- [x] 归一化分析：32 条 gold 断言仅 4 条匹配（大小写/句尾标点/空白/反引号归一后），精确 statement 匹配判定为不可达口径（D-030）；
+- [x] 证据入库 `artifacts/extraction/httpx-initial-extraction-2.0.0-deepseek-v4-flash/`，2 项重放测试钉死（重放 summary 与 committed 全等 + 失败分布断言）；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式 106/106 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -663,8 +681,10 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - Gate P0 已附条件通过（D-021）；附加条件要求在 M1 中用确定性 fixture 校准 LLM 组件，并在规模声明前补规模化 benchmark；
 - M1-1R 已消除语料 hash 的 CRLF/LF 平台漂移；后续新增语料必须继续遵守 canonical UTF-8/LF 契约；
 - 本地 TF-IDF 仍是词面基线；30 题 Hit@3=1.0 但 MRR=0.7222，advanced 文档的词面优势把多个 gold 来源压到第 2/3，不能宣称通用检索质量；
-- M1-2A/M1-2B2 的满分来自 `FixtureLLM` 重放，不能宣称模型抽取质量；live provider 运行路径已就绪（M1-2C-pre），但真实录制与对比尚未执行；
-- EX01～EX05 校准的是抽取链路已编码的失败路径；真实模型的失败分布（半正确引用、语义 paraphrase、跨文档断言漂移）要等 M1-2C 的真实录制才能观察；
+- M1-2A/M1-2B2 的满分来自 `FixtureLLM` 重放；M1-2C 已获得首次真实基线（DeepSeek V4-Flash，0/30 exact-match，critical=9/major=21），但仅单 provider 单次运行，未测种子/温度方差，未测其他模型；
+- 真实模型在归一化后仍仅匹配 4/32 gold 断言（D-030）：在评分身份下沉到 canonical-key/归一化 statement 级之前，exact-match 数字不能用来评价模型语义质量；
+- 真实模型的 canonical_key 产出不可靠（大写环境变量风格、跨语句键冲突），canonical_key 改由确定性层派生是 M1-2C2+ 的方向，实施前抽取契约保持现状；
+- EX01～EX05 校准的是抽取链路已编码的失败路径；首次真实运行显示三类失败均出现且与分类语义吻合，但失败样本仍只有 30 题 × 单模型；
 - extraction 当前只产出候选对象，尚未定义写入 Evidence Graph 的事务、去重与跨运行 canonical-key 冲突策略；
 - Suite 2.0.0 的 `4 / 11` 重算比例来自受控图结构，不能外推到真实研究任务；
 - 空 semantic-change 场景需要严格遵守空集合指标约定，否则容易产生误导性的 precision；
@@ -674,7 +694,8 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
-| 2026-08-30 | M1-2C-pre | 交付 live provider 校准运行路径：CLI `--provider live`、`run_live_extraction_calibration`、`RecordingLLM` token 计量与录制重放闭环、逐题进度流与每题增量保存（中断安全）；客户端默认模型更新为 `deepseek-v4-flash`、新增 `extra_payload`（live 固定禁用 thinking）；104/104 tests，fixture 双摘要零 diff；真实录制待 `VERITAS_LLM_API_KEY`；登记 D-029 |
+| 2026-08-30 | M1-2C | DeepSeek `deepseek-v4-flash` 真实录制 30 题校准（67 请求、≈0.42 元）：0/30 exact-match，EX02×9/EX03×9/EX04×12/EX01×0，检索与 fixture 基线逐位一致，9 个完整性违规全被契约拦截；归一化 4/32 证明精确 statement 匹配不可达；证据入库 + 2 项重放测试钉死；106/106 tests；登记 D-030 |
+| 2026-08-30 | M1-2C-pre | 交付 live provider 校准运行路径：CLI `--provider live`、`run_live_extraction_calibration`、`RecordingLLM` token 计量与录制重放闭环、逐题进度流与每题增量保存（中断安全）；客户端默认模型更新为 `deepseek-v4-flash`、新增 `extra_payload`（live 固定禁用 thinking）；104/104 tests，fixture 双摘要零 diff；登记 D-029 |
 | 2026-08-30 | M1-2B2 | 冻结 benchmark v2.0.0（v1 十题 + 20 新题：多断言 ×2、contradicts ×4、as_of 版本视图 ×2）；fixtures 由确定性脚本生成并内置三类验证；30/30、Hit@3=1.0、MRR=0.7222；CI 双校准矩阵；97/97 tests；登记 D-028 |
 | 2026-08-30 | M1-2B | 建立 `ex-failures-1` 抽取失败分类（EX01～EX05，critical/major 分级）、runner 拆分与 summary 增量 schema 演化；六项负向校准独立可触发，正常集 critical=0；91/91 tests；committed summary 重生成且 M1-2A 度量值不变；登记 D-027 |
 | 2026-08-29 | M1-2A | 新增 extraction contract/pipeline、10 题 HTTPX gold 与 fixture、calibration runner/summary 和 CI job；10/10，Hit@3=1.0、MRR=0.7833、precision/recall/citation=1.0；Python 3.11/3.14 均 85/85 tests；登记 D-025～D-026 |

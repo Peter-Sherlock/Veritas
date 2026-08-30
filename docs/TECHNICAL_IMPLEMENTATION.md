@@ -1384,9 +1384,49 @@ python -m veritas.evaluation.extraction_runner \
 
 本切片证明 live 路径在注入 provider 下可运行、可录制、可重放，且不影响冻结基线；不证明真实 DeepSeek 调用的行为——录制、失败分布对比与 canonical_key/citation 校准仍是 M1-2C 待办，需要 API key。
 
-## 23. 当前限制
+## 23. M1-2C 真实 provider 校准录制与失败分析
 
-- 已实现检索到 Evidence/Claim 候选的自动 pipeline，30 题由 `FixtureLLM` 重放；live provider 运行路径已就绪（M1-2C-pre），但尚无真实 provider 校准记录；
+### 23.1 运行与成本
+
+2026-08-30 以 DeepSeek `deepseek-v4-flash`（非思考模式、temperature=0、JSON mode，见 D-029）对冻结 30 题 benchmark 执行真实校准录制。实际发生 **67 次请求**（契约拒绝中止该题剩余文档，故少于 90 次上限）、**409,233 prompt tokens + 4,658 completion tokens**，按缓存未命中上限估算成本 **≈ 0.42 元人民币**（输出仅 4.7K tokens，输入占绝对大头；文档跨题重复，实际命中 prompt cache 后更低）。录制与 summary 冻结在 `artifacts/extraction/httpx-initial-extraction-2.0.0-deepseek-v4-flash/`（`responses-recording.json` 67 条真实响应 + `summary.json`），API key 不进仓库。
+
+### 23.2 结果：fixture 基线 vs 真实模型
+
+| 指标 | fixture v2.0.0（重放） | live deepseek-v4-flash |
+| --- | ---: | ---: |
+| Cases passed | 30/30 | **0/30** |
+| Retrieval Hit@3 | 1.0 | 1.0（逐位一致） |
+| Mean Reciprocal Rank | 0.7222 | 0.7222（逐位一致） |
+| Assertion micro precision / recall | 1.0 / 1.0 | 0.0 / 0.0 |
+| Citation exact alignment | 1.0 | 0.4 |
+| Critical / major failures | 0 / 0 | **9 / 21** |
+
+检索层与 fixture 基线**逐位相同**，实证检索是模型无关的确定性层。0/30 是严格 exact-match 口径下的真实结果，恰好是 M1-2C 存在的目的。
+
+### 23.3 失败归因（ex-failures-1）
+
+| 失败类 | 次数 | 真实原因与样本 |
+| --- | ---: | --- |
+| EX01 检索未命中 | 0 | 检索确定性层与模型无关 |
+| EX02 契约拒绝 | 9 | 8× `invalid_canonical_key`：模型自然产出环境变量风格的键（如 `NO_PROXY` 大写），不满足 `^[a-z0-9][a-z0-9._:=/-]*$`；1× `canonical_key_conflict`：EX-004 把"client 关闭 trust_env"与"top-level API 关闭 trust_env"两条不同事实压成同一个 `trust_env` 键 |
+| EX03 引用拒绝 | 9 | 8× `citation_not_found`：引文被模型改写或规范化空白，不再是逐字子串；1× `citation_ambiguous`：EX-001 的 `client = httpx.AsyncClient(http2=True)` 在文档中出现 2 次 |
+| EX04 断言不匹配 | 12 | 语义正确但措辞不同：EX-015 仅差一个句号；多数为真实改写（"Cookies must be set on the client instance, not passed per request" vs "Cookies cannot be passed per request on a Client instance."） |
+
+归一化分析（大小写、句尾标点、空白、反引号全部归一后比较 statement）显示 32 条 gold 断言也只匹配 4 条——**精确 statement 匹配对真实模型不可达**，瓶颈在评分身份设计而非模型能力。这是 D-030 的直接证据。
+
+关键正面结论：9 个完整性违规（EX02）全部在契约边界被拦截，**没有任何坏候选物化**；fixture 30/30 gate 未被真实输出污染。分类法把"完整性失败"与"质量差距"干净分离，正是 D-027 设计的验证。
+
+### 23.4 重放验证
+
+`tests/scenarios/test_live_recording_replay.py`（2 项）：把 67 条真实响应经 `FixtureLLM` 重放整场校准，重放 summary 与 committed `summary.json` **全等**（含 content_hash）；失败分布（0/30、9/9/12/0、critical=9、major=21、Hit@3=1.0、citation=0.4）钉进测试。真实运行自此可永久确定性重放。Python 3.14.7 严格 `ResourceWarning` 模式 `Ran 106 tests OK`。
+
+### 23.5 退出边界
+
+本次是**单 provider、单次运行**的诚实基线：未测多种子/温度方差，未测其他模型，canonical_key 字符集修复与 prompt 迭代（M1-2C2）、评分身份下沉（canonical-key 级或归一化 statement 比较）、候选持久化（M1-2D）均为后续切片。0/30 不能外推为"真实模型不可用"——30 题中 12 题通过了完整契约并物化出候选（全部仅 EX04 措辞级不匹配），其余 18 题在契约边界被拒（9 键格式 + 9 引文精确性）；但"语义可用"的任何数字同样不能在评分身份变更前作为质量声明。
+
+## 24. 当前限制
+
+- 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准已完成首次录制（M1-2C，DeepSeek V4-Flash，0/30 exact-match），但仅此单 provider 单次运行，canonical_key 格式与引文精确性的 prompt 迭代尚未执行；
 - EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
 - 抽取候选尚未写入 SQLite 或接入 initial-research graph transaction；
 - 没有来源质量权重；
@@ -1399,13 +1439,14 @@ python -m veritas.evaluation.extraction_runner \
 - 没有并发、多进程、规模或性能结果。
 - Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
-因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路、M1-2B 的五类抽取失败分类与 gate 分级、M1-2B2 的 30 题扩容 benchmark，以及 M1-2C-pre 的 live provider 运行路径已经通过可复现验证”；不能外推为真实 LLM 抽取质量、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路、M1-2B 的五类抽取失败分类与 gate 分级、M1-2B2 的 30 题扩容 benchmark、M1-2C-pre 的 live provider 运行路径，以及 M1-2C 的真实 provider 校准录制与失败分析已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（首次真实基线为 0/30 exact-match，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 24. 变更记录
+## 25. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
-| 2026-08-30 | M1-2C-pre | 交付 live provider 校准运行路径：`run_live_extraction_calibration` + CLI `--provider live`（`--model deepseek-v4-flash` 默认、`thinking` 禁用、`RecordingLLM` 录制与 token 计量）；客户端默认模型更新为 `deepseek-v4-flash`、新增 `extra_payload`；103/103 tests，fixture 双摘要逐字节不变；真实录制待 `VERITAS_LLM_API_KEY`；登记 D-029 |
+| 2026-08-30 | M1-2C | DeepSeek `deepseek-v4-flash`（非思考、temperature=0、JSON mode）真实录制 30 题校准：67 请求、409K prompt tokens、≈0.42 元；0/30 exact-match（EX02×9、EX03×9、EX04×12、EX01×0），检索与 fixture 基线逐位一致，9 个完整性违规全部被契约拦截；归一化后 32 条 gold 仅 4 条匹配，精确 statement 匹配判定为对真实模型不可达（D-030）；录制可确定性重放并钉进测试；106/106 tests |
+| 2026-08-30 | M1-2C-pre | 交付 live provider 校准运行路径：`run_live_extraction_calibration` + CLI `--provider live`（`--model deepseek-v4-flash` 默认、`thinking` 禁用、`RecordingLLM` 录制与 token 计量、逐题进度与中断安全保存）；客户端默认模型更新为 `deepseek-v4-flash`、新增 `extra_payload`；104/104 tests，fixture 双摘要逐字节不变；登记 D-029 |
 | 2026-08-30 | M1-2B2 | 新增 20 题（EX-011～030）扩容 benchmark 至 `httpx-initial-extraction` 2.0.0；新增多断言 ×2、contradicts ×4、as_of 版本视图 ×2（index@0.24.1 Python 3.7+、troubleshooting@0.25.2 legacy proxies dict）；fixtures 由 `scripts/build_extraction_v2_fixtures.py` 确定性生成并内置 quote 唯一性与检索排名验证；30/30、Hit@3=1.0、MRR=0.7222、P/R/citation=1.0；CI 扩展为双校准矩阵；97/97 tests |
 | 2026-08-30 | M1-2B | 建立 `ex-failures-1` 抽取失败分类（EX01～EX05，critical/major 分级）、runner 拆分 `evaluate_extraction_calibration`、summary 增量 schema 演化与 per-case `failures` 数组；六项负向校准独立可触发，正常集 critical=0；91/91 tests（Python 3.14.7 严格模式），committed summary 重生成且度量值不变 |
 | 2026-08-29 | M1-2A | 新增严格 extraction contract、逐字引用对齐、确定性 Evidence/Claim/edge 候选、10 题 HTTPX gold/fixture baseline 与 calibration runner；10/10 cases，Hit@3/precision/recall/citation=1.0，MRR=0.7833；Python 3.11/3.14 均 85/85 tests |
