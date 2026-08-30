@@ -7,7 +7,7 @@
 **Veritas is an experimental evidence-evolution engine for long-running research systems.**
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/tests-85%20passing-2EA44F?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-91%20passing-2EA44F?style=flat-square)
 ![Runtime](https://img.shields.io/badge/runtime_dependencies-0-6E7781?style=flat-square)
 
 [Run the suite](#quick-start) · [Explore the project](#where-to-start) · [Understand the mechanism](#how-it-works)
@@ -240,7 +240,7 @@ Keep experimental fixtures outside the frozen suite until their ground truth has
 Veritas is currently in **M1-2: extraction calibration**. The deterministic M1-2A baseline is complete; live-provider calibration is not.
 
 - Python 3.11+, SQLite, no third-party runtime dependencies
-- 85 automated tests on Python 3.11 and 3.14
+- 91 automated tests on Python 3.11 and 3.14
 - five frozen scenarios covering revision, retraction, branch isolation, expiry, and multi-source conflict
 - provenance, snapshot-drift, idempotency, replay, and artifact-integrity checks
 - selective execution matches full recomputation in all scenarios while evaluating 4 of 11 conclusions instead of 11 of 11
@@ -248,11 +248,12 @@ Veritas is currently in **M1-2: extraction calibration**. The deterministic M1-2
 - canonical LF corpus hashes, with CI covering both Python versions and both frozen suite manifests
 - strict extraction validation: exact JSON schema, unique verbatim citations and deterministic Evidence/Claim/edge IDs
 - a frozen 10-question fixture baseline: 10/10 cases, exact assertion precision/recall 1.0, citation alignment 1.0
+- an extraction failure taxonomy (EX01–EX05) with critical/major severity, each class independently triggered by negative calibration
 - retrieval hit@3 is 1.0 but MRR is 0.7833; one correct source ranks third, so retrieval quality is not being overstated
 
 Gate P0 was reviewed on 2026-08-29 and **passed with conditions** (see [D-021](docs/PROJECT_STRUCTURE.md)): the mechanism is validated on controlled graphs; LLM extraction must be calibrated against deterministic fixtures in M1, and no cost claim may be extrapolated from the 4/11 ratio without a scaled benchmark.
 
-The next slice is **M1-2B**: add independently triggered extraction-failure classes and harden the calibration gate. M1-2C will then record a real provider against the same frozen prompts and compare it with the fixture baseline.
+**M1-2B** added an extraction failure taxonomy: EX01 retrieval miss, EX02 contract rejection, and EX05 fixture drift are integrity failures, while EX03 citation rejection and EX04 assertion mismatch are quality gaps that the upcoming live-provider calibration will measure. The next slice is **M1-2C**: record a real provider against the same frozen prompts and compare it with the fixture baseline.
 
 > [!WARNING]
 > This repository does not yet perform web search, verified live-LLM extraction, autonomous planning, or production-scale concurrent execution. The 10/10 extraction result is deterministic fixture replay, not evidence of real-model quality.

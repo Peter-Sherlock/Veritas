@@ -56,7 +56,7 @@ class ExtractionCalibrationTests(unittest.TestCase):
         self.assertEqual(3, ranks["EX-009"])
         self.assertLess(first["metrics"]["mean_reciprocal_rank"], 1.0)
 
-    def test_statement_mismatch_fails_exact_scoring(self) -> None:
+    def test_statement_mismatch_is_recorded_as_ex04_major(self) -> None:
         benchmark = json.loads(BENCHMARK.read_text(encoding="utf-8"))
         benchmark["cases"][0]["expected_assertions"][0]["statement"] = "Wrong statement"
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -70,7 +70,13 @@ class ExtractionCalibrationTests(unittest.TestCase):
         first_case = summary["cases"][0]
         self.assertEqual("fail", first_case["status"])
         self.assertFalse(first_case["exact_match"])
-        self.assertEqual(1, summary["critical_failure_count"])
+        self.assertEqual(
+            ["EX04_ASSERTION_MISMATCH"],
+            [record["failure_code"] for record in first_case["failures"]],
+        )
+        self.assertEqual(0, summary["critical_failure_count"])
+        self.assertEqual(1, summary["major_failure_count"])
+        self.assertFalse(summary["m1_2a_acceptance_candidate"])
 
     def test_fixture_question_drift_is_rejected(self) -> None:
         fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))

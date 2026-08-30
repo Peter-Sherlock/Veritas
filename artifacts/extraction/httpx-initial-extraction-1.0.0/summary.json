@@ -11,7 +11,7 @@
       "exact_match": true,
       "expected_assertion_count": 1,
       "expected_doc_id": "http2",
-      "failure": null,
+      "failures": [],
       "retrieval_pass": true,
       "retrieval_rank": 1,
       "retrieved_doc_ids": [
@@ -29,7 +29,7 @@
       "exact_match": true,
       "expected_assertion_count": 1,
       "expected_doc_id": "http2",
-      "failure": null,
+      "failures": [],
       "retrieval_pass": true,
       "retrieval_rank": 1,
       "retrieved_doc_ids": [
@@ -47,7 +47,7 @@
       "exact_match": true,
       "expected_assertion_count": 1,
       "expected_doc_id": "async",
-      "failure": null,
+      "failures": [],
       "retrieval_pass": true,
       "retrieval_rank": 1,
       "retrieved_doc_ids": [
@@ -65,7 +65,7 @@
       "exact_match": true,
       "expected_assertion_count": 1,
       "expected_doc_id": "environment_variables",
-      "failure": null,
+      "failures": [],
       "retrieval_pass": true,
       "retrieval_rank": 2,
       "retrieved_doc_ids": [
@@ -83,7 +83,7 @@
       "exact_match": true,
       "expected_assertion_count": 1,
       "expected_doc_id": "quickstart",
-      "failure": null,
+      "failures": [],
       "retrieval_pass": true,
       "retrieval_rank": 1,
       "retrieved_doc_ids": [
@@ -101,7 +101,7 @@
       "exact_match": true,
       "expected_assertion_count": 1,
       "expected_doc_id": "advanced",
-      "failure": null,
+      "failures": [],
       "retrieval_pass": true,
       "retrieval_rank": 1,
       "retrieved_doc_ids": [
@@ -119,7 +119,7 @@
       "exact_match": true,
       "expected_assertion_count": 1,
       "expected_doc_id": "contributing",
-      "failure": null,
+      "failures": [],
       "retrieval_pass": true,
       "retrieval_rank": 1,
       "retrieved_doc_ids": [
@@ -137,7 +137,7 @@
       "exact_match": true,
       "expected_assertion_count": 1,
       "expected_doc_id": "compatibility",
-      "failure": null,
+      "failures": [],
       "retrieval_pass": true,
       "retrieval_rank": 2,
       "retrieved_doc_ids": [
@@ -155,7 +155,7 @@
       "exact_match": true,
       "expected_assertion_count": 1,
       "expected_doc_id": "troubleshooting",
-      "failure": null,
+      "failures": [],
       "retrieval_pass": true,
       "retrieval_rank": 3,
       "retrieved_doc_ids": [
@@ -173,7 +173,7 @@
       "exact_match": true,
       "expected_assertion_count": 1,
       "expected_doc_id": "index",
-      "failure": null,
+      "failures": [],
       "retrieval_pass": true,
       "retrieval_rank": 2,
       "retrieved_doc_ids": [
@@ -184,11 +184,21 @@
       "status": "pass"
     }
   ],
-  "content_hash": "39eb5335e0b388eef63a06c1ec34e6d45987344ef538fbfa0a10caea05143f13",
+  "content_hash": "bf76cb134cb52cf6ce02e2bf96a280b8d98f495dc81b04c5a4cc896f038bd6aa",
   "corpus_id": "httpx-docs",
   "critical_failure_count": 0,
+  "failure_counts": {
+    "EX01_RETRIEVAL_MISS": 0,
+    "EX02_CONTRACT_REJECTION": 0,
+    "EX03_CITATION_REJECTION": 0,
+    "EX04_ASSERTION_MISMATCH": 0,
+    "EX05_FIXTURE_DRIFT": 0
+  },
+  "failure_taxonomy": "ex-failures-1",
+  "failures": [],
   "fixture_id": "httpx-extraction-fixtures-1.0.0",
   "m1_2a_acceptance_candidate": true,
+  "major_failure_count": 0,
   "metrics": {
     "assertion_micro_precision": 1.0,
     "assertion_micro_recall": 1.0,

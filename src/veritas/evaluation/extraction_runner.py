@@ -14,8 +14,55 @@ from veritas.extraction.pipeline import (
     ResearchExtractionPipeline,
     build_extraction_prompt,
 )
-from veritas.providers.llm import FixtureLLM, fixture_key
+from veritas.providers.llm import FixtureLLM, LLMProvider, fixture_key
 from veritas.search.local_corpus import LocalCorpusProvider
+
+
+EXTRACTION_FAILURE_TAXONOMY = "ex-failures-1"
+EX_RETRIEVAL_MISS = "EX01_RETRIEVAL_MISS"
+EX_CONTRACT_REJECTION = "EX02_CONTRACT_REJECTION"
+EX_CITATION_REJECTION = "EX03_CITATION_REJECTION"
+EX_ASSERTION_MISMATCH = "EX04_ASSERTION_MISMATCH"
+EX_FIXTURE_DRIFT = "EX05_FIXTURE_DRIFT"
+EX_FAILURE_CODES = (
+    EX_RETRIEVAL_MISS,
+    EX_CONTRACT_REJECTION,
+    EX_CITATION_REJECTION,
+    EX_ASSERTION_MISMATCH,
+    EX_FIXTURE_DRIFT,
+)
+
+# Contract codes whose rejection means the response never grounded in the
+# document; everything else at the contract boundary is a format violation.
+_CITATION_CONTRACT_CODES = {"citation_not_found", "citation_ambiguous"}
+
+
+def classify_contract_error(code: str) -> tuple[str, str]:
+    """Map a pipeline contract code to its EX failure code and severity."""
+    if code in _CITATION_CONTRACT_CODES:
+        return EX_CITATION_REJECTION, "major"
+    return EX_CONTRACT_REJECTION, "critical"
+
+
+def _failure_record(
+    failure_code: str,
+    severity: str,
+    case_id: str,
+    *,
+    expected: str,
+    actual: str,
+    reason: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "failure_code": failure_code,
+        "severity": severity,
+        "entity_refs": [case_id],
+        "expected": expected,
+        "actual": actual,
+    }
+    if reason:
+        record["reason"] = reason
+    return record
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
@@ -25,14 +72,14 @@ def _load_json(path: str | Path) -> dict[str, Any]:
     return data
 
 
-def _fixture_provider(
+def build_fixture_provider(
     benchmark: dict[str, Any],
     fixtures: dict[str, Any],
     corpus: LocalCorpusProvider,
 ) -> FixtureLLM:
     benchmark_cases = {case["case_id"]: case for case in benchmark["cases"]}
     if len(benchmark_cases) != len(benchmark["cases"]):
-        raise ValueError("duplicate case_id in benchmark")
+        raise ValueError(f"{EX_FIXTURE_DRIFT}: duplicate case_id in benchmark")
     canary = fixtures["prompt_canary"]
     canary_case = benchmark_cases[canary["case_id"]]
     canary_document = corpus.fetch(canary["doc_id"], canary["version_id"])
@@ -41,20 +88,24 @@ def _fixture_provider(
         build_extraction_prompt(canary_case["question"], canary_document),
     )
     if actual_canary_key != canary["fixture_key"]:
-        raise ValueError("fixture prompt canary drift")
+        raise ValueError(f"{EX_FIXTURE_DRIFT}: fixture prompt canary drift")
 
     fixture_cases = {case["case_id"]: case for case in fixtures["cases"]}
     if len(fixture_cases) != len(fixtures["cases"]):
-        raise ValueError("duplicate case_id in fixture file")
+        raise ValueError(f"{EX_FIXTURE_DRIFT}: duplicate case_id in fixture file")
     if set(fixture_cases) != set(benchmark_cases):
-        raise ValueError("benchmark and fixture case sets differ")
+        raise ValueError(f"{EX_FIXTURE_DRIFT}: benchmark and fixture case sets differ")
     responses: dict[str, str] = {}
     for case in benchmark["cases"]:
         fixture_case = fixture_cases.get(case["case_id"])
         if fixture_case is None:
-            raise ValueError(f"fixture missing case {case['case_id']}")
+            raise ValueError(
+                f"{EX_FIXTURE_DRIFT}: fixture missing case {case['case_id']}"
+            )
         if fixture_case["question"] != case["question"]:
-            raise ValueError(f"fixture question drift for {case['case_id']}")
+            raise ValueError(
+                f"{EX_FIXTURE_DRIFT}: fixture question drift for {case['case_id']}"
+            )
         retrieved = corpus.search(
             case["query"],
             top_k=case["top_k"],
@@ -62,19 +113,22 @@ def _fixture_provider(
         )
         expected_docs = list(fixture_case["responses"])
         if set(fixture_case["versions"]) != set(expected_docs):
-            raise ValueError(f"fixture version map differs for {case['case_id']}")
+            raise ValueError(
+                f"{EX_FIXTURE_DRIFT}: fixture version map differs for {case['case_id']}"
+            )
         actual_docs = [result.doc_id for result in retrieved]
         if set(expected_docs) != set(actual_docs):
             raise ValueError(
-                f"fixture retrieval snapshot drift for {case['case_id']}: "
-                f"expected {expected_docs}, actual {actual_docs}"
+                f"{EX_FIXTURE_DRIFT}: fixture retrieval snapshot drift for "
+                f"{case['case_id']}: expected {expected_docs}, actual {actual_docs}"
             )
         for result in retrieved:
             document = corpus.fetch(result.doc_id, result.version_id)
             expected_version = fixture_case["versions"][result.doc_id]
             if result.version_id != expected_version:
                 raise ValueError(
-                    f"fixture version drift for {case['case_id']}:{result.doc_id}: "
+                    f"{EX_FIXTURE_DRIFT}: fixture version drift for "
+                    f"{case['case_id']}:{result.doc_id}: "
                     f"expected {expected_version}, actual {result.version_id}"
                 )
             prompt = build_extraction_prompt(case["question"], document)
@@ -99,27 +153,29 @@ def _identity(
     return doc_id, statement, canonical_key, relation, quote
 
 
-def run_extraction_calibration(
+def evaluate_extraction_calibration(
     *,
-    benchmark_path: str | Path,
-    fixtures_path: str | Path,
-    corpus_root: str | Path,
+    benchmark: dict[str, Any],
+    fixtures: dict[str, Any],
+    corpus: LocalCorpusProvider,
+    provider: Any,
 ) -> dict[str, Any]:
-    benchmark = _load_json(benchmark_path)
-    fixtures = _load_json(fixtures_path)
     if benchmark["prompt_version"] != EXTRACTION_PROMPT_VERSION:
-        raise ValueError("benchmark prompt_version does not match runtime")
+        raise ValueError(
+            f"{EX_FIXTURE_DRIFT}: benchmark prompt_version does not match runtime"
+        )
     if benchmark["schema_version"] != EXTRACTION_SCHEMA_VERSION:
-        raise ValueError("benchmark schema_version does not match runtime")
+        raise ValueError(
+            f"{EX_FIXTURE_DRIFT}: benchmark schema_version does not match runtime"
+        )
 
-    corpus = LocalCorpusProvider(corpus_root)
-    if benchmark["corpus_id"] != corpus.corpus_id:
-        raise ValueError("benchmark corpus_id does not match loaded corpus")
-    provider = _fixture_provider(benchmark, fixtures, corpus)
+    corpus_id = corpus.corpus_id
+    if benchmark["corpus_id"] != corpus_id:
+        raise ValueError(f"{EX_FIXTURE_DRIFT}: benchmark corpus_id does not match loaded corpus")
     pipeline = ResearchExtractionPipeline(
         corpus,
         provider,
-        source_namespace=corpus.corpus_id,
+        source_namespace=corpus_id,
     )
 
     case_results: list[dict[str, Any]] = []
@@ -131,8 +187,9 @@ def run_extraction_calibration(
     citation_valid_cases = 0
 
     for case in benchmark["cases"]:
+        case_id = case["case_id"]
         if not isinstance(case["top_k"], int) or case["top_k"] < 1:
-            raise ValueError(f"top_k must be positive for {case['case_id']}")
+            raise ValueError(f"top_k must be positive for {case_id}")
         retrieved = corpus.search(
             case["query"],
             top_k=case["top_k"],
@@ -140,15 +197,13 @@ def run_extraction_calibration(
         )
         retrieved_ids = [result.doc_id for result in retrieved]
         expected_doc_id = case["expected_retrieval"]["doc_id"]
+        max_rank = case["expected_retrieval"]["max_rank"]
         retrieval_rank = (
             retrieved_ids.index(expected_doc_id) + 1
             if expected_doc_id in retrieved_ids
             else None
         )
-        retrieval_pass = (
-            retrieval_rank is not None
-            and retrieval_rank <= case["expected_retrieval"]["max_rank"]
-        )
+        retrieval_pass = retrieval_rank is not None and retrieval_rank <= max_rank
         if retrieval_rank is not None:
             reciprocal_rank_sum += 1.0 / retrieval_rank
         if retrieval_pass:
@@ -165,8 +220,24 @@ def run_extraction_calibration(
             for item in case["expected_assertions"]
         }
         if len(expected) != len(case["expected_assertions"]):
-            raise ValueError(f"duplicate expected assertion in {case['case_id']}")
-        failure: dict[str, str] | None = None
+            raise ValueError(f"duplicate expected assertion in {case_id}")
+        case_failures: list[dict[str, Any]] = []
+        if not retrieval_pass:
+            case_failures.append(
+                _failure_record(
+                    EX_RETRIEVAL_MISS,
+                    "major",
+                    case_id,
+                    expected=f"{expected_doc_id} retrieved within rank {max_rank}",
+                    actual=(
+                        f"retrieved at rank {retrieval_rank}"
+                        if retrieval_rank is not None
+                        else "not retrieved"
+                    ),
+                )
+            )
+
+        contract_rejected = False
         actual: set[tuple[str, str, str, str, str]] = set()
         try:
             bundle = pipeline.run(
@@ -188,21 +259,49 @@ def run_extraction_calibration(
                         )
                     )
         except ExtractionContractError as exc:
-            failure = {"code": exc.code, "message": str(exc)}
-        if failure is None:
+            contract_rejected = True
+            failure_code, severity = classify_contract_error(exc.code)
+            case_failures.append(
+                _failure_record(
+                    failure_code,
+                    severity,
+                    case_id,
+                    expected="provider response passes the extraction contract",
+                    actual=f"rejected ({exc.code})",
+                    reason={"pipeline_code": exc.code, "message": str(exc)},
+                )
+            )
+        if not contract_rejected:
             citation_valid_cases += 1
 
         true_positive = len(expected & actual)
         precision = true_positive / len(actual) if actual else float(not expected)
         recall = true_positive / len(expected) if expected else float(not actual)
-        exact_match = expected == actual and failure is None
+        if not contract_rejected and expected != actual:
+            missing = sorted({identity[1] for identity in expected - actual})
+            unexpected = sorted({identity[1] for identity in actual - expected})
+            case_failures.append(
+                _failure_record(
+                    EX_ASSERTION_MISMATCH,
+                    "major",
+                    case_id,
+                    expected="extracted assertions exactly match gold assertions",
+                    actual=f"{len(missing)} missing, {len(unexpected)} unexpected",
+                    reason={
+                        "missing_statements": missing,
+                        "unexpected_statements": unexpected,
+                    },
+                )
+            )
+
+        exact_match = (not contract_rejected) and expected == actual
         case_pass = retrieval_pass and exact_match
         total_true_positive += true_positive
         total_expected += len(expected)
         total_actual += len(actual)
         case_results.append(
             {
-                "case_id": case["case_id"],
+                "case_id": case_id,
                 "retrieved_doc_ids": retrieved_ids,
                 "expected_doc_id": expected_doc_id,
                 "retrieval_rank": retrieval_rank,
@@ -212,7 +311,7 @@ def run_extraction_calibration(
                 "assertion_precision": precision,
                 "assertion_recall": recall,
                 "exact_match": exact_match,
-                "failure": failure,
+                "failures": case_failures,
                 "status": "pass" if case_pass else "fail",
             }
         )
@@ -225,18 +324,33 @@ def run_extraction_calibration(
     micro_recall = (
         total_true_positive / total_expected if total_expected else float(total_actual == 0)
     )
-    critical_failure_count = case_count - passed_case_count
+    all_failures = [
+        record for result in case_results for record in result["failures"]
+    ]
+    failure_counts = {code: 0 for code in EX_FAILURE_CODES}
+    for record in all_failures:
+        failure_counts[record["failure_code"]] += 1
+    critical_failure_count = sum(
+        1 for record in all_failures if record["severity"] == "critical"
+    )
+    major_failure_count = sum(
+        1 for record in all_failures if record["severity"] == "major"
+    )
     summary = {
         "benchmark_id": benchmark["benchmark_id"],
         "benchmark_version": benchmark["benchmark_version"],
-        "corpus_id": corpus.corpus_id,
+        "corpus_id": corpus_id,
         "fixture_id": fixtures["fixture_id"],
         "model_id": fixtures["model_id"],
         "prompt_version": EXTRACTION_PROMPT_VERSION,
         "schema_version": EXTRACTION_SCHEMA_VERSION,
+        "failure_taxonomy": EXTRACTION_FAILURE_TAXONOMY,
         "case_count": case_count,
         "passed_case_count": passed_case_count,
         "critical_failure_count": critical_failure_count,
+        "major_failure_count": major_failure_count,
+        "failure_counts": failure_counts,
+        "failures": all_failures,
         "metrics": {
             "retrieval_hit_at_k": retrieval_hits / case_count if case_count else 0.0,
             "mean_reciprocal_rank": reciprocal_rank_sum / case_count if case_count else 0.0,
@@ -246,7 +360,8 @@ def run_extraction_calibration(
                 citation_valid_cases / case_count if case_count else 0.0
             ),
         },
-        "m1_2a_acceptance_candidate": critical_failure_count == 0,
+        "m1_2a_acceptance_candidate": critical_failure_count == 0
+        and major_failure_count == 0,
         "cases": case_results,
     }
     canonical = json.dumps(
@@ -259,8 +374,26 @@ def run_extraction_calibration(
     return summary
 
 
+def run_extraction_calibration(
+    *,
+    benchmark_path: str | Path,
+    fixtures_path: str | Path,
+    corpus_root: str | Path,
+) -> dict[str, Any]:
+    benchmark = _load_json(benchmark_path)
+    fixtures = _load_json(fixtures_path)
+    corpus = LocalCorpusProvider(corpus_root)
+    provider = build_fixture_provider(benchmark, fixtures, corpus)
+    return evaluate_extraction_calibration(
+        benchmark=benchmark,
+        fixtures=fixtures,
+        corpus=corpus,
+        provider=provider,
+    )
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the frozen M1-2A extraction calibration")
+    parser = argparse.ArgumentParser(description="Run the frozen extraction calibration")
     parser.add_argument("--benchmark", required=True)
     parser.add_argument("--fixtures", required=True)
     parser.add_argument("--corpus-root", required=True)

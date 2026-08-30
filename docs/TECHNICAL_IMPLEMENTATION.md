@@ -2,8 +2,8 @@
 
 > 文档职责：记录可执行技术规格、数据契约、算法、测试与实际验证结果。  
 > 当前阶段：M1-2 抽取 pipeline 与校准
-> 当前状态：M1-2 in progress；M1-2A deterministic baseline complete
-> 更新日期：2026-08-29  
+> 当前状态：M1-2 in progress；M1-2A deterministic baseline complete；M1-2B failure taxonomy complete
+> 更新日期：2026-08-30  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[项目结构与设计文档](PROJECT_STRUCTURE.md)
 
@@ -14,7 +14,7 @@ M1-2 把 M1-1 的检索与 LLM 协议连接成可校准的 source-grounded extra
 阶段拆分：
 
 - **M1-2A（已完成）**：严格 JSON schema、逐字引用对齐、确定性 Evidence/Claim/edge 候选、10 题 gold dataset 与 fixture baseline；
-- **M1-2B（下一步）**：抽取 Failure Taxonomy、独立负向校准、指标与 CI gate 硬化；
+- **M1-2B（已完成）**：抽取 Failure Taxonomy、独立负向校准、指标与 CI gate 硬化；
 - **M1-2C（未开始）**：在不暴露凭据的前提下录制真实 provider 输出，与同一冻结 fixture/gold truth 对照并作阶段评审。
 
 M1-2 的最终退出仍要求真实 LLM 校准记录；M1-2A 的 fixture 10/10 只证明契约与评测链路可复现。
@@ -1247,9 +1247,66 @@ GitHub Actions 新增独立 `extraction-calibration` job：重跑 10 题并要�
 
 M1-2A 已完成，但 M1-2 尚未完成。当前结果证明严格 contract、引用对齐、候选物化与 fixture calibration 可复现；不证明真实模型能达到同样 precision/recall，也不证明候选已安全持久化进 Evidence Graph。
 
-## 20. 当前限制
+## 20. M1-2B 抽取失败分类与 Gate 硬化
+
+### 20.1 EX 失败分类
+
+M1-2B 按照与 P0 F01～F06 相同的纪律，为抽取校准建立独立可触发的失败分类 `ex-failures-1`。分类区分两种含义不同的坏结果：
+
+- **critical（完整性失败）**：结果不可信——provider 响应根本没能通过契约，或冻结 fixture 已漂移；
+- **major（质量差距）**：校准仍然有效，但 provider 或检索没有达到 gold 期望——这正是 M1-2C 真实模型校准要度量的对象。
+
+| code | 名称 | severity | 判定 |
+| --- | --- | --- | --- |
+| `EX01_RETRIEVAL_MISS` | 检索未命中 | major | gold 来源未在 `expected_retrieval.max_rank` 内命中 |
+| `EX02_CONTRACT_REJECTION` | 契约拒绝 | critical | provider 响应被契约校验拒绝（`invalid_json`/`invalid_schema`/`invalid_canonical_key`/`invalid_relation`/`duplicate_assertion`/`canonical_key_conflict`） |
+| `EX03_CITATION_REJECTION` | 引用拒绝 | major | 断言因 `citation_not_found` 或 `citation_ambiguous` 未通过逐字 grounding |
+| `EX04_ASSERTION_MISMATCH` | 断言不匹配 | major | 契约通过但抽取断言集与 gold 集合 exact-match 不一致 |
+| `EX05_FIXTURE_DRIFT` | fixture 漂移 | critical | 冻结 fixture/canary/检索快照/version/prompt/schema/corpus 身份漂移；运行前守卫直接中止运行，不产出 summary |
+
+失败记录契约与 P0 F-code 对齐：`failure_code`、`severity`、`entity_refs`（case_id）、`expected`、`actual`，可选结构化 `reason`（如 `pipeline_code`、`missing_statements`/`unexpected_statements`）。契约拒绝时只记录 EX02/EX03，不再对同 case 重复记 EX04。
+
+### 20.2 语义与契约变化
+
+- `critical_failure_count` 从"失败 case 数"改为"critical 级失败记录数"；新增 `major_failure_count`。正常集两者均为 0，committed artifact 数值不变；
+- per-case `failure`（单对象）改为 `failures`（数组），一个 case 可同时携带 EX01 与 EX04；
+- summary 新增 `failure_taxonomy`、`failure_counts`（五码显式零值）、`failures`（全量记录）；`m1_2a_acceptance_candidate` 语义保持"冻结 fixture 基线零失败"，现定义为 critical=0 且 major=0；
+- benchmark 与 fixtures 数据逐字节不变；summary 为增量 schema 演化并重新生成 content hash，M1-2A 的度量值（10/10、Hit@3=1.0、MRR=0.7833、P/R/citation=1.0）全部不变；
+- 运行前守卫（question/version/快照/canary/case 集合/prompt/schema/corpus 漂移）统一以 `EX05_FIXTURE_DRIFT:` 前缀抛出 `ValueError`，使中止路径机器可读；漂移中止运行，因此 EX05 不出现在 summary 内，其"可触发"由异常断言证明。
+
+### 20.3 实现与负向校准
+
+实现位置：[`evaluation/extraction_runner.py`](../src/veritas/evaluation/extraction_runner.py)（`classify_contract_error`、`_failure_record`、`build_fixture_provider` 守卫、`evaluate_extraction_calibration` 聚合）。runner 拆出 `evaluate_extraction_calibration(benchmark, fixtures, corpus, provider)` 内聚入口，负向校准通过内存扰动副本注入，不需要临时文件。
+
+六项负向校准（`tests/unit/test_extraction_taxonomy.py`）：
+
+| 校准 | 注入的扰动 | 结果 |
+| --- | --- | --- |
+| EX01 | EX-009 `max_rank` 收紧为 1（实际 rank 3） | 单独触发 EX01 major；critical 保持 0 |
+| EX02 | gold 文档响应替换为非 JSON | 单独触发 EX02 critical（`invalid_json`），不重复记 EX04 |
+| EX03 | gold 文档响应替换为不可定位引用 | 单独触发 EX03 major（`citation_not_found`），citation alignment 降为 0.9 |
+| EX04 | gold statement 改写 | 单独触发 EX04 major，携带 missing/unexpected statements |
+| EX05 | version map / canary / prompt version 三类漂移 | 均以 `EX05_FIXTURE_DRIFT` 中止 |
+| 正常集 | 无扰动 | `failure_counts` 五码显式零、`failures` 空、content hash 有效 |
+
+### 20.4 验证结果
+
+```powershell
+$env:PYTHONPATH='src'
+python -W error::ResourceWarning -m unittest discover -s tests -v
+python -m veritas.evaluation.extraction_runner --benchmark datasets/extraction/httpx-m1-2a/benchmark.json --fixtures datasets/extraction/httpx-m1-2a/fixtures.json --corpus-root datasets/corpus/httpx-docs --output artifacts/extraction/httpx-initial-extraction-1.0.0/summary.json --assert-pass
+```
+
+Python 3.14.7 严格 `ResourceWarning` 模式：`Ran 91 tests OK`（85 + 新增 6）。重新生成的 summary 与 M1-2A 版本相比仅含增量 schema 字段与 `failure` → `failures` 结构化替换，全部度量值不变，`--assert-pass` 通过。
+
+### 20.5 退出边界
+
+M1-2B 证明五类失败探测器独立可触发、正常集零失败、gate 语义分级清晰。它不观察任何真实模型失败模式——EX 分类是对"已编码失败路径"的校准，M1-2C 的真实 provider 记录才是第一条真实分布证据。
+
+## 21. 当前限制
 
 - 已实现检索到 Evidence/Claim 候选的自动 pipeline，但当前 10 题由 `FixtureLLM` 重放；尚无真实 provider 校准记录；
+- EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
 - 抽取候选尚未写入 SQLite 或接入 initial-research graph transaction；
 - 没有来源质量权重；
 - 没有处理复杂逻辑表达式、概率置信度或循环依赖；
@@ -1261,12 +1318,13 @@ M1-2A 已完成，但 M1-2 尚未完成。当前结果证明严格 contract、�
 - 没有并发、多进程、规模或性能结果。
 - Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，不能当作真实研究负载的成本收益。
 
-因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界，以及 M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路已经通过可复现验证”；不能外推为真实 LLM 抽取质量、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
+因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2A 检索→严格抽取→候选 Evidence/Claim 的 fixture 链路，以及 M1-2B 的五类抽取失败分类与 gate 分级已经通过可复现验证”；不能外推为真实 LLM 抽取质量、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
 
-## 21. 变更记录
+## 22. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-2B | 建立 `ex-failures-1` 抽取失败分类（EX01～EX05，critical/major 分级）、runner 拆分 `evaluate_extraction_calibration`、summary 增量 schema 演化与 per-case `failures` 数组；六项负向校准独立可触发，正常集 critical=0；91/91 tests（Python 3.14.7 严格模式），committed summary 重生成且度量值不变 |
 | 2026-08-29 | M1-2A | 新增严格 extraction contract、逐字引用对齐、确定性 Evidence/Claim/edge 候选、10 题 HTTPX gold/fixture baseline 与 calibration runner；10/10 cases，Hit@3/precision/recall/citation=1.0，MRR=0.7833；Python 3.11/3.14 均 85/85 tests |
 | 2026-08-29 | M1-1R | 统一语料 canonical UTF-8/LF hash 契约，重算 48 条 manifest hash，增加换行回归与严格资源检查；CI 扩展为 Python 3.11/3.14 和 suite 1.0.0/2.0.0 双矩阵；两版本均 73/73 tests、67/67 artifact hashes 与 48/48 corpus hashes 通过 |
 | 2026-08-29 | M1-1 | 新增 providers 与 search 模块、httpx 版本化语料（10 文档 48 快照）、21 项新测试；72/72 通过 |

@@ -2,8 +2,8 @@
 
 > 文档职责：记录项目边界、设计思路、目录演进、阶段状态和关键决策。  
 > 当前阶段：M1-2 抽取 pipeline 与校准
-> 当前状态：M1-2 in progress；M1-2A deterministic baseline complete
-> 更新日期：2026-08-29  
+> 当前状态：M1-2 in progress；M1-2A deterministic baseline complete；M1-2B failure taxonomy complete
+> 更新日期：2026-08-30  
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[技术实现文档](TECHNICAL_IMPLEMENTATION.md)
 
@@ -46,7 +46,7 @@ Veritas 的首要研究对象不是搜索质量，而是证据变化后的研究
 
 ## 3. 当前实际结构
 
-截至 2026-08-29，工作区实际存在：
+截至 2026-08-30，工作区实际存在：
 
 ```text
 Veritas/
@@ -105,6 +105,7 @@ Veritas/
 │   │   ├── test_domain_and_graph.py
 │   │   ├── test_expire_and_conflict.py
 │   │   ├── test_extraction.py
+│   │   ├── test_extraction_taxonomy.py
 │   │   ├── test_failure_taxonomy.py
 │   │   ├── test_httpx_corpus.py
 │   │   ├── test_local_corpus.py
@@ -149,7 +150,7 @@ Veritas/
 - 足以代表通用检索质量的 benchmark 结论；
 - 生产规模 benchmark 结果。
 
-当前已有的是五个受控场景上的确定性 evidence-evolution runtime、两套 evolution suite、可替换的 LLM/检索协议、冻结语料，以及检索→严格抽取→Evidence/Claim 候选的 10 题 fixture baseline；这些模块尚未组成会自主搜索、持久化研究状态、规划、调用工具和生成研究报告的完整 Deep Research Agent。
+当前已有的是五个受控场景上的确定性 evidence-evolution runtime、两套 evolution suite、可替换的 LLM/检索协议、冻结语料、检索→严格抽取→Evidence/Claim 候选的 10 题 fixture baseline，以及 EX01～EX05 抽取失败分类与独立负向校准；这些模块尚未组成会自主搜索、持久化研究状态、规划、调用工具和生成研究报告的完整 Deep Research Agent。
 
 ## 4. P0-0 阶段边界
 
@@ -487,6 +488,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：10 题 runner 对 top-3 每篇文档实际执行抽取，分别报告 Hit@3/MRR 与 assertion precision/recall/citation alignment；fixture 冻结 question、检索文档集合、version 与 prompt canary，statement 也纳入 exact-match identity；summary 携带 canonical content hash。
 - 原因：只在 gold source 上抽取会绕过检索失败；只报告 10/10 又会掩盖正确来源排名第 2/3 的问题。分层指标让 M1-2B/2C 能判断失败来自 retrieval、contract 还是模型语义。
 
+### D-027：抽取失败按 critical/major 分级，gate 只要求正常集零失败
+
+- 状态：Implemented for M1-2B
+- 日期：2026-08-30
+- 决策：建立 `ex-failures-1` 失败分类。EX02 契约拒绝与 EX05 fixture 漂移为 critical（结果不可信）；EX01 检索未命中、EX03 引用拒绝、EX04 断言不匹配为 major（校准有效但未达 gold，是 M1-2C 要度量的对象）。`critical_failure_count` 从"失败 case 数"改为"critical 级失败记录数"，新增 `major_failure_count` 与全量 `failures` 记录；per-case `failure` 单对象改为 `failures` 数组。`m1_2a_acceptance_candidate` 定义为 critical=0 且 major=0，保持冻结 fixture 基线 gate 不变松。benchmark 与 fixtures 数据逐字节不变，summary 为增量 schema 演化并重新生成 content hash；M1-2A 全部度量值保持不变。
+- 原因：真实模型校准（M1-2C）必然产生 major 级偏差；若把质量差距与完整性失败混为一个计数，gate 要么过松（掩盖契约破坏）要么过紧（任何模型偏差都算"critical"）。分级让同一份 runner 既服务冻结基线的零失败 gate，也服务未来真实模型的差距报告。运行前守卫统一以 `EX05_FIXTURE_DRIFT` 前缀抛错，漂移中止运行，因此 EX05 只经异常断言校准、不出现在 summary 内。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -501,7 +509,7 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-1 | LLM/检索协议与本地版本化语料 | Gate P0 通过 | 协议、Fixture/真实客户端、语料与测试落地 | 已完成：72/72 tests |
 | M1-1R | 跨平台语料与 CI 收口 | M1-1 完成 | canonical hash、双 Python/双 suite CI、双文档同步 | 已完成：73/73 tests；Actions #33247415305 四路成功 |
 | M1-2A | 严格抽取契约与确定性基线 | M1-1R 完成 | 10 题 gold/fixture、candidate pipeline、双 Python 测试 | 已完成：10/10；85/85 tests；Actions #33250938915 五路成功 |
-| M1-2B | Failure Taxonomy 与 gate 硬化 | M1-2A 完成 | 每类失败独立可触发，正常集 critical=0 | 未开始 |
+| M1-2B | Failure Taxonomy 与 gate 硬化 | M1-2A 完成 | 每类失败独立可触发，正常集 critical=0 | 已完成：91/91 tests；EX01～EX05 负向校准；committed summary 重生成且度量值不变 |
 | M1-2C | 真实 provider 校准与评审 | M1-2B 完成 | 真实录制、fixture 对照、边界结论 | 未开始 |
 | M1-2 | 抽取 pipeline 与校准 harness | M1-1R 完成 | 校准 CI 绿、真实 LLM 校准记录、10 题 benchmark 基线 | 进行中（M1-2A 已完成） |
 | M1-3 | Research Runtime（状态/队列/checkpoint/预算） | M1-2 完成 | 中断恢复与预算测试通过 | 未开始 |
@@ -564,6 +572,17 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] README、技术实现文档和项目结构文档同步更新；
 - [x] GitHub Actions [run 33250938915](https://github.com/Peter-Sherlock/Veritas/actions/runs/33250938915) 五路任务全部成功。
 
+### 11.4 M1-2B 完成记录（2026-08-30）
+
+- [x] 建立 `ex-failures-1` 抽取失败分类：EX01 检索未命中、EX02 契约拒绝、EX03 引用拒绝、EX04 断言不匹配、EX05 fixture 漂移；
+- [x] `critical_failure_count` 语义改为 critical 级记录数，新增 `major_failure_count`、`failure_counts` 与全量 `failures`；per-case `failure` 改为 `failures` 数组；
+- [x] runner 拆分 `build_fixture_provider` 与 `evaluate_extraction_calibration`，负向校准通过内存扰动副本注入；
+- [x] 六项负向校准：EX01/EX02/EX03/EX04/EX05 各自独立可触发，正常集五码显式零且 content hash 有效；
+- [x] 运行前守卫统一携带 `EX05_FIXTURE_DRIFT` 前缀，漂移中止路径机器可读；
+- [x] benchmark 与 fixtures 逐字节不变；committed summary 重新生成，M1-2A 全部度量值不变；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式 91/91 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -599,6 +618,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - M1-1R 已消除语料 hash 的 CRLF/LF 平台漂移；后续新增语料必须继续遵守 canonical UTF-8/LF 契约；
 - 本地 TF-IDF 仍是词面基线；10 题 Hit@3=1.0 但 MRR=0.7833，EX-009 正确来源仅排第 3，不能宣称通用检索质量；
 - M1-2A 的 10/10 来自 `FixtureLLM`，真实端点 smoke/calibration 尚未执行，不能宣称模型抽取质量；
+- EX01～EX05 校准的是抽取链路已编码的失败路径；真实模型的失败分布（半正确引用、语义 paraphrase、跨文档断言漂移）要等 M1-2C 的真实录制才能观察；
 - extraction 当前只产出候选对象，尚未定义写入 Evidence Graph 的事务、去重与跨运行 canonical-key 冲突策略；
 - Suite 2.0.0 的 `4 / 11` 重算比例来自受控图结构，不能外推到真实研究任务；
 - 空 semantic-change 场景需要严格遵守空集合指标约定，否则容易产生误导性的 precision；
@@ -608,6 +628,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-30 | M1-2B | 建立 `ex-failures-1` 抽取失败分类（EX01～EX05，critical/major 分级）、runner 拆分与 summary 增量 schema 演化；六项负向校准独立可触发，正常集 critical=0；91/91 tests；committed summary 重生成且 M1-2A 度量值不变；登记 D-027 |
 | 2026-08-29 | M1-2A | 新增 extraction contract/pipeline、10 题 HTTPX gold 与 fixture、calibration runner/summary 和 CI job；10/10，Hit@3=1.0、MRR=0.7833、precision/recall/citation=1.0；Python 3.11/3.14 均 85/85 tests；登记 D-025～D-026 |
 | 2026-08-29 | M1-1R | 将 corpus hash 冻结为 canonical UTF-8/LF，重算 48 条 manifest hash；新增 LF/CRLF 回归和 HTTPError 资源关闭；CI 扩展为 Python 3.11/3.14、suite 1.0.0/2.0.0 双矩阵；两版本均 73/73 tests、67/67 artifact hashes 与 48/48 corpus hashes 通过；登记 D-024 |
 | 2026-08-29 | M1-1 | 新增 providers（LLM 协议/OpenAI 兼容零依赖客户端/FixtureLLM/RecordingLLM）与 search（检索协议/本地语料 TF-IDF）模块；`scripts/harvest_corpus.py` 采集 httpx 文档语料（10 文档、48 版本快照、hash 钉住）；72/72 tests 通过；登记 D-022～D-023 |
