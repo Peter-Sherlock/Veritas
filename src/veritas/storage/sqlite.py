@@ -171,15 +171,49 @@ class SQLiteRepository:
             """
         )
 
-    def insert_source_version(self, source: SourceVersion) -> None:
+    def _insert_immutable(
+        self,
+        *,
+        table: str,
+        id_column: str,
+        id_value: str,
+        columns: tuple[str, ...],
+        values: tuple[Any, ...],
+    ) -> None:
+        """Insert an immutable row idempotently and reject payload conflicts."""
+        column_sql = ", ".join(columns)
+        placeholders = ", ".join("?" for _ in columns)
         self.connection.execute(
-            """
-            INSERT OR IGNORE INTO source_versions (
-                version_id, source_id, version_label, canonical_uri, content_hash,
-                published_at, observed_at, valid_from, valid_to, supersedes_version_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
+            f"INSERT OR IGNORE INTO {table} ({column_sql}) VALUES ({placeholders})",
+            values,
+        )
+        row = self.connection.execute(
+            f"SELECT {column_sql} FROM {table} WHERE {id_column} = ?",
+            (id_value,),
+        ).fetchone()
+        if row is None or tuple(row[column] for column in columns) != values:
+            raise ValueError(
+                f"immutable_entity_conflict:{table}:{id_value}"
+            )
+
+    def insert_source_version(self, source: SourceVersion) -> None:
+        self._insert_immutable(
+            table="source_versions",
+            id_column="version_id",
+            id_value=source.version_id,
+            columns=(
+                "version_id",
+                "source_id",
+                "version_label",
+                "canonical_uri",
+                "content_hash",
+                "published_at",
+                "observed_at",
+                "valid_from",
+                "valid_to",
+                "supersedes_version_id",
+            ),
+            values=(
                 source.version_id,
                 source.source_id,
                 source.version_label,
@@ -194,14 +228,21 @@ class SQLiteRepository:
         )
 
     def insert_evidence_span(self, evidence: EvidenceSpan) -> None:
-        self.connection.execute(
-            """
-            INSERT OR IGNORE INTO evidence_spans (
-                evidence_id, source_version_id, locator_json, text, text_hash,
-                normalized_assertion, valid_from, valid_to
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
+        self._insert_immutable(
+            table="evidence_spans",
+            id_column="evidence_id",
+            id_value=evidence.evidence_id,
+            columns=(
+                "evidence_id",
+                "source_version_id",
+                "locator_json",
+                "text",
+                "text_hash",
+                "normalized_assertion",
+                "valid_from",
+                "valid_to",
+            ),
+            values=(
                 evidence.evidence_id,
                 evidence.source_version_id,
                 _json_dump(evidence.locator),
@@ -214,20 +255,30 @@ class SQLiteRepository:
         )
 
     def insert_claim(self, claim: Claim) -> None:
-        self.connection.execute(
-            "INSERT OR IGNORE INTO claims (claim_id, statement, created_at, canonical_key) VALUES (?, ?, ?, ?)",
-            (claim.claim_id, claim.statement, claim.created_at, claim.canonical_key),
+        self._insert_immutable(
+            table="claims",
+            id_column="claim_id",
+            id_value=claim.claim_id,
+            columns=("claim_id", "statement", "created_at", "canonical_key"),
+            values=(claim.claim_id, claim.statement, claim.created_at, claim.canonical_key),
         )
 
     def insert_claim_assessment(self, assessment: ClaimAssessment) -> None:
-        self.connection.execute(
-            """
-            INSERT OR IGNORE INTO claim_assessments (
-                assessment_id, claim_id, snapshot_id, assessment, rule_version,
-                reason_refs_json, reasoned_at, supersedes_assessment_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
+        self._insert_immutable(
+            table="claim_assessments",
+            id_column="assessment_id",
+            id_value=assessment.assessment_id,
+            columns=(
+                "assessment_id",
+                "claim_id",
+                "snapshot_id",
+                "assessment",
+                "rule_version",
+                "reason_refs_json",
+                "reasoned_at",
+                "supersedes_assessment_id",
+            ),
+            values=(
                 assessment.assessment_id,
                 assessment.claim_id,
                 assessment.snapshot_id,
@@ -240,15 +291,22 @@ class SQLiteRepository:
         )
 
     def insert_conclusion_version(self, conclusion: ConclusionVersion) -> None:
-        self.connection.execute(
-            """
-            INSERT OR IGNORE INTO conclusion_versions (
-                conclusion_version_id, conclusion_key, version_number, statement, outcome,
-                dependency_rule_json, reason_refs_json, reasoned_at,
-                supersedes_conclusion_version_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
+        self._insert_immutable(
+            table="conclusion_versions",
+            id_column="conclusion_version_id",
+            id_value=conclusion.conclusion_version_id,
+            columns=(
+                "conclusion_version_id",
+                "conclusion_key",
+                "version_number",
+                "statement",
+                "outcome",
+                "dependency_rule_json",
+                "reason_refs_json",
+                "reasoned_at",
+                "supersedes_conclusion_version_id",
+            ),
+            values=(
                 conclusion.conclusion_version_id,
                 conclusion.conclusion_key,
                 conclusion.version_number,
@@ -262,14 +320,21 @@ class SQLiteRepository:
         )
 
     def insert_dependency_edge(self, edge: DependencyEdge) -> None:
-        self.connection.execute(
-            """
-            INSERT OR IGNORE INTO dependency_edges (
-                edge_id, edge_type, from_id, to_id, created_at,
-                valid_from, valid_to, rule_version
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
+        self._insert_immutable(
+            table="dependency_edges",
+            id_column="edge_id",
+            id_value=edge.edge_id,
+            columns=(
+                "edge_id",
+                "edge_type",
+                "from_id",
+                "to_id",
+                "created_at",
+                "valid_from",
+                "valid_to",
+                "rule_version",
+            ),
+            values=(
                 edge.edge_id,
                 edge.edge_type.value,
                 edge.from_id,

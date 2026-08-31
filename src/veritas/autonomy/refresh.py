@@ -22,6 +22,7 @@ masquerades as one in the change log.
 from __future__ import annotations
 
 import hashlib
+import json
 from typing import Any
 
 from veritas.domain.enums import EdgeType
@@ -43,12 +44,21 @@ class RefreshError(ValueError):
         super().__init__(f"{code}: {message}")
 
 
-def refresh_id_for(session_id: str, bundle: ExtractionCandidateBundle) -> str:
-    """Deterministic id: same session and same bundle, same refresh."""
-    parts = [session_id]
-    parts.extend(sorted(claim.claim_id for claim in bundle.claims))
-    parts.extend(sorted(evidence.evidence_id for evidence in bundle.evidence_spans))
-    digest = hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()[:16]
+def refresh_id_for(
+    session_id: str,
+    bundle: ExtractionCandidateBundle,
+    rule_version: str,
+) -> str:
+    """Deterministic identity over the complete semantic refresh payload."""
+    identity = {
+        "session_id": session_id,
+        "rule_version": rule_version,
+        "bundle": bundle.to_dict(),
+    }
+    canonical = json.dumps(
+        identity, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
     return f"refresh-{digest}"
 
 
@@ -91,7 +101,7 @@ def apply_research_refresh(
     refreshed_at: str,
 ) -> dict[str, Any]:
     """Insert re-research output and run the engine's transition contract."""
-    refresh_id = refresh_id_for(session_id, bundle)
+    refresh_id = refresh_id_for(session_id, bundle, rule_version)
     with repository.transaction():
         prior = repository.find_research_refresh(refresh_id)
         if prior is not None:

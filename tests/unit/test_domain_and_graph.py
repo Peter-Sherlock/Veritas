@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from veritas.domain.enums import ChangeType
@@ -39,6 +40,22 @@ class DomainValidationTests(unittest.TestCase):
         )
         self.assertEqual(("project-1", "external-1"), event.idempotency_key)
 
+    def test_repository_rejects_same_immutable_id_with_different_payload(self) -> None:
+        scenario = load_scenario(SCENARIO_PATH)
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            with SQLiteRepository(
+                Path(temporary_directory) / "veritas.sqlite3"
+            ) as repository:
+                initialize_t0(repository, scenario)
+                claim = repository.get_claim("default_retries_3")
+                repository.insert_claim(claim)
+                with self.assertRaisesRegex(
+                    ValueError, "immutable_entity_conflict:claims"
+                ):
+                    repository.insert_claim(
+                        replace(claim, statement="A conflicting statement")
+                    )
+
 
 class CandidateImpactTests(unittest.TestCase):
     def test_gs001_candidate_impact_is_computed_from_t0(self) -> None:
@@ -64,4 +81,3 @@ class CandidateImpactTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

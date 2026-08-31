@@ -20,6 +20,7 @@ import hashlib
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from veritas.aggregation import ClaimClusterStore
@@ -29,7 +30,8 @@ from veritas.autonomy import (
     apply_research_refresh,
     plan_re_research,
 )
-from veritas.domain.enums import Assessment, ConclusionOutcome
+from veritas.autonomy.refresh import refresh_id_for
+from veritas.domain.enums import Assessment, ConclusionOutcome, EdgeType
 from veritas.extraction.models import ExtractionCandidateBundle
 from veritas.extraction.pipeline import (
     EXTRACTION_SYSTEM_PROMPT,
@@ -136,6 +138,32 @@ def _snapshot_hash(repository: SQLiteRepository) -> str:
 
 
 class AutonomyLoopM3Tests(unittest.TestCase):
+    def test_refresh_identity_includes_edges_and_rule_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = _build_corpus(Path(tmp) / "corpus")
+            bundle = _extract(corpus, T1_AS_OF)
+            changed_relation = replace(
+                bundle,
+                edges=(
+                    replace(bundle.edges[0], edge_type=EdgeType.CONTRADICTS),
+                ),
+            )
+            self.assertEqual(
+                bundle.claims[0].claim_id, changed_relation.claims[0].claim_id
+            )
+            self.assertEqual(
+                bundle.evidence_spans[0].evidence_id,
+                changed_relation.evidence_spans[0].evidence_id,
+            )
+            self.assertNotEqual(
+                refresh_id_for(SESSION_ID, bundle, RULE_VERSION),
+                refresh_id_for(SESSION_ID, changed_relation, RULE_VERSION),
+            )
+            self.assertNotEqual(
+                refresh_id_for(SESSION_ID, bundle, RULE_VERSION),
+                refresh_id_for(SESSION_ID, bundle, "p0-rules-next"),
+            )
+
     def test_loop_repairs_churn_end_to_end(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             corpus = _build_corpus(Path(tmp) / "corpus")
@@ -262,6 +290,26 @@ class AutonomyLoopM3Tests(unittest.TestCase):
                 # Advance the corpus past 1.0: the old source is superseded.
                 event, new_source = bridge.revision_event(
                     "retries", "1.0", "2.0", project_id=PROJECT_ID
+                )
+                self.assertFalse(
+                    repository.source_version_exists(new_source.version_id)
+                )
+                EvolutionEngine(repository).apply(
+                    ChangePackage(
+                        scenario_id="M3-stale-refresh",
+                        scenario_version="1.0.0",
+                        input_snapshot_id="M3:T0",
+                        input_snapshot_hash=_snapshot_hash(repository),
+                        rule_version=RULE_VERSION,
+                        event=event,
+                        new_source=new_source,
+                        new_claims=(),
+                        new_evidence=(),
+                        new_edges=(),
+                    )
+                )
+                self.assertTrue(
+                    repository.source_version_exists(new_source.version_id)
                 )
                 stale_bundle = resolve_bundle(
                     _extract(corpus, T0_AS_OF), clusters, observed_at=REFRESHED_AT

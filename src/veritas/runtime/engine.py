@@ -164,9 +164,10 @@ class ResearchRuntime:
         fires after every item reaches a terminal state (and once when the
         budget stops mid-item), receiving the updated work-item row — the
         hook for progress streaming and crash-safe recording.
-        ``on_item_bundle`` fires when an item's extraction contract holds,
-        receiving the (possibly cluster-resolved) candidate bundle — the
-        hook the autonomy loop uses to feed the refresh applier.
+        on_item_bundle is a post-checkpoint notification when an item's
+        extraction contract holds. Durability does not depend on the callback:
+        the (possibly cluster-resolved) bundle is committed to the runtime
+        outbox in the same transaction that makes the item terminal.
         """
         self._budgeted.bind(session_id)
         self._store.create_session(
@@ -226,8 +227,6 @@ class ResearchRuntime:
                         bundle = resolve_bundle(
                             bundle, self._cluster_store, observed_at=observed_at
                         )
-                    if on_item_bundle is not None:
-                        on_item_bundle(bundle)
                     if self._candidate_store is not None:
                         records = [
                             record
@@ -241,7 +240,11 @@ class ResearchRuntime:
                             run_id=f"session:{session_id}",
                             observed_at=observed_at,
                         )
-                    self._store.mark_item_completed(session_id, item_id, observed_at)
+                    self._store.complete_item_with_output(
+                        session_id, item_id, bundle, observed_at
+                    )
+                    if on_item_bundle is not None:
+                        on_item_bundle(bundle)
                 self._notify(on_item_done, session_id, item_id)
                 break
         self._store.mark_session_completed(session_id, observed_at)
@@ -286,6 +289,10 @@ class ResearchRuntime:
             "requests_spent": int(state["requests_spent"]),
             "budget_requests": int(state["budget_requests"]),
         }
+
+    def result(self, session_id: str) -> dict[str, Any]:
+        """Return the persisted session summary without executing work."""
+        return self._result(session_id)
 
 
 __all__ = [

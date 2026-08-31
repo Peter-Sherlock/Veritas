@@ -1,9 +1,9 @@
 # Veritas 项目结构与设计文档
 
 > 文档职责：记录项目边界、设计思路、目录演进、阶段状态和关键决策。  
-> 当前阶段：M1-2 抽取 pipeline 与校准
-> 当前状态：M1-2 in progress；M1-2A/M1-2B/M1-2B2 complete；M1-2C next
-> 更新日期：2026-08-30  
+> 当前阶段：M3-R 可靠性收口
+> 当前状态：M3-A/M3-B/M3-R complete；Gate M3 待评审
+> 更新日期：2026-08-31
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[技术实现文档](TECHNICAL_IMPLEMENTATION.md)
 
@@ -46,11 +46,11 @@ Veritas 的首要研究对象不是搜索质量，而是证据变化后的研究
 
 ## 3. 当前实际结构
 
-截至 2026-08-30，工作区实际存在：
+截至 2026-08-31，工作区实际存在（树只列职责入口，不穷举全部历史 fixture）：
 
 ```text
 Veritas/
-├── .git/                       # codex/m1-2-extraction-calibration 阶段分支
+├── .git/                       # codex/m1-5-evolution-integration 长期集成分支
 ├── .github/workflows/tests.yml # 双 Python、双 suite、extraction calibration
 ├── .gitattributes              # 跨平台文本统一为 LF
 ├── .gitignore
@@ -72,17 +72,31 @@ Veritas/
 │   │   └── sqlite.py
 │   ├── extraction/
 │   │   ├── models.py         # contract error、抽取结果与 candidate bundle
-│   │   └── pipeline.py       # strict parser、quote alignment、候选物化
+│   │   ├── pipeline.py       # strict parser、quote alignment、候选物化
+│   │   └── store.py          # append-only CandidateStore
 │   ├── aggregation/
 │   │   ├── clusterer.py       # 确定性相似度 + 数字/否定硬守卫（D-040）
 │   │   ├── store.py           # ClaimClusterStore：代表冻结/单趟指派/审计行
 │   │   └── resolve.py         # resolve_bundle：claim 身份重映射
+│   ├── integration/
+│   │   └── graph_bridge.py     # corpus/bundle/change 到演化图的事务边界
+│   ├── runtime/
+│   │   ├── store.py            # session/queue/budget + M3-R durable outbox/context
+│   │   ├── engine.py           # checkpointed research execution
+│   │   ├── replan.py           # 确定性降级/重试策略
+│   │   └── cli.py              # live/replay 会话入口
+│   ├── autonomy/
+│   │   ├── planner.py          # 非 PASS 结论 → 再研究 spec
+│   │   ├── refresh.py          # 幂等研究刷新事务
+│   │   ├── watch.py            # drift→plan→runtime→outbox delivery
+│   │   └── cli.py              # python -m veritas.autonomy
 │   ├── evaluation/
 │   │   ├── scenario.py
 │   │   ├── metrics.py
 │   │   ├── runner.py
 │   │   ├── suite_runner.py
 │   │   ├── extraction_runner.py
+│   │   ├── aggregation_calibration.py
 │   │   └── evolution_benchmark.py  # M1-5B 真实历史规模基准与逐事件等价 oracle
 │   ├── providers/
 │   │   └── llm.py            # LLM 协议、OpenAI 兼容客户端、Fixture/Recording
@@ -116,7 +130,9 @@ Veritas/
 │   │   ├── test_httpx_corpus.py
 │   │   ├── test_local_corpus.py
 │   │   ├── test_providers.py
-│   │   └── test_snapshot_registry.py
+│   │   ├── test_snapshot_registry.py
+│   │   ├── test_runtime_store.py
+│   │   └── test_claim_clusters.py
 │   └── scenarios/
 │       ├── test_gs001.py
 │       ├── test_gs002.py
@@ -125,6 +141,8 @@ Veritas/
 │       ├── test_gs005.py
 │       ├── test_extraction_calibration.py
 │       ├── test_extraction_calibration_v2.py
+│       ├── test_autonomy_loop_m3.py
+│       ├── test_watch_loop_m3b.py
 │       ├── test_p0_suite.py
 │       └── test_p0_suite_2.py
 ├── artifacts/
@@ -148,18 +166,18 @@ Veritas/
     └── TECHNICAL_IMPLEMENTATION.md
 ```
 
-当前 Git 状态：M1-2A 在 `codex/m1-2-extraction-calibration` 阶段分支开发，基线为已同步的 `main@de24dbd`；private 远程仓库为 [Peter-Sherlock/Veritas](https://github.com/Peter-Sherlock/Veritas)。SQLite 运行数据库与 Python 缓存由 `.gitignore` 排除，源码、文档与 JSON 由 `.gitattributes` 统一为 LF。
+当前 Git 工作分支为 `codex/m1-5-evolution-integration`；M3-R 在该长期集成分支上收口，private 远程仓库为 [Peter-Sherlock/Veritas](https://github.com/Peter-Sherlock/Veritas)。SQLite 运行数据库与 Python 缓存由 `.gitignore` 排除，源码、文档与 JSON 由 `.gitattributes` 统一为 LF。
 
 当前仍没有：
 
-- Web Search 或真实来源抓取；
-- 经验证的真实 LLM 抽取，以及候选写入 Evidence Graph 的 transaction；
-- 产品化 CLI 或服务接口；
-- Research Runtime、checkpoint、预算控制或并发执行；
+- Web Search、真实来源抓取或网页版本轮询；
+- 通用的真实 LLM 质量结论；
+- 产品化服务接口或部署；
+- 多进程/分布式 worker 与并发压力证据；
 - 足以代表通用检索质量的 benchmark 结论；
-- 生产规模 benchmark 结果。
+- 可外推的生产规模 benchmark 结果。
 
-当前已有的是五个受控场景上的确定性 evidence-evolution runtime、两套 evolution suite、可替换的 LLM/检索协议、冻结语料、检索→严格抽取→Evidence/Claim 候选的 30 题 fixture benchmark（v2.0.0），以及 EX01～EX05 抽取失败分类与独立负向校准；这些模块尚未组成会自主搜索、持久化研究状态、规划、调用工具和生成研究报告的完整 Deep Research Agent。
+当前已有的是五个受控场景上的确定性 evidence-evolution runtime、两套 evolution suite、可替换 LLM/检索协议、冻结语料、严格抽取与候选持久化、簇级 claim 身份、预算会话、真实语料漂移检测、再研究规划和图刷新。M3-R 进一步把 item 输出、交付状态和 watch 上下文持久化，并用幂等刷新关闭两个进程中断窗口；它是受控本地自主闭环，不是开放互联网 Deep Research Agent。
 
 ## 4. P0-0 阶段边界
 
@@ -616,6 +634,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：新增 `autonomy/watch.py` 与 CLI `python -m veritas.autonomy`。`detect_drift`：演化库的活跃源（派生 current-view）对照语料 manifest 最新版本——`list_source_versions` 新存储读方法 + `source_is_active`；版本标签相同或内容哈希相同都不是漂移（M1-5B 的 SAME 步语义带进 watch）。`run_watch_loop` 四段：(1) 漂移 → bridge revise 事件、**不带新 claims** 应用——受影响 claim 失去支持、结论翻 unknown（"源已变、再研究待做"的诚实中间态）；(2) 规划器生成再研究 spec；(3) 真实 runtime 会话执行（预算/checkpoint/聚类），引擎新增 `on_item_bundle` 回调把每个解析后 bundle 交给循环；(4) 刷新事务写回，报告含漂移清单、计划、会话账目、刷新明细与最终结论状态。CLI 支持 live/replay 双 provider、录制、报告落盘。第二轮 pass 是干净无操作：无漂移、空计划跳过会话（runtime 拒绝空会话是契约）、零请求、零刷新。
 - 原因：漂移阶段不带新 claims 是关键简化——它让"变更检测"与"再研究"彻底分离，所有新证据都走同一条规划→会话→刷新路径，模型调用只发生在有研究计划的时候。同内容新标签不算漂移，是 SAME 步语义的一致延伸：把标签晋升当修订会制造假事件和假警报。空计划跳过会话而非构造空会话，尊重 runtime 的契约校验而不是绕开它。无操作不变式是自主系统的安全声明：世界没变、结论全 PASS 时，agent 一步都不该走、一分钱都不该花。
 
+### D-044：M3-R 以持久 outbox、幂等 sink 和严格身份冲突关闭 watch 的两个崩溃窗口
+
+- 状态：Implemented for M3-R
+- 日期：2026-08-31
+- 决策：(1) runtime schema 升为 `research-runtime-3`，新增 `item_outputs`，完整 bundle 与 work item `completed` 同事务提交；交付状态为 pending/applied/ignored，bundle 可从 canonical JSON 重建，v2 加表迁移；(2) watch 改为 at-least-once drain：先提交幂等 `apply_research_refresh`、再确认 outbox，启动和结束各 drain 一次；完整 refresh identity 覆盖 session/rule/bundle/edges；(3) `session_contexts` 钉住 corpus、model、cluster/candidate store、project、rule 和首次时间语义，稳定配置漂移 fail closed；(4) `GraphBridge.revision_event` 纯构造，`load_bundle` 全事务，SQLite immutable rows 对同 ID 不同 payload 显式报错；代表 claim 冻结 statement/key/founder time，EvolutionEngine 只复用同语义 claim；(5) live recording 在每个 item 终态保存。
+- 原因：M3-B 的回调把 bundle 留在进程内存，存在“item 已完成但 callback 丢失”和“图已提交但 delivery ack 丢失”两个确定性窗口；`INSERT OR IGNORE` 还会把身份冲突伪装成幂等。可靠性收口必须让 source of truth 位于 SQLite，并把跨库交付定义成 at-least-once + idempotent sink，而不是声称无法证明的跨库原子提交。故障注入分别切在两个窗口并关闭/重开三个 SQLite store；恢复后不增请求、不增重复实体、结论收敛。边界仍是单机单 writer，不外推分布式 exactly-once。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -647,12 +672,14 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 已完成（M1-5A 集成桥 + M1-5B 规模 benchmark） |
 | Gate M1 | 判断初始研究与搜索是否达到进入 M2 的完成度 | M1-5B 完成 | M1 出口条件逐项核验、遗留差距显式携带进 M2 | 已评审：通过（附携带项 C2/C3-R/C4，D-039） |
 | M1 | 初始研究与搜索 | Gate P0 通过 | 见 Gate M1 出口条件（D-039） | 已完成（M1-1/1R、M1-2 全部、M1-3、M1-4、M1-5） |
-| M2 | 从候选到可信图（语义质量档） | Gate M1 通过 | 簇级身份落地、真实模型簇级基线重测、方差口径钉死 | 进行中（M2-1 未开始） |
+| M2 | 从候选到可信图（语义质量档） | Gate M1 通过 | 簇级身份落地、真实模型簇级基线重测、方差口径钉死 | 进行中（M2-1/M2-2 已完成；M2-3 待做） |
 | M2-1 | 候选语义聚合 | Gate M1 通过 | 确定性相似度 + 硬守卫的簇存储、运行时可选接入、真录簇级校准与负向校准 | 已完成：178/178 tests；真录簇级覆盖 19/32 vs 精确 key 3/32，阈值 0.375 冻结 |
 | M2-2 | 簇级结论与冻结校准 | M2-1 完成 | 演化侧改写幸存 vs churn 对照场景、校准 artifact 进 CI 零 diff | 已完成：179/179 tests；开簇零 churn（结论停 v1）/ 关簇 churn（pass→unknown）对照钉死 |
-| M3 | 自主研究闭环 | M2 完成 | watch 模式与自动再研究闭环跑通 | 进行中 |
+| M3 | 自主研究闭环 | M2-2 完成 | watch 模式与自动再研究闭环跑通，可靠性收口后通过 Gate | 进行中（M3-A/M3-B/M3-R 已完成；Gate M3 待评审） |
 | M3-A | 再研究规划器与刷新事务 | M2-2 完成 | 非 PASS 结论 → 确定性 spec；刷新写回 + 结论修复弧线 + 幂等，均有测试 | 已完成：188/188 tests；修复弧线 pass@1→unknown@2→pass@3 钉死 |
 | M3-B | watch 模式与一条命令闭环 | M3-A 完成 | 漂移检测→规划→预算会话→刷新一条命令跑通；第二轮无操作不变式 | 已完成：190/190 tests；CLI replay 端到端（1 请求修复 unknown@2→pass@3）、二轮零操作 |
+| M3-R | 自主闭环可靠性收口 | M3-B 完成 | 原子 item output、可恢复交付、图事务/身份冲突守卫、双崩溃窗口故障注入 | 已完成：200/200 tests；SQLite reopen 后零额外请求、零重复实体、结论收敛 |
+| Gate M3 | 评审受控自主闭环是否达到阶段出口 | M3-R 完成 | 代码/文档/CI 证据完整，残余边界与下一阶段选择显式登记 | 待评审 |
 
 如果 Gate P0 不通过，不进入 Web Search 集成；先分析图粒度、规则语义和 benchmark 是否支持项目假设。
 
@@ -881,6 +908,15 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] Python 3.14.7 严格 `ResourceWarning` 模式 190/190 tests 通过；
 - [x] README、技术实现文档和项目结构文档同步更新。
 
+### 11.21 M3-R 完成记录（2026-08-31）
+
+- [x] runtime schema v3：`item_outputs` 将 bundle 与 item completed 原子 checkpoint；`session_contexts` 固定恢复配置；v2→v3 加表迁移有测试；
+- [x] watch 采用 at-least-once outbox drain + 幂等 refresh sink；报告显式给出 outputs/pending/applied/ignored；live 录制按 item 终态保存；
+- [x] 两个崩溃窗口故障注入均关闭/重开 SQLite 文件验证：output checkpoint 后退出可恢复，graph commit 后/ack 前退出可幂等重放；
+- [x] GraphBridge 副作用/事务边界、observed/effective 时间语义、完整 refresh identity、immutable payload conflict 与 cluster representative 完整身份完成守卫；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式本地全量 200/200 tests 通过；Python 3.11 和远端 CI 留给 Gate M3 再确认；
+- [x] README、技术实现文档和项目结构文档同步更新，生产级容灾外推限制保留。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -916,12 +952,12 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - M1-1R 已消除语料 hash 的 CRLF/LF 平台漂移；后续新增语料必须继续遵守 canonical UTF-8/LF 契约；
 - 本地 TF-IDF 仍是词面基线；30 题 Hit@3=1.0 但 MRR=0.7222，advanced 文档的词面优势把多个 gold 来源压到第 2/3，不能宣称通用检索质量；
 - M1-2A/M1-2B2 的满分来自 `FixtureLLM` 重放；M1-2C 已获得首次真实基线（DeepSeek V4-Flash，0/30 exact-match，critical=9/major=21），但仅单 provider 单次运行，未测种子/温度方差，未测其他模型；
-- 真实模型在 key 级评分下两轮仍为 0/30：语义改写（M1-2C2 轮 26/30 题）是当前主导质量差距，评分无语义匹配能力；聚合噪声已量化入库（quickstart@0.28.1 十五候选十五 key、EX-014 gold key 全部缺席），语义合并策略仍是开放问题；
+- 真实模型在 key 级评分下两轮仍为 0/30；M2-1 的冻结聚类把簇级覆盖提升到 19/32 且在该样本观察到零假合并，但只来自单模型录制，跨模型/跨领域质量和 M2-3 同契约重复运行仍未验证；
 - 真实运行存在轮次方差（同一 temperature=0 下措辞逐轮不同），单轮失败分布不能当作模型能力定值；
 - 真实模型的 canonical_key 已由确定性层派生（D-031），键格式与键冲突类完整性风险在构造上消除；派生 slug 以完整 TEXT 存储（D-032），可读性与可分组性优先于字节开销；
 - EX01～EX05 校准的是抽取链路已编码的失败路径；两轮真实运行显示三类失败均出现且与分类语义吻合，但失败样本仍只有 30 题 × 单模型 × 每轮一次；
-- 抽取候选已有独立事务存储与跨 run 去重/冲突暴露（D-032），但尚未接入 Evidence Graph 写入事务；候选层按设计保留全部身份变体，语义改写合并仍无方案，噪声将原样进入后续聚合阶段；
-- M1-3/M1-4 运行时已可经 CLI 操作、有真实 3 题会话证据，重规划只覆盖"收窄检索"一条确定性轴：换查询措辞、换模型、跨 item 资源重分配等更大尺度的重规划尚未设计；崩溃恢复由测试内桩模拟而非真实进程中断；重规划的效果只有确定性触发场景证据，真实 live 会话上的重规划收益未测量；
+- 抽取候选库与 Evidence Graph 仍是两个 SQLite 边界；M3-R 通过 runtime outbox + 幂等 refresh 可靠桥接已完成 item，但没有跨数据库分布式原子事务；
+- M1-3/M1-4 运行时已可经 CLI 操作、有真实 3 题会话证据，重规划只覆盖"收窄检索"一条确定性轴；M3-R 故障注入验证数据库 reopen/replay，不是任意 OS kill、多进程或网络分区测试；同一 session 期间世界再次漂移会 fail closed，尚无自动取消/迁移策略；
 - 规模成本声明已由 M1-5B 在真实语料历史上钉死（13 个真实内容修订、23/185 求值、逐事件与全量重算等价，D-038）；但 benchmark 图仍是单模型 fixture 抽取的六文档图，跨文档多跳传播与更大规模的成本曲线仍未测量；
 - 空 semantic-change 场景需要严格遵守空集合指标约定，否则容易产生误导性的 precision；
 - 已配置 GitHub Actions CI（3.11/3.14 测试、suite 1.0.0/2.0.0、extraction calibration + artifact 零 diff），但尚无分支保护或 release 策略。
@@ -930,6 +966,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-31 | M3-R | 可靠性收口（D-044）：runtime schema v3（原子 item+bundle outbox、session contexts、v2 加表迁移）；watch at-least-once + 幂等 refresh；双崩溃窗口 reopen 恢复；完整 refresh identity；GraphBridge 纯构造/全事务；immutable payload conflict；代表 claim 完整身份冻结；200/200 tests |
 | 2026-08-30 | M3-B | watch 模式与一条命令闭环（D-043）：`detect_drift`（活跃源 vs manifest、SAME 内容守卫）+ `run_watch_loop` 四段编排（漂移→规划→预算会话→刷新，漂移事件不带 claims）；CLI `python -m veritas.autonomy`；引擎 `on_item_bundle` 回调、存储 `list_source_versions`；一轮修复 unknown@2→pass@3（1 请求）+ 二轮无操作不变式；190/190 tests |
 | 2026-08-30 | M3-A | 自主闭环前两块拼图（D-042）：`src/veritas/autonomy/`——`plan_re_research`（非 PASS 结论 → runtime spec 格式确定性研究计划，claim 去重、数字入查询词）+ `apply_research_refresh`（活跃源守卫、引擎同款转换契约、`research_refreshes` 审计表、refresh_id 幂等）；修复弧线 pass@1→unknown@2→pass@3 场景钉死；188/188 tests |
 | 2026-08-30 | M2-2 | 簇级结论与冻结校准（D-041）：校准提升为正式模块 + 冻结 artifact（exact 3/32、cluster 19/32、配对明细）+ CI 零 diff；演化侧对照场景钉死聚合价值——开簇改写再研究重入同一 claim（零 churn、结论停 v1 pass），关簇改写 churn（结论 pass@1→unknown@2）；179/179 tests |

@@ -264,6 +264,14 @@ class ClaimClusterStore:
         ).fetchone()
         return None if row is None else str(row["representative_statement"])
 
+    def cluster_created_at(self, cluster_id: str) -> str | None:
+        """Return the founder timestamp frozen with the representative identity."""
+        row = self.connection.execute(
+            "SELECT created_at FROM clusters WHERE representative_key = ?",
+            (cluster_id,),
+        ).fetchone()
+        return None if row is None else str(row["created_at"])
+
     def counts(self) -> dict[str, int]:
         return {
             "clusters": int(

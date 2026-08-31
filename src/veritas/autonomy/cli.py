@@ -116,6 +116,11 @@ def main(argv: list[str] | None = None) -> int:
             provider = FixtureLLM.from_json(args.record_in)
 
         corpus = LocalCorpusProvider(args.corpus_root)
+
+        def on_item_done(_: dict[str, Any]) -> None:
+            if recorder is not None and args.record_out:
+                recorder.save(args.record_out)
+
         report = run_watch_loop(
             repository=repository,
             corpus=corpus,
@@ -127,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
             observed_at=observed_at,
             project_id=args.project_id,
             rule_version=args.rule_version,
+            on_item_done=on_item_done,
         )
         if recorder is not None and args.record_out:
             recorder.save(args.record_out)

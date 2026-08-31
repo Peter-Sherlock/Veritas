@@ -23,16 +23,19 @@ semantics of the M1-5B benchmark carry over to live watching.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from veritas.autonomy.planner import plan_re_research
 from veritas.autonomy.refresh import apply_research_refresh
-from veritas.extraction.models import ExtractionCandidateBundle
 from veritas.invalidation.repair import ChangePackage, EvolutionEngine
 from veritas.integration import GraphBridge
 from veritas.runtime.engine import ResearchRuntime, WorkItem
+from veritas.runtime.store import SESSION_COMPLETED
 from veritas.search.local_corpus import LocalCorpusProvider
 from veritas.storage.sqlite import SQLiteRepository
+
+
+_WATCH_CONTEXT = "autonomy-watch-1"
 
 
 @dataclass(frozen=True)
@@ -40,6 +43,14 @@ class Drift:
     doc_id: str
     current_version: str
     latest_version: str
+
+
+class WatchLoopError(ValueError):
+    """A stable orchestration failure at the durable watch boundary."""
+
+    def __init__(self, code: str, message: str) -> None:
+        self.code = code
+        super().__init__(f"{code}: {message}")
 
 
 def detect_drift(
@@ -89,6 +100,93 @@ def _snapshot_hash(repository: SQLiteRepository) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _drain_item_outputs(
+    *,
+    repository: SQLiteRepository,
+    runtime_store: Any,
+    session_id: str,
+    rule_version: str,
+    delivered_at: str,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Deliver a session outbox at least once; refresh application is idempotent."""
+    refreshes: list[dict[str, Any]] = []
+    ignored: list[str] = []
+    for output in runtime_store.list_item_outputs(session_id):
+        status = output["delivery_status"]
+        if status == "ignored":
+            ignored.append(output["item_id"])
+            continue
+        if status == "applied":
+            payload = repository.find_research_refresh(output["refresh_id"])
+            if payload is None:
+                raise WatchLoopError(
+                    "missing_applied_refresh",
+                    f"runtime output {session_id!r}/{output['item_id']!r} is marked "
+                    "applied but its evolution refresh is missing",
+                )
+            refreshes.append(payload)
+            continue
+
+        bundle = output["bundle"]
+        if not bundle.claims and not bundle.evidence_spans and not bundle.edges:
+            runtime_store.mark_item_output_delivered(
+                session_id,
+                output["item_id"],
+                delivery_status="ignored",
+                delivered_at=delivered_at,
+                refresh_id=None,
+            )
+            ignored.append(output["item_id"])
+            continue
+
+        payload = apply_research_refresh(
+            repository,
+            bundle=bundle,
+            session_id=session_id,
+            rule_version=rule_version,
+            refreshed_at=delivered_at,
+        )
+        # Evolution commits first. If acknowledgement crashes, the still-pending
+        # outbox row is retried and the deterministic refresh id returns payload.
+        runtime_store.mark_item_output_delivered(
+            session_id,
+            output["item_id"],
+            delivery_status="applied",
+            delivered_at=delivered_at,
+            refresh_id=payload["refresh_id"],
+        )
+        refreshes.append(payload)
+    return refreshes, ignored
+
+
+def _store_path(store: Any) -> str | None:
+    if store is None:
+        return None
+    return str(store.database_path.resolve())
+
+
+def _watch_context(
+    *,
+    corpus: LocalCorpusProvider,
+    provider: Any,
+    cluster_store: Any,
+    candidates_store: Any,
+    project_id: str,
+    rule_version: str,
+    observed_at: str,
+) -> dict[str, Any]:
+    return {
+        "context_version": _WATCH_CONTEXT,
+        "corpus_id": corpus.corpus_id,
+        "provider_model_id": provider.model_id,
+        "cluster_store": _store_path(cluster_store),
+        "candidates_store": _store_path(candidates_store),
+        "project_id": project_id,
+        "rule_version": rule_version,
+        "observed_at": observed_at,
+    }
+
+
 def run_watch_loop(
     *,
     repository: SQLiteRepository,
@@ -103,10 +201,21 @@ def run_watch_loop(
     candidates_store: Any = None,
     top_k: int = 3,
     requests_per_item: int = 3,
+    on_item_done: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """One autonomous pass: drift -> plan -> research -> refresh."""
     bridge = GraphBridge(repository, corpus)
     engine = EvolutionEngine(repository)
+    requested_context = _watch_context(
+        corpus=corpus,
+        provider=provider,
+        cluster_store=cluster_store,
+        candidates_store=candidates_store,
+        project_id=project_id,
+        rule_version=rule_version,
+        observed_at=observed_at,
+    )
+    effective_observed_at = observed_at
     report: dict[str, Any] = {
         "session_id": session_id,
         "observed_at": observed_at,
@@ -114,14 +223,52 @@ def run_watch_loop(
         "plan": None,
         "session": None,
         "refreshes": [],
+        "ignored_outputs": [],
     }
 
-    for drift in detect_drift(repository, corpus):
+    existing_session = runtime_store.find_session(session_id)
+    if existing_session is not None:
+        stored_context = runtime_store.get_session_context(session_id, _WATCH_CONTEXT)
+        if stored_context is None:
+            stored_context = runtime_store.bind_session_context(
+                session_id,
+                _WATCH_CONTEXT,
+                requested_context,
+                bound_at=observed_at,
+            )
+        stable_context = {key: value for key, value in requested_context.items() if key != "observed_at"}
+        stable_stored = {key: value for key, value in stored_context.items() if key != "observed_at"}
+        if stable_context != stable_stored:
+            raise WatchLoopError(
+                "session_context_drift",
+                f"session {session_id!r} must resume with its original watch context",
+            )
+        effective_observed_at = str(stored_context["observed_at"])
+        recovered, ignored = _drain_item_outputs(
+            repository=repository,
+            runtime_store=runtime_store,
+            session_id=session_id,
+            rule_version=rule_version,
+            delivered_at=effective_observed_at,
+        )
+        report["refreshes"].extend(recovered)
+        report["ignored_outputs"].extend(ignored)
+
+    drifts = detect_drift(repository, corpus)
+    if existing_session is not None and drifts:
+        raise WatchLoopError(
+            "session_world_drift",
+            f"session {session_id!r} already exists but the corpus changed again; "
+            "finish recovery and use a new session id for the new world state",
+        )
+
+    for drift in drifts:
         event, new_source = bridge.revision_event(
             drift.doc_id,
             drift.current_version,
             drift.latest_version,
             project_id=project_id,
+            observed_at=effective_observed_at,
         )
         engine.apply(
             ChangePackage(
@@ -146,16 +293,32 @@ def run_watch_loop(
             }
         )
 
-    plan = plan_re_research(
-        repository,
-        session_id=session_id,
-        top_k=top_k,
-        requests_per_item=requests_per_item,
-    )
-    report["plan"] = plan.to_spec()
+    if existing_session is None:
+        plan = plan_re_research(
+            repository,
+            session_id=session_id,
+            top_k=top_k,
+            requests_per_item=requests_per_item,
+        )
+        plan_spec = plan.to_spec()
+    else:
+        plan_spec = runtime_store.session_spec(session_id)
+    report["plan"] = plan_spec
 
-    bundles: list[ExtractionCandidateBundle] = []
-    if plan.items:
+    if plan_spec["items"]:
+        if existing_session is None:
+            runtime_store.create_session(
+                session_id=session_id,
+                items=plan_spec["items"],
+                budget_requests=int(plan_spec["budget_requests"]),
+                observed_at=effective_observed_at,
+            )
+            runtime_store.bind_session_context(
+                session_id,
+                _WATCH_CONTEXT,
+                requested_context,
+                bound_at=effective_observed_at,
+            )
         runtime = ResearchRuntime(
             search=corpus,
             provider=provider,
@@ -164,13 +327,17 @@ def run_watch_loop(
             candidate_store=candidates_store,
             cluster_store=cluster_store,
         )
-        result = runtime.run(
-            session_id=session_id,
-            items=[WorkItem(**item.to_spec()) for item in plan.items],
-            budget_requests=plan.budget_requests,
-            observed_at=observed_at,
-            on_item_bundle=bundles.append,
-        )
+        current = runtime_store.find_session(session_id)
+        if current is not None and current["status"] == SESSION_COMPLETED:
+            result = runtime.result(session_id)
+        else:
+            result = runtime.run(
+                session_id=session_id,
+                items=[WorkItem(**item) for item in plan_spec["items"]],
+                budget_requests=int(plan_spec["budget_requests"]),
+                observed_at=effective_observed_at,
+                on_item_done=on_item_done,
+            )
     else:
         # Nothing to re-research: skip the session entirely (the runtime
         # rejects empty sessions by contract).
@@ -180,7 +347,7 @@ def run_watch_loop(
             "items_rejected": 0,
             "items_pending": 0,
             "requests_spent": 0,
-            "budget_requests": plan.budget_requests,
+            "budget_requests": int(plan_spec["budget_requests"]),
         }
     report["session"] = {
         key: result[key]
@@ -194,16 +361,38 @@ def run_watch_loop(
         )
     }
 
-    for bundle in bundles:
-        report["refreshes"].append(
-            apply_research_refresh(
-                repository,
-                bundle=bundle,
-                session_id=session_id,
-                rule_version=rule_version,
-                refreshed_at=observed_at,
-            )
+    if runtime_store.find_session(session_id) is not None:
+        delivered, ignored = _drain_item_outputs(
+            repository=repository,
+            runtime_store=runtime_store,
+            session_id=session_id,
+            rule_version=rule_version,
+            delivered_at=effective_observed_at,
         )
+        known_refresh_ids = {item["refresh_id"] for item in report["refreshes"]}
+        report["refreshes"].extend(
+            item for item in delivered if item["refresh_id"] not in known_refresh_ids
+        )
+        report["ignored_outputs"] = sorted(
+            set(report["ignored_outputs"]) | set(ignored)
+        )
+        outputs = runtime_store.list_item_outputs(session_id)
+        report["outbox"] = {
+            "outputs": len(outputs),
+            "pending": sum(
+                1 for output in outputs if output["delivery_status"] == "pending"
+            ),
+            "applied": sum(
+                1 for output in outputs if output["delivery_status"] == "applied"
+            ),
+            "ignored": sum(
+                1 for output in outputs if output["delivery_status"] == "ignored"
+            ),
+        }
+    else:
+        report["outbox"] = {
+            "outputs": 0, "pending": 0, "applied": 0, "ignored": 0
+        }
 
     report["final_conclusion_outcomes"] = {
         conclusion.conclusion_key: conclusion.outcome.value

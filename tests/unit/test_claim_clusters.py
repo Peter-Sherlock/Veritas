@@ -12,7 +12,10 @@ from veritas.aggregation import (
     similarity,
 )
 from veritas.aggregation.clusterer import number_tokens, statement_tokens
-from veritas.extraction.pipeline import derive_canonical_key
+from veritas.aggregation.resolve import resolve_bundle
+from veritas.domain.models import Claim
+from veritas.extraction.models import ExtractionCandidateBundle
+from veritas.extraction.pipeline import claim_id_for, derive_canonical_key
 
 
 class SimilarityGuardTests(unittest.TestCase):
@@ -62,6 +65,45 @@ class SimilarityGuardTests(unittest.TestCase):
 
 
 class ClaimClusterStoreTests(unittest.TestCase):
+    def test_bundle_uses_the_frozen_representative_identity(self) -> None:
+        founder = "HTTPX retries connection setup failures."
+        paraphrase = "HTTPX automatically retries connection setup failures."
+        founder_key = derive_canonical_key(founder)
+        paraphrase_key = derive_canonical_key(paraphrase)
+        founded_at = "2026-08-30T00:00:00Z"
+        refreshed_at = "2026-08-31T00:00:00Z"
+        with tempfile.TemporaryDirectory() as tmp:
+            with ClaimClusterStore(Path(tmp) / "clusters.sqlite3") as store:
+                store.resolve(
+                    canonical_key=founder_key,
+                    statement=founder,
+                    observed_at=founded_at,
+                )
+                bundle = ExtractionCandidateBundle(
+                    query="httpx retry",
+                    question="Does HTTPX retry connection setup failures?",
+                    retrieved=(),
+                    documents=(),
+                    evidence_spans=(),
+                    claims=(
+                        Claim(
+                            claim_id=claim_id_for(paraphrase_key),
+                            statement=paraphrase,
+                            created_at=refreshed_at,
+                            canonical_key=paraphrase_key,
+                        ),
+                    ),
+                    edges=(),
+                )
+
+                resolved = resolve_bundle(bundle, store, observed_at=refreshed_at)
+
+                self.assertEqual(1, len(resolved.claims))
+                self.assertEqual(claim_id_for(founder_key), resolved.claims[0].claim_id)
+                self.assertEqual(founder, resolved.claims[0].statement)
+                self.assertEqual(founder_key, resolved.claims[0].canonical_key)
+                self.assertEqual(founded_at, resolved.claims[0].created_at)
+
     def test_founder_then_lexical_join_is_stable_and_idempotent(self) -> None:
         founder = "HTTPX retries connection setup failures."
         paraphrase = "HTTPX automatically retries connection setup failures."

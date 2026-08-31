@@ -8,7 +8,7 @@ from veritas.autonomy.planner import (
     query_from_statement,
 )
 from veritas.autonomy.refresh import RefreshError, apply_research_refresh
-from veritas.autonomy.watch import Drift, detect_drift, run_watch_loop
+from veritas.autonomy.watch import Drift, WatchLoopError, detect_drift, run_watch_loop
 
 __all__ = [
     "Drift",
@@ -16,6 +16,7 @@ __all__ = [
     "PlanningError",
     "ReSearchPlan",
     "RefreshError",
+    "WatchLoopError",
     "apply_research_refresh",
     "detect_drift",
     "plan_re_research",

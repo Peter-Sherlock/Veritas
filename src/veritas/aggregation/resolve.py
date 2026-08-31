@@ -26,7 +26,7 @@ def resolve_bundle(
 ) -> ExtractionCandidateBundle:
     """Resolve every claim in the bundle through the cluster store."""
     id_map: dict[str, str] = {}
-    ordered: list[tuple[str, Claim]] = []
+    ordered: list[tuple[str, str, str, str, Claim]] = []
     for claim in bundle.claims:
         resolution = store.resolve(
             canonical_key=claim.canonical_key,
@@ -34,21 +34,45 @@ def resolve_bundle(
             observed_at=observed_at,
         )
         resolved_id = claim_id_for(resolution.representative_key)
+        representative_statement = store.cluster_statement(
+            resolution.representative_key
+        )
+        representative_created_at = store.cluster_created_at(
+            resolution.representative_key
+        )
+        if representative_statement is None or representative_created_at is None:
+            raise ValueError(
+                "cluster representative disappeared during bundle resolution"
+            )
         id_map[claim.claim_id] = resolved_id
-        ordered.append((resolved_id, claim))
+        ordered.append(
+            (
+                resolved_id,
+                resolution.representative_key,
+                representative_statement,
+                representative_created_at,
+                claim,
+            )
+        )
 
     merged_claims: list[Claim] = []
     seen_claims: set[str] = set()
-    for resolved_id, claim in ordered:
+    for (
+        resolved_id,
+        representative_key,
+        representative_statement,
+        representative_created_at,
+        claim,
+    ) in ordered:
         if resolved_id in seen_claims:
             continue
         seen_claims.add(resolved_id)
         merged_claims.append(
             Claim(
                 claim_id=resolved_id,
-                statement=claim.statement,
-                created_at=claim.created_at,
-                canonical_key=claim.canonical_key,
+                statement=representative_statement,
+                created_at=representative_created_at,
+                canonical_key=representative_key,
             )
         )
 

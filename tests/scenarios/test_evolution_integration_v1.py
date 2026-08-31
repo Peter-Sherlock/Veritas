@@ -228,6 +228,7 @@ class EvolutionIntegrationV1Tests(unittest.TestCase):
                 with self.assertRaises(GraphBridgeError) as caught:
                     bridge.load_bundle(bundle, observed_at=T0_REASONED_AT)
                 self.assertEqual("unregistered_source_version", caught.exception.code)
+                self.assertEqual(0, sum(repository.entity_counts().values()))
             finally:
                 repository.close()
 

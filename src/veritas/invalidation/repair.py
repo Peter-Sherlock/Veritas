@@ -62,6 +62,25 @@ class EvolutionEngine:
     def __init__(self, repository: SQLiteRepository) -> None:
         self.repository = repository
 
+    def _register_claim(self, claim: Claim) -> None:
+        """Insert a new claim or reuse its frozen first-seen identity.
+
+        Extraction timestamps describe when a candidate was observed. A later
+        source version may therefore reconstruct the same deterministic claim
+        id with a newer ``created_at``. The graph keeps the first registration
+        timestamp, while statement/key disagreements remain hard conflicts.
+        """
+        try:
+            existing = self.repository.get_claim(claim.claim_id)
+        except KeyError:
+            self.repository.insert_claim(claim)
+            return
+        if (
+            existing.statement != claim.statement
+            or existing.canonical_key != claim.canonical_key
+        ):
+            raise ValueError(f"claim_identity_conflict:{claim.claim_id}")
+
     def apply(self, package: ChangePackage) -> EvolutionRun:
         with self.repository.transaction():
             prior_run = self.repository.find_evolution_run(*package.event.idempotency_key)
@@ -132,7 +151,7 @@ class EvolutionEngine:
                 )
 
             for claim in package.new_claims:
-                self.repository.insert_claim(claim)
+                self._register_claim(claim)
             for evidence in package.new_evidence:
                 self.repository.insert_evidence_span(evidence)
             for edge in package.new_edges:

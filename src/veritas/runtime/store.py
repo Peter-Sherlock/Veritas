@@ -9,19 +9,26 @@ other's invariants.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator, Sequence
 
+from veritas.extraction.models import ExtractionCandidateBundle
 
-RUNTIME_SCHEMA = "research-runtime-2"
+RUNTIME_SCHEMA = "research-runtime-3"
+_PREVIOUS_RUNTIME_SCHEMA = "research-runtime-2"
 SESSION_ACTIVE = "active"
 SESSION_COMPLETED = "completed"
 SESSION_BUDGET_EXHAUSTED = "budget_exhausted"
 _ITEM_PENDING = "pending"
 _ITEM_COMPLETED = "completed"
 _ITEM_REJECTED = "rejected"
+_OUTPUT_PENDING = "pending"
+_OUTPUT_APPLIED = "applied"
+_OUTPUT_IGNORED = "ignored"
 
 
 class RuntimeStoreError(ValueError):
@@ -109,6 +116,29 @@ class RuntimeStore:
                 effective_top_k INTEGER NOT NULL,
                 PRIMARY KEY (session_id, item_id)
             );
+
+            CREATE TABLE IF NOT EXISTS item_outputs (
+                session_id TEXT NOT NULL,
+                item_id TEXT NOT NULL,
+                bundle_hash TEXT NOT NULL,
+                bundle_json TEXT NOT NULL,
+                delivery_status TEXT NOT NULL,
+                persisted_at TEXT NOT NULL,
+                delivered_at TEXT,
+                refresh_id TEXT,
+                PRIMARY KEY (session_id, item_id),
+                FOREIGN KEY (session_id, item_id)
+                    REFERENCES work_items(session_id, item_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS session_contexts (
+                session_id TEXT NOT NULL REFERENCES sessions(session_id),
+                namespace TEXT NOT NULL,
+                context_hash TEXT NOT NULL,
+                context_json TEXT NOT NULL,
+                bound_at TEXT NOT NULL,
+                PRIMARY KEY (session_id, namespace)
+            );
             """
         )
         row = self.connection.execute(
@@ -117,6 +147,13 @@ class RuntimeStore:
         if row is None:
             self.connection.execute(
                 "INSERT INTO runtime_meta (key, value) VALUES ('schema_id', ?)",
+                (RUNTIME_SCHEMA,),
+            )
+        elif row["value"] == _PREVIOUS_RUNTIME_SCHEMA:
+            # research-runtime-3 is an additive migration: v2 already has
+            # effective_top_k, and the DDL above adds only the durable outbox.
+            self.connection.execute(
+                "UPDATE runtime_meta SET value = ? WHERE key = 'schema_id'",
                 (RUNTIME_SCHEMA,),
             )
         elif row["value"] != RUNTIME_SCHEMA:
@@ -310,6 +347,74 @@ class RuntimeStore:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    def session_spec(self, session_id: str) -> dict[str, Any]:
+        """The immutable work specification stored for a resumable session."""
+        state = self.session_state(session_id)
+        return {
+            "session_id": session_id,
+            "budget_requests": int(state["budget_requests"]),
+            "items": [
+                {
+                    "item_id": item["item_id"],
+                    "query": item["query"],
+                    "question": item["question"],
+                    "top_k": int(item["top_k"]),
+                    "as_of": item["as_of"],
+                }
+                for item in state["items"]
+            ],
+        }
+
+    def get_session_context(
+        self, session_id: str, namespace: str
+    ) -> dict[str, Any] | None:
+        row = self.connection.execute(
+            "SELECT context_json FROM session_contexts "
+            "WHERE session_id = ? AND namespace = ?",
+            (session_id, namespace),
+        ).fetchone()
+        return None if row is None else dict(json.loads(row["context_json"]))
+
+    def bind_session_context(
+        self,
+        session_id: str,
+        namespace: str,
+        context: dict[str, Any],
+        *,
+        bound_at: str,
+    ) -> dict[str, Any]:
+        """Bind an exact orchestration context to a runtime session once."""
+        context_json = json.dumps(
+            context, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        context_hash = hashlib.sha256(context_json.encode("utf-8")).hexdigest()
+        with self.transaction():
+            if self.find_session(session_id) is None:
+                raise RuntimeStoreError(
+                    "unknown_session", f"unknown session: {session_id}"
+                )
+            row = self.connection.execute(
+                "SELECT context_hash, context_json FROM session_contexts "
+                "WHERE session_id = ? AND namespace = ?",
+                (session_id, namespace),
+            ).fetchone()
+            if row is None:
+                self.connection.execute(
+                    "INSERT INTO session_contexts "
+                    "(session_id, namespace, context_hash, context_json, bound_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (session_id, namespace, context_hash, context_json, bound_at),
+                )
+            elif (
+                row["context_hash"] != context_hash
+                or row["context_json"] != context_json
+            ):
+                raise RuntimeStoreError(
+                    "session_context_drift",
+                    f"session {session_id!r} context {namespace!r} is already bound",
+                )
+        return dict(context)
+
     def pending_items(self, session_id: str) -> list[dict[str, Any]]:
         rows = self.connection.execute(
             """
@@ -352,6 +457,176 @@ class RuntimeStore:
                 WHERE session_id = ? AND item_id = ?
                 """,
                 (_ITEM_COMPLETED, observed_at, session_id, item_id),
+            )
+
+    def complete_item_with_output(
+        self,
+        session_id: str,
+        item_id: str,
+        bundle: ExtractionCandidateBundle,
+        observed_at: str,
+    ) -> dict[str, Any]:
+        """Atomically persist a validated bundle and make its item terminal.
+
+        The output row is the runtime-to-evolution outbox. A completed item
+        therefore never exists without the exact bundle needed to resume graph
+        delivery after a process interruption.
+        """
+        bundle_json = json.dumps(
+            bundle.to_dict(),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        bundle_hash = hashlib.sha256(bundle_json.encode("utf-8")).hexdigest()
+        with self.transaction():
+            self._require_item(session_id, item_id)
+            item = self.connection.execute(
+                "SELECT query, question, status FROM work_items "
+                "WHERE session_id = ? AND item_id = ?",
+                (session_id, item_id),
+            ).fetchone()
+            if item["query"] != bundle.query or item["question"] != bundle.question:
+                raise RuntimeStoreError(
+                    "output_spec_mismatch",
+                    f"bundle for {session_id!r}/{item_id!r} does not match its work item",
+                )
+            if item["status"] not in (_ITEM_PENDING, _ITEM_COMPLETED):
+                raise RuntimeStoreError(
+                    "invalid_item_transition",
+                    f"cannot attach output to {item['status']!r} item {item_id!r}",
+                )
+            prior = self.connection.execute(
+                "SELECT bundle_hash, bundle_json FROM item_outputs "
+                "WHERE session_id = ? AND item_id = ?",
+                (session_id, item_id),
+            ).fetchone()
+            if prior is None:
+                self.connection.execute(
+                    """
+                    INSERT INTO item_outputs (
+                        session_id, item_id, bundle_hash, bundle_json,
+                        delivery_status, persisted_at, delivered_at, refresh_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)
+                    """,
+                    (
+                        session_id,
+                        item_id,
+                        bundle_hash,
+                        bundle_json,
+                        _OUTPUT_PENDING,
+                        observed_at,
+                    ),
+                )
+            elif (
+                prior["bundle_hash"] != bundle_hash
+                or prior["bundle_json"] != bundle_json
+            ):
+                raise RuntimeStoreError(
+                    "output_conflict",
+                    f"item {session_id!r}/{item_id!r} already has a different bundle",
+                )
+            self.connection.execute(
+                """
+                UPDATE work_items
+                SET status = ?, completed_at = ?, last_error = NULL
+                WHERE session_id = ? AND item_id = ?
+                """,
+                (_ITEM_COMPLETED, observed_at, session_id, item_id),
+            )
+        return self.get_item_output(session_id, item_id)
+
+    def get_item_output(self, session_id: str, item_id: str) -> dict[str, Any]:
+        row = self.connection.execute(
+            "SELECT * FROM item_outputs WHERE session_id = ? AND item_id = ?",
+            (session_id, item_id),
+        ).fetchone()
+        if row is None:
+            raise RuntimeStoreError(
+                "unknown_output",
+                f"session {session_id!r} item {item_id!r} has no persisted output",
+            )
+        result = dict(row)
+        result["bundle"] = ExtractionCandidateBundle.from_dict(
+            json.loads(result.pop("bundle_json"))
+        )
+        return result
+
+    def list_item_outputs(self, session_id: str) -> list[dict[str, Any]]:
+        rows = self.connection.execute(
+            """
+            SELECT output.*
+            FROM item_outputs AS output
+            JOIN work_items AS item
+              ON item.session_id = output.session_id
+             AND item.item_id = output.item_id
+            WHERE output.session_id = ?
+            ORDER BY item.seq
+            """,
+            (session_id,),
+        ).fetchall()
+        outputs: list[dict[str, Any]] = []
+        for row in rows:
+            output = dict(row)
+            output["bundle"] = ExtractionCandidateBundle.from_dict(
+                json.loads(output.pop("bundle_json"))
+            )
+            outputs.append(output)
+        return outputs
+
+    def mark_item_output_delivered(
+        self,
+        session_id: str,
+        item_id: str,
+        *,
+        delivery_status: str,
+        delivered_at: str,
+        refresh_id: str | None,
+    ) -> None:
+        if delivery_status not in (_OUTPUT_APPLIED, _OUTPUT_IGNORED):
+            raise RuntimeStoreError(
+                "invalid_output_status",
+                f"unsupported output delivery status {delivery_status!r}",
+            )
+        if delivery_status == _OUTPUT_APPLIED and not refresh_id:
+            raise RuntimeStoreError(
+                "invalid_output_status", "an applied output needs a refresh_id"
+            )
+        with self.transaction():
+            row = self.connection.execute(
+                "SELECT delivery_status, refresh_id FROM item_outputs "
+                "WHERE session_id = ? AND item_id = ?",
+                (session_id, item_id),
+            ).fetchone()
+            if row is None:
+                raise RuntimeStoreError(
+                    "unknown_output",
+                    f"session {session_id!r} item {item_id!r} has no persisted output",
+                )
+            if row["delivery_status"] != _OUTPUT_PENDING:
+                if (
+                    row["delivery_status"] == delivery_status
+                    and row["refresh_id"] == refresh_id
+                ):
+                    return
+                raise RuntimeStoreError(
+                    "output_delivery_conflict",
+                    f"item {session_id!r}/{item_id!r} was already delivered "
+                    f"as {row['delivery_status']!r}",
+                )
+            self.connection.execute(
+                """
+                UPDATE item_outputs
+                SET delivery_status = ?, delivered_at = ?, refresh_id = ?
+                WHERE session_id = ? AND item_id = ?
+                """,
+                (
+                    delivery_status,
+                    delivered_at,
+                    refresh_id,
+                    session_id,
+                    item_id,
+                ),
             )
 
     def mark_item_rejected(

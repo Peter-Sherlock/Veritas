@@ -74,8 +74,50 @@ class GraphBridge:
         observed_at: str,
         supersedes_version_id: str | None = None,
     ) -> SourceVersion:
+        source = self._build_source_version(
+            doc_id,
+            version_id,
+            observed_at=observed_at,
+            supersedes_version_id=supersedes_version_id,
+        )
+        if self._repository.source_version_exists(source.version_id):
+            existing = self._repository.get_source_version(source.version_id)
+            stable_fields = (
+                "source_id",
+                "version_label",
+                "canonical_uri",
+                "content_hash",
+                "published_at",
+                "valid_from",
+            )
+            if any(getattr(existing, name) != getattr(source, name) for name in stable_fields):
+                raise GraphBridgeError(
+                    "source_version_conflict",
+                    f"registered source {source.version_id!r} disagrees with the corpus snapshot",
+                )
+            if (
+                supersedes_version_id is not None
+                and existing.supersedes_version_id != supersedes_version_id
+            ):
+                raise GraphBridgeError(
+                    "source_version_conflict",
+                    f"registered source {source.version_id!r} has a different predecessor",
+                )
+            return existing
+        self._repository.insert_source_version(source)
+        return source
+
+    def _build_source_version(
+        self,
+        doc_id: str,
+        version_id: str,
+        *,
+        observed_at: str,
+        supersedes_version_id: str | None = None,
+    ) -> SourceVersion:
+        """Construct a corpus source without mutating the repository."""
         document = self._fetch(doc_id, version_id)
-        source = SourceVersion(
+        return SourceVersion(
             source_id=f"{self._corpus.corpus_id}:{doc_id}",
             version_id=self.source_version_id(doc_id, version_id),
             version_label=version_id,
@@ -86,8 +128,6 @@ class GraphBridge:
             valid_from=document.published_at or observed_at,
             supersedes_version_id=supersedes_version_id,
         )
-        self._repository.insert_source_version(source)
-        return source
 
     def load_bundle(
         self,
@@ -97,24 +137,25 @@ class GraphBridge:
     ) -> dict[str, int]:
         """Register the bundle's sources and insert its candidate graph."""
         before = self._repository.entity_counts()
-        for document in bundle.documents:
-            self.register_source_version(
-                document.doc_id, document.version_id, observed_at=observed_at
-            )
-        for evidence in bundle.evidence_spans:
-            if not self._repository.source_version_exists(evidence.source_version_id):
-                raise GraphBridgeError(
-                    "unregistered_source_version",
-                    f"evidence {evidence.evidence_id!r} references "
-                    f"{evidence.source_version_id!r}, which the bundle did not register; "
-                    "the pipeline source_namespace does not match the corpus",
+        with self._repository.transaction():
+            for document in bundle.documents:
+                self.register_source_version(
+                    document.doc_id, document.version_id, observed_at=observed_at
                 )
-        for claim in bundle.claims:
-            self._repository.insert_claim(claim)
-        for evidence in bundle.evidence_spans:
-            self._repository.insert_evidence_span(evidence)
-        for edge in bundle.edges:
-            self._repository.insert_dependency_edge(edge)
+            for evidence in bundle.evidence_spans:
+                if not self._repository.source_version_exists(evidence.source_version_id):
+                    raise GraphBridgeError(
+                        "unregistered_source_version",
+                        f"evidence {evidence.evidence_id!r} references "
+                        f"{evidence.source_version_id!r}, which the bundle did not register; "
+                        "the pipeline source_namespace does not match the corpus",
+                    )
+            for claim in bundle.claims:
+                self._repository.insert_claim(claim)
+            for evidence in bundle.evidence_spans:
+                self._repository.insert_evidence_span(evidence)
+            for edge in bundle.edges:
+                self._repository.insert_dependency_edge(edge)
         after = self._repository.entity_counts()
         return {
             name: after[name] - before[name]
@@ -211,6 +252,7 @@ class GraphBridge:
         new_version_id: str,
         *,
         project_id: str,
+        observed_at: str | None = None,
     ) -> tuple[ChangeEvent, SourceVersion]:
         """Build a revise ChangeEvent between two real corpus versions.
 
@@ -227,10 +269,11 @@ class GraphBridge:
                 "evolution repository; run the T0 research pass first",
             )
         old_source = self._repository.get_source_version(old_version)
-        new_source = self.register_source_version(
+        detected_at = observed_at or new_document.published_at or ""
+        new_source = self._build_source_version(
             doc_id,
             new_version_id,
-            observed_at=new_document.published_at or "",
+            observed_at=detected_at,
             supersedes_version_id=old_version,
         )
         if new_source.content_hash == old_source.content_hash:
@@ -247,7 +290,7 @@ class GraphBridge:
             old_source_version_id=old_source.version_id,
             new_source_version_id=new_source.version_id,
             changed_locators=(),
-            observed_at=new_document.published_at or "",
+            observed_at=detected_at,
             effective_at=new_document.published_at or "",
         )
         return event, new_source

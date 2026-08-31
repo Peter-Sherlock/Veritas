@@ -25,9 +25,9 @@ from pathlib import Path
 
 from veritas.aggregation import ClaimClusterStore
 from veritas.aggregation.resolve import resolve_bundle
-from veritas.autonomy import detect_drift
+from veritas.autonomy import apply_research_refresh, detect_drift, plan_re_research
 from veritas.autonomy.cli import main as cli_main
-from veritas.autonomy.watch import run_watch_loop
+from veritas.autonomy.watch import WatchLoopError, run_watch_loop
 from veritas.domain.enums import ConclusionOutcome
 from veritas.extraction.pipeline import (
     EXTRACTION_SYSTEM_PROMPT,
@@ -35,7 +35,9 @@ from veritas.extraction.pipeline import (
     build_extraction_prompt,
 )
 from veritas.integration import GraphBridge
+from veritas.invalidation.repair import ChangePackage, EvolutionEngine
 from veritas.providers.llm import FixtureLLM, fixture_key
+from veritas.runtime import ResearchRuntime, RuntimeStore, WorkItem
 from veritas.search.local_corpus import LocalCorpusProvider
 from veritas.storage.sqlite import SQLiteRepository
 
@@ -161,15 +163,213 @@ def _load_t0(corpus: LocalCorpusProvider, repository, clusters) -> str:
     return claim_id
 
 
+def _snapshot_hash(repository: SQLiteRepository) -> str:
+    state = {
+        "claims": [claim.to_dict() for claim in repository.list_claims()],
+        "edges": [edge.to_dict() for edge in repository.list_dependency_edges()],
+    }
+    canonical = json.dumps(
+        state, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _run_research_without_delivery(
+    *,
+    corpus: LocalCorpusProvider,
+    repository: SQLiteRepository,
+    clusters: ClaimClusterStore,
+    runtime_store: RuntimeStore,
+    recording: Path,
+    session_id: str,
+    crash_after_output: bool,
+) -> None:
+    drift = detect_drift(repository, corpus)[0]
+    event, new_source = GraphBridge(repository, corpus).revision_event(
+        drift.doc_id,
+        drift.current_version,
+        drift.latest_version,
+        project_id="m3b-watch",
+        observed_at=OBSERVED_AT,
+    )
+    EvolutionEngine(repository).apply(
+        ChangePackage(
+            scenario_id="watch",
+            scenario_version="1.0.0",
+            input_snapshot_id=f"watch:{session_id}",
+            input_snapshot_hash=_snapshot_hash(repository),
+            rule_version=RULE_VERSION,
+            event=event,
+            new_source=new_source,
+            new_claims=(),
+            new_evidence=(),
+            new_edges=(),
+        )
+    )
+    plan = plan_re_research(repository, session_id=session_id)
+    runtime = ResearchRuntime(
+        search=corpus,
+        provider=FixtureLLM.from_json(recording),
+        store=runtime_store,
+        source_namespace=corpus.corpus_id,
+        cluster_store=clusters,
+    )
+
+    def crash(_: object) -> None:
+        raise RuntimeError("simulated_process_exit_after_output_checkpoint")
+
+    if crash_after_output:
+        with unittest.TestCase().assertRaisesRegex(
+            RuntimeError, "simulated_process_exit"
+        ):
+            runtime.run(
+                session_id=session_id,
+                items=[WorkItem(**item.to_spec()) for item in plan.items],
+                budget_requests=plan.budget_requests,
+                observed_at=OBSERVED_AT,
+                on_item_bundle=crash,
+            )
+    else:
+        runtime.run(
+            session_id=session_id,
+            items=[WorkItem(**item.to_spec()) for item in plan.items],
+            budget_requests=plan.budget_requests,
+            observed_at=OBSERVED_AT,
+        )
+
+
 class WatchLoopM3BTests(unittest.TestCase):
+    def test_restart_delivers_output_checkpointed_before_session_completion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            corpus = _build_corpus(root / "corpus")
+            recording = _session_recording(corpus, root)
+            repository = SQLiteRepository(root / "evolution.db")
+            clusters = ClaimClusterStore(root / "clusters.sqlite3")
+            runtime_store = RuntimeStore(root / "runtime.db")
+            _load_t0(corpus, repository, clusters)
+            _run_research_without_delivery(
+                corpus=corpus,
+                repository=repository,
+                clusters=clusters,
+                runtime_store=runtime_store,
+                recording=recording,
+                session_id="watch-crash-output",
+                crash_after_output=True,
+            )
+            self.assertEqual(
+                "active",
+                runtime_store.session_state("watch-crash-output")["status"],
+            )
+            self.assertEqual(
+                "pending",
+                runtime_store.get_item_output(
+                    "watch-crash-output", "RR-001"
+                )["delivery_status"],
+            )
+            repository.close()
+            clusters.close()
+            runtime_store.close()
+
+            repository = SQLiteRepository(root / "evolution.db")
+            clusters = ClaimClusterStore(root / "clusters.sqlite3")
+            runtime_store = RuntimeStore(root / "runtime.db")
+            try:
+                recovered = run_watch_loop(
+                    repository=repository,
+                    corpus=corpus,
+                    provider=FixtureLLM.from_json(recording),
+                    runtime_store=runtime_store,
+                    cluster_store=clusters,
+                    session_id="watch-crash-output",
+                    observed_at=OBSERVED_AT,
+                    project_id="m3b-watch",
+                    rule_version=RULE_VERSION,
+                )
+                self.assertEqual("completed", recovered["session"]["status"])
+                self.assertEqual(1, recovered["session"]["requests_spent"])
+                self.assertEqual(
+                    {"outputs": 1, "pending": 0, "applied": 1, "ignored": 0},
+                    recovered["outbox"],
+                )
+                self.assertEqual(
+                    ConclusionOutcome.PASS,
+                    repository.get_current_conclusion(CONCLUSION_KEY).outcome,
+                )
+            finally:
+                repository.close()
+                clusters.close()
+                runtime_store.close()
+
+    def test_restart_replays_refresh_when_graph_commit_precedes_outbox_ack(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            corpus = _build_corpus(root / "corpus")
+            recording = _session_recording(corpus, root)
+            repository = SQLiteRepository(root / "evolution.db")
+            clusters = ClaimClusterStore(root / "clusters.sqlite3")
+            runtime_store = RuntimeStore(root / "runtime.db")
+            _load_t0(corpus, repository, clusters)
+            _run_research_without_delivery(
+                corpus=corpus,
+                repository=repository,
+                clusters=clusters,
+                runtime_store=runtime_store,
+                recording=recording,
+                session_id="watch-crash-ack",
+                crash_after_output=False,
+            )
+            output = runtime_store.get_item_output("watch-crash-ack", "RR-001")
+            first_refresh = apply_research_refresh(
+                repository,
+                bundle=output["bundle"],
+                session_id="watch-crash-ack",
+                rule_version=RULE_VERSION,
+                refreshed_at=OBSERVED_AT,
+            )
+            before_restart = repository.entity_counts()
+            self.assertEqual("pending", output["delivery_status"])
+            repository.close()
+            clusters.close()
+            runtime_store.close()
+
+            repository = SQLiteRepository(root / "evolution.db")
+            clusters = ClaimClusterStore(root / "clusters.sqlite3")
+            runtime_store = RuntimeStore(root / "runtime.db")
+            try:
+                recovered = run_watch_loop(
+                    repository=repository,
+                    corpus=corpus,
+                    provider=FixtureLLM.from_json(recording),
+                    runtime_store=runtime_store,
+                    cluster_store=clusters,
+                    session_id="watch-crash-ack",
+                    observed_at=OBSERVED_AT,
+                    project_id="m3b-watch",
+                    rule_version=RULE_VERSION,
+                )
+                self.assertEqual(before_restart, repository.entity_counts())
+                self.assertEqual(
+                    first_refresh["refresh_id"],
+                    recovered["refreshes"][0]["refresh_id"],
+                )
+                self.assertEqual(
+                    "applied",
+                    runtime_store.get_item_output(
+                        "watch-crash-ack", "RR-001"
+                    )["delivery_status"],
+                )
+            finally:
+                repository.close()
+                clusters.close()
+                runtime_store.close()
+
     def test_one_command_closes_the_loop_and_second_pass_is_a_noop(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             corpus = _build_corpus(root / "corpus")
             repository = SQLiteRepository(root / "evolution.db")
             clusters = ClaimClusterStore(root / "clusters.sqlite3")
-            from veritas.runtime.store import RuntimeStore
-
             runtime_store = RuntimeStore(root / "runtime.db")
             try:
                 claim_id = _load_t0(corpus, repository, clusters)
@@ -219,6 +419,35 @@ class WatchLoopM3BTests(unittest.TestCase):
                 self.assertEqual(3, repaired.version_number)
                 self.assertEqual(ConclusionOutcome.PASS, repaired.outcome)
 
+                # The same session may be reopened later, but its semantic
+                # execution context stays pinned to the original run.
+                resumed = run_watch_loop(
+                    repository=repository,
+                    corpus=corpus,
+                    provider=FixtureLLM.from_json(recording),
+                    runtime_store=runtime_store,
+                    cluster_store=clusters,
+                    session_id="watch-1",
+                    observed_at="2026-09-01T00:00:00Z",
+                    project_id="m3b-watch",
+                    rule_version=RULE_VERSION,
+                )
+                self.assertEqual("completed", resumed["session"]["status"])
+                self.assertEqual(1, resumed["outbox"]["applied"])
+                with self.assertRaises(WatchLoopError) as caught:
+                    run_watch_loop(
+                        repository=repository,
+                        corpus=corpus,
+                        provider=FixtureLLM.from_json(recording),
+                        runtime_store=runtime_store,
+                        cluster_store=clusters,
+                        session_id="watch-1",
+                        observed_at=OBSERVED_AT,
+                        project_id="m3b-watch",
+                        rule_version="different-rules",
+                    )
+                self.assertEqual("session_context_drift", caught.exception.code)
+
                 # Second pass: no drift, nothing to plan, nothing to spend.
                 second = run_watch_loop(
                     repository=repository,
@@ -249,8 +478,6 @@ class WatchLoopM3BTests(unittest.TestCase):
             corpus = _build_corpus(root / "corpus")
             repository = SQLiteRepository(root / "evolution.db")
             clusters = ClaimClusterStore(root / "clusters.sqlite3")
-            from veritas.runtime.store import RuntimeStore
-
             runtime_store = RuntimeStore(root / "runtime.db")
             try:
                 _load_t0(corpus, repository, clusters)

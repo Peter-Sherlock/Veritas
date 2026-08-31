@@ -1,43 +1,42 @@
 # Veritas 技术实现文档
 
 > 文档职责：记录可执行技术规格、数据契约、算法、测试与实际验证结果。  
-> 当前阶段：M1-2 抽取 pipeline 与校准
-> 当前状态：M1-2 in progress；M1-2A/M1-2B/M1-2B2 complete；M1-2C next
-> 更新日期：2026-08-30  
+> 当前阶段：M3-R 可靠性收口
+> 当前状态：M3-A/M3-B/M3-R complete；Gate M3 待评审
+> 更新日期：2026-08-31
 > 上位设计：[Veritas 初期项目设计文档](<../Veritas-Initial-Design(2).md>)  
 > 配套文档：[项目结构与设计文档](PROJECT_STRUCTURE.md)
 
 ## 1. 当前阶段目标
 
-M1-2 把 M1-1 的检索与 LLM 协议连接成可校准的 source-grounded extraction 边界，同时保持 P0 的版本、谱系和幂等性由确定性代码控制。
+M3-R 把 M3-B 已跑通的自主闭环从“正常路径可用”提升为“在已定义的进程中断窗口内可恢复”。收口对象是 runtime→evolution 的交付空隙、图写入原子性、刷新身份、不可变实体冲突与恢复配置漂移。
 
 阶段拆分：
 
-- **M1-2A（已完成）**：严格 JSON schema、逐字引用对齐、确定性 Evidence/Claim/edge 候选、10 题 gold dataset 与 fixture baseline；
-- **M1-2B（已完成）**：抽取 Failure Taxonomy、独立负向校准、指标与 CI gate 硬化；
-- **M1-2B2（已完成）**：benchmark 扩容至 30 题（多断言、contradicts、as_of 版本视图），fixtures 由确定性脚本生成；
-- **M1-2C（未开始）**：在不暴露凭据的前提下录制真实 provider 输出，与同一冻结 fixture/gold truth 对照并作阶段评审。
+- **原子 checkpoint**：item 终态与完整 bundle 在同一 SQLite 事务落盘；
+- **可靠交付**：outbox 以 at-least-once 投递到幂等刷新事务，崩溃后可重放；
+- **身份与事务**：图桥无提前副作用，bundle 全量事务写入，同 ID 不同 payload 显式冲突；
+- **恢复约束**：session 固定语料、模型、聚合/候选库、project、rule 与首次时间语义；
+- **验证**：两个关键崩溃窗口、schema 迁移、原子回滚、身份漂移和历史演化回归进入 200 项全量测试。
 
-M1-2 的最终退出仍要求真实 LLM 校准记录；M1-2A 的 fixture 10/10 只证明契约与评测链路可复现。
+本阶段退出不等于生产级容灾：它证明的是单机 SQLite、单 writer 编排和数据库 reopen/replay；多进程争用、任意 OS kill 点、网络分区与分布式 exactly-once 不在本阶段声明内。
 
 ## 2. 本阶段非目标
 
-M1-2A 不包含：
+M3-R 不包含：
 
 - Web Search；
-- 真实 LLM smoke test 或模型质量结论；
-- 把候选 Evidence/Claim 持久化进 P0 SQLite 图；
-- 向量检索；
-- 动态规划；
+- 新的真实 LLM 质量结论；
+- 新检索、推理或规划策略；
 - 多 Agent 或并行 Worker；
 - PostgreSQL、图数据库或服务部署；
 - 自由文本报告生成；
 - TF-IDF 排序调优或语义检索；
 - 对真实互联网内容的自动变化检测与抓取；
-- Research Runtime、checkpoint、预算控制与动态重规划；
-- 多进程、规模、性能或成本收益验证。
+- 跨进程 worker 协调、分布式事务或 exactly-once 协议；
+- 新的规模、性能或成本收益声明。
 
-这些能力属于 M1-2B/M1-2C 或后续阶段，不能从确定性 fixture baseline 中外推。
+这些能力需要后续独立阶段与独立验收，不能从 M3-R 的故障注入测试中外推。
 
 ## 3. 核心不变量
 
@@ -1687,15 +1686,15 @@ python -m veritas.runtime \
 
 ## 35. M3-A 自主闭环：再研究规划器与刷新事务
 
-### 36.1 规划器（D-042）
+### 35.1 规划器（D-042）
 
 `src/veritas/autonomy/planner.py` 的 `plan_re_research(repository, *, session_id, top_k=3, requests_per_item=3)`：遍历当前结论，outcome ≠ PASS 的 `all_accepted` 结论的依赖 claim（跨结论去重）各生成一个研究 item——question = claim statement，query = statement 的内容/数字 token（与聚合同一词表，数字保留），item_id `RR-NNN` 按 (conclusion_key, claim_id) 序确定性编号，budget = 3×items。`ReSearchPlan.to_spec()` 即 runtime CLI spec 格式、`save()` 直接落盘——运行时零改动。其余 rule kind 抛 `PlanningError("unsupported_rule_kind")`；悬空 claim 引用抛 `unknown_claim`；全 PASS 产出空计划（budget 下限 1）。
 
-### 36.2 刷新事务
+### 35.2 刷新事务
 
 `refresh.py` 的 `apply_research_refresh(repository, *, bundle, session_id, rule_version, refreshed_at)`：再研究没有源变更事件，P0 `apply` 不适用。刷新在单事务内：守卫（bundle 非空；每条证据的源必须已注册且**活跃**——存储层新增 `source_is_active`，复用派生 current-view 的 supersedes/retract 两个 NOT EXISTS 子句，违反即 `superseded_source`/`unregistered_source`）→ 插入 claims/evidence/edges → 按引擎同款契约重评受影响 claim（previous 对比、语义变化集合）→ 语义交集内的结论重算并按需出新版本（DEPENDS_ON 边重建）→ 审计写入专用 `research_refreshes` 表。refresh_id 由 (session_id, bundle 内容) 决定性派生，重复 apply 幂等返回已存 payload。刷新绝不冒充变更事件进 change log。
 
-### 36.3 修复弧线（冻结场景）
+### 35.3 修复弧线（冻结场景）
 
 `tests/scenarios/test_autonomy_loop_m3.py` 在真实本地语料上跑完整弧线：T0（聚类）claim accepted + 结论 pass@1 → 真实修订后无聚类再研究（pre-M2 路径）→ claim unsupported、结论 unknown@2 → `plan_re_research` 产出 spec（question = 原 claim statement、query = "httpx retries connection setup failures"）→ 聚类再研究 bundle 经刷新写回 → claim 回 ACCEPTED、结论 pass@3；重复刷新幂等（实体计数不变）。
 
@@ -1714,27 +1713,45 @@ python -m veritas.runtime \
 
 `python -m veritas.autonomy`（`autonomy/cli.py`）：live/replay 双 provider、录制、`--output` 报告落盘，与 runtime CLI 同一风格。空计划跳过会话（runtime 拒绝空会话是契约，不绕开）。**第二轮无操作不变式**有测试钉死：世界没变、结论全 PASS 时——零漂移、空计划、零请求、零刷新。自主系统的安全声明：没有可做的工作时，agent 一步都不走。
 
-## 37. 当前限制
+## 37. M3-R 可靠性收口
 
-- 已实现检索到 Evidence/Claim 候选的自动 pipeline；真实 provider 校准完成两轮（M1-2C v2 契约 0/30、M1-2C2 v3 契约 0/30 但完整性违规清零、citation alignment 0.8667）；主要质量差距是语义改写（26/30 题），评分无语义匹配能力；
-- EX01～EX05 覆盖的是抽取链路已编码的失败路径；真实模型的失败模式（半正确引用、语义 paraphrase、跨文档断言漂移）尚未被观察；
-- 抽取候选已事务持久化（M1-2D CandidateStore，含跨 run 去重与冲突暴露），运行时会话状态/队列/checkpoint/预算引擎已落地（M1-3A，独立会话存储）并可经 CLI 操作真实 live/replay 会话（M1-3B，含真实 3 题会话证据）；动态重规划覆盖"收窄检索"一条确定性轴（M1-4，拒绝降级重试 + 预算预降级）；候选尚未接入 Evidence Graph 写入事务，claim 级聚合与语义改写合并没有方案；更大尺度的重规划（换查询、换模型、跨 item 资源重分配）未设计；
-- 没有来源质量权重；
-- 没有处理复杂逻辑表达式、概率置信度或循环依赖；
-- 没有定义真实网页版本检测；
-- 没有验证 Fact 层是否需要独立存在；
-- 已验证 `revise`、`retract`、`expire` 与多来源 `conflict` 四类变化场景；`expire` 与 `retract` 在 P0 共享追加式 current-view 机制，基于 `valid_to` 的自动过期与 as-of 历史查询尚未实现；
-- Snapshot Registry 已覆盖身份/hash 漂移和未登记部分数据库，但尚未验证多进程并发初始化；
-- storage protocol 目前只是最小写入边界，图和规则仍直接依赖 SQLiteRepository；
-- 没有并发、多进程或性能压力结果；规模成本声明已由 M1-5B 钉死（13 个真实修订、23/185 求值、逐事件与全量重算等价），但 benchmark 图仍是单模型 fixture 抽取的六文档图，更大规模与跨文档多跳传播的成本曲线未测量。
-- Gate P0 评审结论已记录（见项目结构文档第 11 节）；`4 / 11` 的聚合重算比例来自受控场景设计，规模声明以 M1-5B 冻结基准（D-038）为准。
+### 37.1 runtime outbox 与 at-least-once 交付（D-044）
 
-因此，目前可以确认的是“五个受控离线演化场景、M1-1 provider/search 边界、M1-2 全部六个切片（严格抽取契约与确定性基线、失败分类与 gate 硬化、30 题扩容、live 路径、两轮真实校准、canonical_key 确定性派生、候选事务持久化）、Gate M1-2 收口评审（D-033，携带 C1～C3）、M1-3A 的会话/队列/checkpoint/预算引擎（D-034）、M1-3B 的 spec 驱动 CLI 与真实 live 会话证据（D-035）、M1-4 的确定性重规划（D-036，触发场景测试通过）、M1-5A 的 GraphBridge 三层翻译与真实语料修订闭环（D-037，index 0.24.1→0.25.2 驱动结论 pass→unknown），以及 M1-5B 的真实历史规模基准（D-038，13 个真实修订事件逐事件等价、selective 23/185 求值）已经通过可复现验证”；不能外推为真实 LLM 抽取质量达标（真实基线均为 0/30 exact-match，语义改写差距未解决，且仅单 provider 单次运行）、已持久化的 initial research、真实 Web Research、Agent 自主研究或生产规模能力。
+`research-runtime-3` 新增 `item_outputs`：canonical bundle JSON/hash、`pending|applied|ignored` 交付状态、刷新 id 与交付时间。`complete_item_with_output` 在一个事务内同时写 bundle 并把 work item 置为 `completed`，因此不存在“item 已完成但恢复所需输出只在内存”的状态；`ExtractionCandidateBundle.from_dict` 负责数据库 reopen 后的完整重建。v2→v3 是加表式迁移，未知 schema 仍 fail closed。
 
-## 38. 变更记录
+`run_watch_loop` 每次执行前后都 drain outbox：先提交 `apply_research_refresh`，再确认 output；若两步之间退出，重启会以完整 payload + rule version 派生的 refresh id 幂等重放。空 bundle 明确记为 `ignored`。报告暴露 pending/applied/ignored 数量，不把“runtime completed”误写成“图已更新”。
+
+### 37.2 事务、不可变身份与副作用边界
+
+- `GraphBridge.revision_event` 只构造 `ChangeEvent/SourceVersion`，不在 `EvolutionEngine.apply` 前写库；`load_bundle` 的 source/claim/evidence/edge 是一个事务；检测时间进入 `observed_at`，来源发布时间只作 `effective_at`；
+- SQLite 的 immutable insert 在 `INSERT OR IGNORE` 后回读并逐字段比对；同 ID 同 payload 幂等，同 ID 不同 payload 抛 `immutable_entity_conflict`，不再静默吞错；
+- cluster representative 冻结 statement、canonical key 与 founder `created_at`；后续改写重入时生成完全相同的 Claim。EvolutionEngine 对同 statement/key 的确定性 claim id 复用首次登记时间，对 statement/key 冲突继续拒绝；
+- refresh id 覆盖 session、rule version 与完整 bundle（含 edges），避免“claim/evidence 相同但规则或边不同”被误判为同一刷新。
+
+### 37.3 恢复上下文、录制与故障注入证据
+
+`session_contexts` 将 watch session 绑定到 corpus、provider model、cluster/candidate store 路径、project、rule 与首次 `observed_at`。晚些重开同一 session 会沿用首次时间语义；稳定配置漂移以 `session_context_drift` 拒绝。live CLI 的 `RecordingLLM` 在每个 item 终态回调保存，和数据库 checkpoint 对齐。
+
+故障注入覆盖两个关键窗口：(1) output 已与 item 终态提交、session 尚未完成；(2) graph refresh 已提交、outbox ack 尚未提交。两者均关闭并重开 SQLite 文件，恢复后结论正确、请求数不增加、实体计数不重复；规格不匹配负例还验证 item 终态与 outbox 同时回滚。Python 3.14.7 严格 `ResourceWarning` 模式本地全量 **200/200** 通过；Python 3.11 需由 CI 再确认。
+
+## 38. 当前限制
+
+- 自主 planner 只处理本地版本化语料上的非 PASS `all_accepted` 结论；没有真实网页发现、抓取、版本轮询或开放式工具规划；
+- M3-R 证明单机 SQLite reopen/replay 和单 writer 事务边界，不证明任意 OS kill 点、多进程争用、网络分区、分布式 exactly-once 或性能上限；
+- live provider 的逐 item 录制会保留已完成 item；若进程在 provider 已返回、数据库终态尚未提交前退出，预留预算不会超支，但该次响应仍可能需要重新调用；
+- 同一运行期间 corpus 再次变化会触发 `session_world_drift`，旧 session 不混入新世界；当前没有自动取消/迁移旧 pending session 的策略；
+- 聚类冻结阈值只在一份真实录制上达到 19/32 coverage 且观察到零假合并，不代表跨模型、跨领域语义匹配质量；M2-3 同契约重复运行仍待完成；
+- 没有来源质量权重、复杂逻辑表达式、概率置信度、循环依赖消解或独立 Fact 层；
+- `expire`/`retract` 的自动时间推进、as-of 历史查询、多来源 conflict 仲裁仍未实现；storage protocol 仍不是完整可替换读取边界；
+- M1-5B 的 23/185 成本结果只适用于冻结的六文档、13 事件基准；不能外推生产规模。
+
+因此，当前可以确认的是：M3-B 的本地自主闭环已具备可持久恢复的 item 输出、幂等图交付、严格事务/身份冲突守卫和恢复上下文约束；不能据此声称真实 Web Research、通用模型质量或生产级容灾已经完成。
+
+## 39. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-08-31 | M3-R | 可靠性收口（D-044）：runtime schema v3（原子 item+bundle outbox、session contexts、v2 加表迁移）；watch at-least-once/幂等 refresh 交付与双崩溃窗口恢复；完整 refresh identity；GraphBridge 纯构造 + bundle 事务；immutable payload 冲突显式拒绝；代表 claim 完整身份冻结；live 录制按 item 保存；200/200 tests |
 | 2026-08-30 | M3-B | watch 模式与一条命令闭环（D-043）：`detect_drift` + `run_watch_loop` 四段编排（漂移→规划→预算会话→刷新，漂移事件不带 claims）；CLI `python -m veritas.autonomy`；引擎 `on_item_bundle`、存储 `list_source_versions`；一轮修复 unknown@2→pass@3 + 二轮无操作不变式；190/190 tests |
 | 2026-08-30 | M3-A | 自主闭环前两块拼图（D-042）：`src/veritas/autonomy/`——`plan_re_research`（非 PASS 结论 → runtime spec 格式确定性研究计划）+ `apply_research_refresh`（活跃源守卫、引擎同款转换契约、`research_refreshes` 审计表、幂等）；存储层新增 `source_is_active`；修复弧线 pass@1→unknown@2→pass@3 场景钉死；188/188 tests |
 | 2026-08-30 | M2-2 | 簇级结论与冻结校准（D-041）：校准提升为正式模块 + 冻结 artifact（exact 3/32、cluster 19/32、19 组配对明细）+ CI 零 diff；演化侧对照场景钉死聚合价值——开簇改写再研究重入同一 claim（零 churn、结论停 v1 pass），关簇改写 churn（结论 pass@1→unknown@2）；179/179 tests |
