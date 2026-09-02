@@ -662,6 +662,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：M2 与 M3 联合评审（M3 各切片全部完成，Gate M3 的证据以 M2 出口为前提，分开评审只会重复同一批材料）。评审基线 commit b99822f，其 CI 八任务全绿（3.11/3.14 测试、双 suite、extraction-calibration、evolution-benchmark、aggregation-calibration、run-variance 全部零 diff）；评审日本地复跑 206/206 tests（严格 `ResourceWarning` 模式）+ 两 suite + 四冻结工件全部字节稳定。**M2 出口条件三条逐项核验通过**：(1) 簇级身份落地（M2-1/D-040：数字/否定硬守卫 + 真录校准冻结阈值 0.375，簇级覆盖 **19/32** vs 精确 key 3/32，19 组配对逐对审核**零假合并**，负向校准四类齐全）；(2) 聚合价值在演化侧闭环证明（M2-2/D-041：开簇改写重入同一 claim、结论停 v1 pass 的零 churn 对照钉死，校准 artifact 进 CI 零 diff）；(3) 方差口径钉死（M2-3/D-045：同契约第二轮 live，key 级重合率 Jaccard **0.457**、case 级 8/30 相同，单轮分布非能力定值）。**Gate M1 携带项 C2、C3-R 正式关闭**。**M3 出口条件逐项核验通过**：(1) 规划器把非 PASS 结论变成确定性 spec + 刷新事务按引擎同款契约写回，修复弧线 pass@1→unknown@2→pass@3 有测试（M3-A/D-042）；(2) watch 一条命令闭环 + 第二轮无操作不变式（M3-B/D-043）；(3) 可靠性收口：at-least-once outbox、幂等 sink、双崩溃窗口故障注入恢复（M3-R/D-044）；(4) 真实模型 live 双分支证据入库且逐字节可重放——事实真变更诚实停 unknown、幸存事实经聚合重挂修复（M3-C/D-046，顺带修复刷新身份混入计费元数据缺陷）。**评审结论：通过**。携带进 M4 的差距：**C4**（检索 MRR 0.7222 为词面基线上限，自 Gate M1 携带至今）、**C5**（聚类阈值 0.375、19/32 覆盖与零假合并均来自单模型真录，跨模型/跨领域外推未验证，12/32 改写缺口未归因）、**C6**（自主规划覆盖面：仅支持 `all_accepted` 规则的非 PASS 结论，query 为词面 token，无 web 发现与开放式工具规划）。**M4 进入条件：本评审通过。M4 主题定为"接入真实世界源"（web search 集成）**，M4-1 = 版本化 web 来源适配器——把语料 canonical UTF-8/LF hash 契约推广到可重抓取的 web 源（fetch→内容 hash→manifest 记录→SourceVersion，同 URL 多次抓取构成版本时间线），漂移检测从"对照本地 manifest"扩展为"对照上次抓取"。排序理由：M2 证明图可信、M3 证明闭环可自主运行，但二者的世界仍被冻结在本地 httpx 语料——watch 的"世界变了"目前等于"我们手动换了语料"。把版本化边界推进到真实 web 是整个演化假设的第一次真实检验；语义检索（C4）与跨模型校准（C5）依赖真实源带来的新分布，顺位在 M4 之后重估。
 - 原因：联合评审而非两次评审，是因为 M3 的出口证据（live 修复分支）直接以 M2 的聚合为前提，拆开只会复述同一批数字；Gate 的价值在于逐条核验并显式携带差距，而不是仪式。C5/C6 不阻塞 M4，是因为它们分别是"质量外推"与"规划覆盖"问题，而 M4 解决的是"世界边界"问题——三者正交；但 M4 的真实源会同时改变三者面临的分布，因此在 M4 内重估比现在提前优化更诚实。M4-1 先做版本化适配器而不是先接搜索 API，是因为 Veritas 的一切语义都建立在"源有不可变版本"上——没有版本化的 web 抓取，漂移检测、幂等 apply 与 as-of 语义都会失去锚点；这与 Gate P0 条件三（真实来源接入前先冻结本地语料 adapter，D-021）一脉相承。
 
+### D-048：M4-1 版本化 web 来源适配器——抓取台账是真相，语料目录是派生视图
+
+- 状态：Implemented for M4-1
+- 日期：2026-09-02
+- 决策：新增 `src/veritas/sources/`。(1) 内容契约与 M1-1R 语料逐位一致：`canonical_web_text` 严格 UTF-8 解码、CR/CRLF 归一为 LF、空白体拒绝，content_hash 对 canonical 字节取 SHA-256——hash 所存、所存即 hash。(2) `WebSourceStore`（schema `web-sources-1`）append-only 抓取台账：行键 `(url, fetched_at)`、行不可变——同键同载荷重放返回**存储的原始 outcome**（重放安全：新版本判定随行持久化，回退场景下按"更早同哈希行"推导会在 SAME 重放时判错），同键异载荷 `web_fetch_conflict`；版本时间线 = 抓取序中 **label 变化**的序列——SAME 内容不是新版本（M1-5B SAME 步语义带进 web），回退是 `f3` 新版本（时间线位置变了，即使哈希重现；按哈希去重会把回退塌缩掉）；版本 label 是本地观测序数 `f1/f2/...`（web 没有上游版本号），`published_at` = 该内容态首次被观测的时刻。(3) `url_slug` = 地址净化 + URL 哈希前 8 位，跨平台文件名安全。(4) `fetch_web_source` 是唯一网络代码：transport 可注入（默认 urllib GET），HTTP 错误/不可达/超限/非 UTF-8/空体全部 typed 拒绝且台账零写入，HTTPError 响应体显式关闭；内容归属请求 URL（重定向跟随但不改溯源）。(5) `materialize_corpus` 把台账投影为冻结语料布局——重物化字节级一致，`LocalCorpusProvider` 带 hash 校验直接加载：桥、抽取管线、检索、修订事件**零改动**消费 web 源（兑现 D-047 的"manifest 记录"）。(6) `detect_web_drift`：活跃 web 源对照台账最新版本——drift 对照**上次观测**而非静态 manifest，跳过规则与本地 `detect_drift` 一致。场景测试钉死全链（抓取→物化→管线 T0→桥注册→f2 变更→web 漂移→`CHG_<SLUG>_f1_TO_f2`→引擎 apply→claim unsupported、结论 pass@1→unknown@2）+ localhost 真 HTTP 服务器验证 urllib 路径与 404 拒绝。负向校准八类：`non_utf8_body`、`empty_web_body`、`invalid_web_url`、`web_fetch_conflict`、`web_fetch_http_error`、`web_fetch_unreachable`、`web_body_too_large`、`web_store_schema_drift`。227/227 tests。
+- 原因：M4-1 的本质是把"源有不可变版本"这个 P0 语义从冻结语料推广到会变化的世界。台账作真相、物化作视图，是因为台账天然 append-only（可审计、可重放、单 writer 事务），而目录视图可随时删除重建——两者职责分离让下游零改动成为结构性质而非适配层补丁。版本 label 用本地观测序数而非时间戳，是文件名安全与排序确定性的直接要求；观测时刻不失真（published_at = 首次观测）。SAME 行也入账（不只记新版本），因为"我们看过、世界没变"是 watch 故事里和"世界变了"同等重要的证据。重放安全的代价是 outcome 随行持久化——这是 M3-C 刷新身份教训（D-046）的直接应用：重放的输出必须由存储决定，不能由当下重新推导。watch CLI/规划器接入 web 源与 live web 证据留给 M4-2/M4-3，保持切片可验收。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -703,7 +710,8 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M3-C | 真实模型 live 闭环证据 | M3-R 完成 | T0 引导 + 真实模型两遍闭环（变更/修复双分支）证据入库可重放 | 已完成：206/206 tests；live 报告逐字节可重放；顺带修复刷新身份混入计费元数据 |
 | M3-R | 自主闭环可靠性收口 | M3-B 完成 | 原子 item output、可恢复交付、图事务/身份冲突守卫、双崩溃窗口故障注入 | 已完成：200/200 tests；SQLite reopen 后零额外请求、零重复实体、结论收敛 |
 | Gate M2/M3 | 评审 M2 出口（可信图）与 M3 出口（受控自主闭环） | M3-C 完成 | M2 三条出口条件逐项核验、C2/C3-R 关闭、M3 四块证据核验、携带项与 M4 进入条件显式登记 | 已评审：通过（联合评审，D-047） |
-| M4 | 接入真实世界源（web search 集成） | Gate M2/M3 通过 | 见 D-047：M4-1 = 版本化 web 来源适配器；漂移检测扩展到"对照上次抓取" | 待启动 |
+| M4 | 接入真实世界源（web search 集成） | Gate M2/M3 通过 | 见 D-047：M4-1 = 版本化 web 来源适配器；漂移检测扩展到"对照上次抓取" | 进行中（M4-1 完成；watch/live 接入待做） |
+| M4-1 | 版本化 web 来源适配器 | Gate M2/M3 通过 | 抓取台账 + 物化视图 + web 漂移检测；全链场景（抓取→T0→漂移→修订→结论 unknown@2）+ 负向校准 + localhost 真 HTTP | 已完成：227/227 tests；台账重放 outcome 恒等、物化字节级确定（D-048） |
 
 如果 Gate P0 不通过，不进入 Web Search 集成；先分析图粒度、规则语义和 benchmark 是否支持项目假设。
 
@@ -966,6 +974,15 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] M4 进入条件与主题登记（接入真实世界源；M4-1 = 版本化 web 来源适配器，漂移检测扩展为"对照上次抓取"）；
 - [x] 技术实现文档新增 Gate M2/M3 评审节，双文档变更记录同步。
 
+### 11.25 M4-1 完成记录（2026-09-02）
+
+- [x] `src/veritas/sources/`：`canonical_web_text`（与 M1-1R 语料契约逐位一致：严格 UTF-8、CR/CRLF→LF、空白体拒绝）、`url_slug`（净化 + 哈希前 8 位）、`WebSourceStore`（schema `web-sources-1`，行键 (url, fetched_at) 不可变、重放返回存储 outcome、冲突拒绝、label 变化切分版本）、`fetch_web_source`（可注入 transport + 六类 typed 拒绝）、`materialize_corpus`（台账→冻结语料布局，字节级确定）；
+- [x] `detect_web_drift`（autonomy/watch.py）：活跃 web 源 vs 台账最新版本，跳过规则与本地 drift 一致；
+- [x] 场景测试：抓取→物化→管线 T0→桥注册 `webwatch:<slug>@f1`→f2 变更→web 漂移→revise 事件→引擎 apply→claim unsupported、结论 pass@1→unknown@2；SAME 不漂移；全链重放台账一致；localhost 真 HTTP 服务器验证 urllib 路径与 404；
+- [x] 负向校准八类 + 回退时间线（f1→f2→f3）+ 重放恒等 + 物化确定性；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式 227/227 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -1003,6 +1020,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - M1-2A/M1-2B2 的满分来自 `FixtureLLM` 重放；M1-2C 已获得首次真实基线（DeepSeek V4-Flash，0/30 exact-match，critical=9/major=21），但仅单 provider 单次运行，未测种子/温度方差，未测其他模型；
 - 真实模型在 key 级评分下两轮仍为 0/30；M2-1 的冻结聚类把簇级覆盖提升到 19/32 且观察到零假合并，M2-3 已钉死同契约重复运行的方差口径（key 级重合率 0.457、case 级 8/30 相同），但阈值与覆盖仍只来自单模型真录，跨模型/跨领域外推未验证、12/32 改写缺口未归因（D-047 C5）；
 - 真实运行存在轮次方差且已量化（M2-3：key 级重合率 0.457，单轮分布非能力定值）；
+- 自主 planner 只消费物化后的本地语料接口；M4-1 已交付版本化 web 来源适配器（抓取台账 + 物化视图 + web 漂移检测，D-048），但 watch CLI 尚未接 web 源、没有真实网页发现与开放式工具规划（C6 剩余部分）；web 抓取边界：内容归属请求 URL、版本 label 为本地观测序数、单 writer 台账、无并发/增量抓取策略；
 - 真实模型的 canonical_key 已由确定性层派生（D-031），键格式与键冲突类完整性风险在构造上消除；派生 slug 以完整 TEXT 存储（D-032），可读性与可分组性优先于字节开销；
 - EX01～EX05 校准的是抽取链路已编码的失败路径；两轮真实运行显示三类失败均出现且与分类语义吻合，但失败样本仍只有 30 题 × 单模型 × 每轮一次；
 - 抽取候选库与 Evidence Graph 仍是两个 SQLite 边界；M3-R 通过 runtime outbox + 幂等 refresh 可靠桥接已完成 item，但没有跨数据库分布式原子事务；
@@ -1015,6 +1033,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-09-02 | M4-1 | 版本化 web 来源适配器（D-048）：`src/veritas/sources/`——canonical 契约与语料逐位一致、append-only 抓取台账（重放返回存储 outcome、冲突拒绝、label 变化切分版本、回退=新版本）、可注入 transport 抓取 shell、台账→冻结语料布局物化（字节级确定、下游零改动）、`detect_web_drift` 对照上次观测；场景测试钉死抓取→T0→漂移→修订→结论 unknown@2 全链 + localhost 真 HTTP；负向校准八类；227/227 tests |
 | 2026-09-02 | Gate M2/M3 | 联合收口评审（D-047）：基线 b99822f（CI 八任务全绿）+ 评审日复跑 206/206、四工件零 diff；M2 三条出口条件核验通过、C2/C3-R 关闭；M3 四块证据核验通过；携带 C4/C5/C6 进 M4；M4 主题"接入真实世界源"、M4-1 = 版本化 web 来源适配器 |
 | 2026-09-02 | M3-C | 真实模型 watch 闭环 live 证据（D-046）：`--init-spec` T0 引导；两遍 live（约 15 请求）钉死双分支——事实真变更诚实停 unknown、幸存事实聚合重挂修复 pass@1→unknown@2→pass@3；报告+录制+spec 入库，重放测试逐字节复现；修复刷新身份混入计费元数据缺陷；206/206 tests |
 | 2026-09-02 | M2-3 | 同契约重复运行对照（D-045）：第二轮 live 30 题（0/30、critical=0、EX03×3/EX04×27）录制入库可重放；`run_variance` 冻结 artifact——run1 52/4 vs run2 66/3 候选、key 级重合率 0.457（37/81）、case 级 8/30 相同；C3-R 收口：单轮分布非能力定值；203/203 tests |

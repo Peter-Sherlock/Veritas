@@ -199,6 +199,67 @@ def detect_drift(
     return sorted(drifts, key=lambda drift: drift.doc_id)
 
 
+@dataclass(frozen=True)
+class WebDrift:
+    """A fetched web source whose content the ledger has genuinely replaced."""
+
+    url: str
+    doc_id: str
+    current_version: str
+    latest_version: str
+
+
+def detect_web_drift(
+    repository: SQLiteRepository,
+    web_store: Any,
+    *,
+    corpus_id: str,
+) -> list[WebDrift]:
+    """Web-source drift: the ledger's latest fetch vs what the graph holds.
+
+    The web counterpart of :func:`detect_drift` — instead of comparing
+    against a static manifest, the active ``<corpus_id>:<slug>@<label>``
+    source versions are compared against the last observation in the
+    web-source ledger (M4-1). Same skip rules: an unchanged label is not
+    drift, and content the ledger saw before the registered version is
+    not drift either.
+    """
+    slug_to_url = web_store.slug_index()
+    prefix = f"{corpus_id}:"
+    current_by_source: dict[str, Any] = {}
+    for source in repository.list_source_versions():
+        if repository.source_is_active(source.version_id) and source.source_id.startswith(
+            prefix
+        ):
+            current_by_source.setdefault(source.source_id, source)
+    drifts: list[WebDrift] = []
+    for source_id, source in sorted(current_by_source.items()):
+        slug = source_id[len(prefix) :]
+        url = slug_to_url.get(slug)
+        if url is None:
+            # The ledger does not carry this slug; nothing to revise
+            # against.
+            continue
+        try:
+            latest = web_store.latest(url)
+        except KeyError:
+            continue
+        if latest.version_label == source.version_label:
+            continue
+        if latest.content_hash == source.content_hash:
+            # Same content under a new label is not a revision.
+            continue
+        drifts.append(
+            WebDrift(
+                url=url,
+                doc_id=slug,
+                current_version=source.version_label,
+                latest_version=latest.version_label,
+            )
+        )
+    return sorted(drifts, key=lambda drift: drift.doc_id)
+
+
 def _snapshot_hash(repository: SQLiteRepository) -> str:
     import hashlib
     import json

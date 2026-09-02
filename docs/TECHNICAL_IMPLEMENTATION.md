@@ -1801,9 +1801,39 @@ Gate M1 携带项 **C2（候选聚合）与 C3-R（同契约重复运行）正�
 - **C6**：自主规划覆盖面——仅支持 `all_accepted` 规则的非 PASS 结论、query 为词面 token、无 web 发现与开放式工具规划；
 - **M4 进入条件**：本评审通过。M4 主题"接入真实世界源"（web search 集成）；M4-1 = 版本化 web 来源适配器：把语料 canonical UTF-8/LF hash 契约推广到可重抓取的 web 源（fetch→内容 hash→manifest 记录→SourceVersion，同 URL 多次抓取构成版本时间线），漂移检测从"对照本地 manifest"扩展为"对照上次抓取"。C4/C5/C6 不阻塞 M4（质量外推、规划覆盖与世界边界三者正交），但真实源会同时改变三者面临的分布，故在 M4 内重估。
 
-## 41. 当前限制
+## 41. M4-1 版本化 web 来源适配器（D-048）
 
-- 自主 planner 只处理本地版本化语料上的非 PASS `all_accepted` 结论；没有真实网页发现、抓取、版本轮询或开放式工具规划（D-047 C6，M4 主题即此）；
+### 41.1 内容契约与抓取台账
+
+`src/veritas/sources/web.py`。内容契约与 M1-1R 语料逐位一致：`canonical_web_text` 严格 UTF-8 解码、CR/CRLF 归一为 LF、空白体拒绝；content_hash 对 canonical 字节取 SHA-256。`WebSourceStore`（schema `web-sources-1`）是 append-only 抓取台账，行键 `(url, fetched_at)`、行不可变：
+
+- 同键同载荷重放返回**存储的原始 outcome**（重放安全：重跑必须逐字节重现首次决定，回退场景下按"更早同哈希行"推导会错，因此 status/new-version 判定随行持久化）；
+- 同键异载荷 = `web_fetch_conflict`（一个观测时刻不能持两个载荷）；
+- 版本时间线 = 抓取序中 **label 变化**的序列：SAME 内容不是新版本（M1-5B SAME 步语义带进 web），回退是 `f3` 新版本——时间线位置变了，即使哈希重现；按哈希去重会把回退塌缩掉，按 label 切分才正确；
+- 版本 label 是本地观测序数 `f1/f2/...`（web 没有上游版本号），`published_at` = 该内容态首次被观测的时刻；slug 与 label 均跨平台文件名安全（不含冒号等）。
+
+`url_slug` = 地址净化（`[a-z0-9._-]`）+ URL SHA-256 前 8 位——稳定、无碰撞、可进 manifest 路径与 ChangeEvent id。
+
+### 41.2 抓取 shell 与物化视图
+
+`fetch_web_source` 是包内唯一网络代码：transport 可注入（默认 urllib GET，30s 超时），HTTP 错误/不可达/超限（默认 2MB）/非 UTF-8/空体全部 typed 拒绝且台账零写入；HTTPError 响应体显式关闭（严格 ResourceWarning 纪律）；内容归属请求 URL（重定向跟随但不改溯源）。`observed_at` 由调用方供给，live 运行因此可重放（传输是唯一非确定性，且可注入）。
+
+`materialize_corpus` 把台账投影为冻结语料布局（`manifest.json` + 快照文件，URL 排序、版本按首次观测序）：重物化字节级一致（场景测试逐文件比对），`LocalCorpusProvider` 带 hash 校验直接加载——**台账是真相，目录是派生视图**。桥、抽取管线、TF-IDF 检索、修订事件零改动消费 web 源（D-047 的"manifest 记录"承诺）。
+
+### 41.3 web 漂移检测
+
+`detect_web_drift`（`autonomy/watch.py`）：活跃 `<corpus_id>:<slug>@<label>` 源版本对照台账最新版本——web 世界的 drift 对照**上次观测**而非静态 manifest。跳过规则与本地 `detect_drift` 一致：label 相同不是漂移、内容哈希相同不是漂移。产出 `WebDrift(url, doc_id, current_version, latest_version)`，与桥 `revision_event(slug, f1, f2)` 直接衔接。
+
+### 41.4 证据与负向校准
+
+场景测试 `tests/scenarios/test_web_source_m4_1.py` 钉死全链：抓取→物化→管线 T0（FixtureLLM）→桥注册 `webwatch:<slug>@f1`→内容变更 f2→`detect_web_drift`→`CHG_<SLUG>_f1_TO_f2`→引擎 apply→claim unsupported、结论 pass@1→unknown@2；SAME 观测不产生漂移；钉住时刻的全链重放台账逐字段一致。localhost 真 HTTP 服务器（ThreadingHTTPServer）验证 urllib 路径、canonical 哈希与 404 typed 拒绝。
+
+负向校准（`tests/unit/test_web_source_store.py`）：`non_utf8_body`、`empty_web_body`、`invalid_web_url`、`web_fetch_conflict`、`web_fetch_http_error`、`web_fetch_unreachable`、`web_body_too_large`、`web_store_schema_drift`，外加回退时间线（f1→f2→f3，f3 与 f1 同哈希但为新版本）、重放 outcome 恒等、物化确定性。227/227 tests（严格 `ResourceWarning`）。
+
+## 42. 当前限制
+
+- 自主 planner 只消费物化后的本地语料接口；M4-1 已交付版本化 web 来源适配器（抓取台账 + 物化视图 + web 漂移检测），但 watch CLI 尚未接 web 源、没有真实网页发现与开放式工具规划（D-047 C6 剩余部分，M4-2/M4-3 承接）；
+- web 抓取语义边界：内容归属请求 URL、重定向跟随但不改溯源、版本 label 是本地观测序数（非上游版本号）、无 UA 轮换/并发抓取/增量抓取策略——台账单 writer，分布式抓取未设计；
 - M3-R 证明单机 SQLite reopen/replay 和单 writer 事务边界，不证明任意 OS kill 点、多进程争用、网络分区、分布式 exactly-once 或性能上限；
 - live provider 的逐 item 录制会保留已完成 item；若进程在 provider 已返回、数据库终态尚未提交前退出，预留预算不会超支，但该次响应仍可能需要重新调用；
 - 同一运行期间 corpus 再次变化会触发 `session_world_drift`，旧 session 不混入新世界；当前没有自动取消/迁移旧 pending session 的策略；
@@ -1812,12 +1842,13 @@ Gate M1 携带项 **C2（候选聚合）与 C3-R（同契约重复运行）正�
 - `expire`/`retract` 的自动时间推进、as-of 历史查询、多来源 conflict 仲裁仍未实现；storage protocol 仍不是完整可替换读取边界；
 - M1-5B 的 23/185 成本结果只适用于冻结的六文档、13 事件基准；不能外推生产规模。
 
-因此，当前可以确认的是：M3 的本地自主闭环已具备可持久恢复的 item 输出、幂等图交付、严格事务/身份冲突守卫和恢复上下文约束，且 Gate M2/M3 已评审通过（D-047）；不能据此声称真实 Web Research、通用模型质量或生产级容灾已经完成。
+因此，当前可以确认的是：M3 的本地自主闭环已具备可持久恢复的 item 输出、幂等图交付、严格事务/身份冲突守卫和恢复上下文约束，Gate M2/M3 已评审通过（D-047），M4-1 的版本化 web 来源适配器已在注入 transport 与 localhost 真 HTTP 上全链验证（D-048）；不能据此声称真实 Web Research、通用模型质量或生产级容灾已经完成——watch CLI 与规划器尚未消费 web 源，live web 证据还没有。
 
-## 42. 变更记录
+## 43. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-09-02 | M4-1 | 版本化 web 来源适配器（D-048）：`src/veritas/sources/`——canonical 契约与语料逐位一致、`WebSourceStore` append-only 抓取台账（(url, fetched_at) 不可变、重放返回存储 outcome、web_fetch_conflict、label 变化切分版本、回退=新版本）、`fetch_web_source` 可注入 transport + typed 拒绝、`materialize_corpus` 台账→冻结语料布局（字节级确定、LocalCorpusProvider 零改动加载）、`detect_web_drift` 对照上次观测；场景测试钉死抓取→T0→漂移→修订→结论 unknown@2 全链 + localhost 真 HTTP 路径；负向校准八类；227/227 tests |
 | 2026-09-02 | Gate M2/M3 | 联合收口评审（D-047）：基线 b99822f（CI 八任务全绿）+ 评审日复跑 206/206 tests、四工件零 diff；M2 三条出口条件核验通过、Gate M1 携带项 C2/C3-R 关闭；M3 四块证据核验通过（规划器/watch/可靠性/live 双分支可重放）；携带 C4/C5/C6 进 M4；M4 主题"接入真实世界源"、M4-1 = 版本化 web 来源适配器 |
 | 2026-09-02 | M3-C | 真实模型 watch 闭环 live 证据（D-046）：`--init-spec` T0 引导；两遍 live（约 15 请求）钉死两条分支——事实真变更诚实停 unknown、幸存事实经聚合重挂修复 pass@1→unknown@2→pass@3；报告+录制+spec 入库，重放测试逐字节复现；顺带修复刷新身份混入计费元数据的缺陷；206/206 tests |
 | 2026-09-02 | M2-3 | 同契约重复运行对照（D-045）：第二轮 live 30 题录制入库可重放（0/30、critical=0）；`run_variance` 冻结 artifact——key 级重合率 0.457（37/81）、case 级 8/30 相同；C3-R 收口：单轮分布非能力定值；203/203 tests |
