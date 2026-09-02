@@ -1769,23 +1769,56 @@ v3 契约原样重跑 30 题 live 校准（`deepseek-v4-flash`，非思考、tem
 
 演示暴露了一个真问题：M3-R 的刷新身份哈希了整个 bundle（含 `documents` 的 token 计费元数据），导致同一语义刷新在 live 与 replay 下 id 不同。已修复为只对**写入图的语义载荷**（claims/evidence/edges + session/rule）取身份——计费元数据不是语义，不该参与内容寻址。
 
-## 40. 当前限制
+## 40. Gate M2/M3 联合评审（D-047）
 
-- 自主 planner 只处理本地版本化语料上的非 PASS `all_accepted` 结论；没有真实网页发现、抓取、版本轮询或开放式工具规划；
+### 40.1 评审基线与核验方法
+
+- 评审基线：commit b99822f，其 CI 八任务全绿（unit 3.11/3.14、suite 1.0.0/2.0.0、extraction-calibration、evolution-benchmark、aggregation-calibration、run-variance，全部重生成零 diff）；
+- 评审日本地复跑（Python 3.14.7，严格 `ResourceWarning`）：`python -m unittest discover -s tests` → **206/206 OK**；两 suite + extraction-calibration + evolution-benchmark + aggregation-calibration + run-variance 重跑后 `git diff --exit-code -- artifacts` 零差异；
+- 联合评审的理由：M3 的 live 修复证据（D-046）以 M2 聚合为前提，两阶段出口共享同一批冻结材料，拆分评审只会复述数字。
+
+### 40.2 M2 出口条件核验（"从候选到可信图"）
+
+| 出口条件 | 证据 | 结论 |
+| --- | --- | --- |
+| 簇级身份落地 | 硬守卫（数字/否定集必须一致）+ 真录校准冻结阈值 0.375（真改写 ≥0.385 / 异事实 ≤0.364）；簇级覆盖 **19/32** vs 精确 key 3/32；19 组配对逐对审核**零假合并**；负向校准四类（canonical_key_mismatch / invalid_statement / policy_drift / schema_drift） | 通过（M2-1，D-040） |
+| 聚合价值在演化侧证明 | 开簇：改写重入同一 claim、证据重挂、结论停 v1 pass、`recomputed_conclusions` 空——零 churn；关簇：结论 pass@1→unknown@2；校准 artifact 进 CI 零 diff | 通过（M2-2，D-041） |
+| 方差口径钉死 | 同契约第二轮 live 可重放；key 级重合率 Jaccard **0.457**（共享 37 / 并集 81）、case 级 8/30 相同、单轮分布非能力定值；对照 artifact 进 CI 零 diff | 通过（M2-3，D-045） |
+
+Gate M1 携带项 **C2（候选聚合）与 C3-R（同契约重复运行）正式关闭**。
+
+### 40.3 M3 出口条件核验（受控自主闭环）
+
+1. **规划器 + 刷新事务**（M3-A/D-042）：非 PASS `all_accepted` 结论 → 确定性 runtime spec；刷新按引擎同款转换契约写回、活跃源守卫、`research_refreshes` 审计、幂等；修复弧线 pass@1→unknown@2→pass@3 有测试；
+2. **watch 一条命令 + 无操作不变式**（M3-B/D-043）：漂移检测→规划→预算会话→刷新四段编排；第二轮对未变世界零请求零刷新；
+3. **可靠性收口**（M3-R/D-044）：item 输出与 bundle 原子 checkpoint（schema v3）、at-least-once outbox + 幂等 sink、双崩溃窗口故障注入（关闭/重开 SQLite）恢复后零额外请求零重复实体；
+4. **真实模型 live 双分支证据**（M3-C/D-046）：`artifacts/autonomy/live-watch-demo/`——第一遍事实真变更（3.7 floor 消失）→ 空 bundle ignored、结论诚实 unknown；第二遍幸存事实（redirect）→ 聚合重挂、pass@1→unknown@2→pass@3；重放测试以钉住 `observed_at` 逐字节复现两份报告。
+
+### 40.4 携带项与 M4 进入条件
+
+- **C4**：检索 MRR 0.7222 为词面基线上限（自 Gate M1 携带，未处理）；
+- **C5**：聚类阈值 0.375、19/32 覆盖与零假合并均来自单模型真录，跨模型/跨领域外推未验证，12/32 改写缺口未归因；
+- **C6**：自主规划覆盖面——仅支持 `all_accepted` 规则的非 PASS 结论、query 为词面 token、无 web 发现与开放式工具规划；
+- **M4 进入条件**：本评审通过。M4 主题"接入真实世界源"（web search 集成）；M4-1 = 版本化 web 来源适配器：把语料 canonical UTF-8/LF hash 契约推广到可重抓取的 web 源（fetch→内容 hash→manifest 记录→SourceVersion，同 URL 多次抓取构成版本时间线），漂移检测从"对照本地 manifest"扩展为"对照上次抓取"。C4/C5/C6 不阻塞 M4（质量外推、规划覆盖与世界边界三者正交），但真实源会同时改变三者面临的分布，故在 M4 内重估。
+
+## 41. 当前限制
+
+- 自主 planner 只处理本地版本化语料上的非 PASS `all_accepted` 结论；没有真实网页发现、抓取、版本轮询或开放式工具规划（D-047 C6，M4 主题即此）；
 - M3-R 证明单机 SQLite reopen/replay 和单 writer 事务边界，不证明任意 OS kill 点、多进程争用、网络分区、分布式 exactly-once 或性能上限；
 - live provider 的逐 item 录制会保留已完成 item；若进程在 provider 已返回、数据库终态尚未提交前退出，预留预算不会超支，但该次响应仍可能需要重新调用；
 - 同一运行期间 corpus 再次变化会触发 `session_world_drift`，旧 session 不混入新世界；当前没有自动取消/迁移旧 pending session 的策略；
-- 聚类冻结阈值只在一份真实录制上达到 19/32 coverage 且观察到零假合并，不代表跨模型、跨领域语义匹配质量；M2-3 同契约重复运行仍待完成；
+- 聚类冻结阈值只在一份真实录制上达到 19/32 coverage 且观察到零假合并；M2-3 已量化同契约重复运行方差（key 级重合率 0.457），但阈值与覆盖的跨模型、跨领域外推仍未验证（D-047 C5）；
 - 没有来源质量权重、复杂逻辑表达式、概率置信度、循环依赖消解或独立 Fact 层；
 - `expire`/`retract` 的自动时间推进、as-of 历史查询、多来源 conflict 仲裁仍未实现；storage protocol 仍不是完整可替换读取边界；
 - M1-5B 的 23/185 成本结果只适用于冻结的六文档、13 事件基准；不能外推生产规模。
 
-因此，当前可以确认的是：M3-B 的本地自主闭环已具备可持久恢复的 item 输出、幂等图交付、严格事务/身份冲突守卫和恢复上下文约束；不能据此声称真实 Web Research、通用模型质量或生产级容灾已经完成。
+因此，当前可以确认的是：M3 的本地自主闭环已具备可持久恢复的 item 输出、幂等图交付、严格事务/身份冲突守卫和恢复上下文约束，且 Gate M2/M3 已评审通过（D-047）；不能据此声称真实 Web Research、通用模型质量或生产级容灾已经完成。
 
-## 41. 变更记录
+## 42. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-09-02 | Gate M2/M3 | 联合收口评审（D-047）：基线 b99822f（CI 八任务全绿）+ 评审日复跑 206/206 tests、四工件零 diff；M2 三条出口条件核验通过、Gate M1 携带项 C2/C3-R 关闭；M3 四块证据核验通过（规划器/watch/可靠性/live 双分支可重放）；携带 C4/C5/C6 进 M4；M4 主题"接入真实世界源"、M4-1 = 版本化 web 来源适配器 |
 | 2026-09-02 | M3-C | 真实模型 watch 闭环 live 证据（D-046）：`--init-spec` T0 引导；两遍 live（约 15 请求）钉死两条分支——事实真变更诚实停 unknown、幸存事实经聚合重挂修复 pass@1→unknown@2→pass@3；报告+录制+spec 入库，重放测试逐字节复现；顺带修复刷新身份混入计费元数据的缺陷；206/206 tests |
 | 2026-09-02 | M2-3 | 同契约重复运行对照（D-045）：第二轮 live 30 题录制入库可重放（0/30、critical=0）；`run_variance` 冻结 artifact——key 级重合率 0.457（37/81）、case 级 8/30 相同；C3-R 收口：单轮分布非能力定值；203/203 tests |
 | 2026-08-31 | M3-R | 可靠性收口（D-044）：runtime schema v3（原子 item+bundle outbox、session contexts、v2 加表迁移）；watch at-least-once/幂等 refresh 交付与双崩溃窗口恢复；完整 refresh identity；GraphBridge 纯构造 + bundle 事务；immutable payload 冲突显式拒绝；代表 claim 完整身份冻结；live 录制按 item 保存；200/200 tests |
