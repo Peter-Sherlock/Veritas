@@ -5,3 +5,4 @@ __pycache__/
 artifacts/**/*.sqlite3
 artifacts/**/*.sqlite3-shm
 artifacts/**/*.sqlite3-wal
+artifacts/**/*.db

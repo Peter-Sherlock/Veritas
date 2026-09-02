@@ -14,6 +14,7 @@ from typing import Any, Callable, Sequence
 from veritas.extraction.models import ExtractionContractError
 from veritas.extraction.pipeline import ResearchExtractionPipeline
 from veritas.extraction.store import CandidateStore, candidates_from_document
+from veritas.aggregation.resolve import resolve_bundle
 from veritas.runtime.store import (
     SESSION_ACTIVE,
     SESSION_COMPLETED,
@@ -130,10 +131,12 @@ class ResearchRuntime:
         store: RuntimeStore,
         source_namespace: str,
         candidate_store: CandidateStore | None = None,
+        cluster_store: Any = None,
         policy: ReplanPolicy = ReplanPolicy(),
     ) -> None:
         self._store = store
         self._candidate_store = candidate_store
+        self._cluster_store = cluster_store
         self._source_namespace = source_namespace
         self._policy = policy
         self._budgeted = _BudgetedProvider(store, provider)
@@ -151,6 +154,7 @@ class ResearchRuntime:
         budget_requests: int,
         observed_at: str,
         on_item_done: Callable[[dict[str, Any]], None] | None = None,
+        on_item_bundle: Callable[[Any], None] | None = None,
     ) -> dict[str, Any]:
         """Run or resume the session until it lands or the budget stops it.
 
@@ -160,6 +164,10 @@ class ResearchRuntime:
         fires after every item reaches a terminal state (and once when the
         budget stops mid-item), receiving the updated work-item row — the
         hook for progress streaming and crash-safe recording.
+        on_item_bundle is a post-checkpoint notification when an item's
+        extraction contract holds. Durability does not depend on the callback:
+        the (possibly cluster-resolved) bundle is committed to the runtime
+        outbox in the same transaction that makes the item terminal.
         """
         self._budgeted.bind(session_id)
         self._store.create_session(
@@ -211,6 +219,14 @@ class ResearchRuntime:
                         session_id, item_id, exc.code, observed_at
                     )
                 else:
+                    if self._cluster_store is not None:
+                        # Claim identity clustering (D-040): paraphrase
+                        # variants re-enter the claim of their cluster
+                        # representative. The raw candidate records below
+                        # stay pre-aggregation.
+                        bundle = resolve_bundle(
+                            bundle, self._cluster_store, observed_at=observed_at
+                        )
                     if self._candidate_store is not None:
                         records = [
                             record
@@ -224,7 +240,11 @@ class ResearchRuntime:
                             run_id=f"session:{session_id}",
                             observed_at=observed_at,
                         )
-                    self._store.mark_item_completed(session_id, item_id, observed_at)
+                    self._store.complete_item_with_output(
+                        session_id, item_id, bundle, observed_at
+                    )
+                    if on_item_bundle is not None:
+                        on_item_bundle(bundle)
                 self._notify(on_item_done, session_id, item_id)
                 break
         self._store.mark_session_completed(session_id, observed_at)
@@ -269,6 +289,10 @@ class ResearchRuntime:
             "requests_spent": int(state["requests_spent"]),
             "budget_requests": int(state["budget_requests"]),
         }
+
+    def result(self, session_id: str) -> dict[str, Any]:
+        """Return the persisted session summary without executing work."""
+        return self._result(session_id)
 
 
 __all__ = [

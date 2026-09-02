@@ -1,0 +1,177 @@
+{
+  "calibration_id": "m2-1-aggregation-calibration",
+  "calibration_version": "1.0.0",
+  "cluster_covered_cases": [
+    "EX-004",
+    "EX-005",
+    "EX-006",
+    "EX-007",
+    "EX-008",
+    "EX-009",
+    "EX-010",
+    "EX-011",
+    "EX-013",
+    "EX-015",
+    "EX-016",
+    "EX-017",
+    "EX-018",
+    "EX-021",
+    "EX-022",
+    "EX-023",
+    "EX-024",
+    "EX-027",
+    "EX-028"
+  ],
+  "counts": {
+    "cluster_covered": 19,
+    "exact_key_covered": 3,
+    "gold_assertions": 32,
+    "live_candidates": 52
+  },
+  "exact_key_covered_cases": [
+    "EX-008",
+    "EX-017",
+    "EX-022"
+  ],
+  "matched_pairs": [
+    {
+      "case_id": "EX-004",
+      "doc_id": "environment_variables",
+      "gold_statement": "Set trust_env to False to make HTTPX ignore environment variables",
+      "live_statement": "To make HTTPX ignore environment variables, set trust_env to False.",
+      "score": 1.0
+    },
+    {
+      "case_id": "EX-005",
+      "doc_id": "quickstart",
+      "gold_statement": "Response history lists followed redirect responses in order",
+      "live_statement": "The history property of the response contains a list of any redirect responses that were followed, in the order in which they were made.",
+      "score": 0.5454545454545454
+    },
+    {
+      "case_id": "EX-006",
+      "doc_id": "advanced",
+      "gold_statement": "WSGITransport uses remote_addr to set the request client address",
+      "live_statement": "The WSGI transport option that sets the request client address is remote_addr.",
+      "score": 0.45454545454545453
+    },
+    {
+      "case_id": "EX-007",
+      "doc_id": "contributing",
+      "gold_statement": "The scripts/test command runs the HTTPX test suite",
+      "live_statement": "The project script that runs the HTTPX test suite is scripts/test.",
+      "score": 0.625
+    },
+    {
+      "case_id": "EX-008",
+      "doc_id": "compatibility",
+      "gold_statement": "HTTPX does not follow redirects by default",
+      "live_statement": "HTTPX does not follow redirects by default.",
+      "score": 1.0
+    },
+    {
+      "case_id": "EX-009",
+      "doc_id": "troubleshooting",
+      "gold_statement": "Use an http URL scheme for the proxy instead of https",
+      "live_statement": "The proxy handshake timeout on HTTPS requests is resolved by changing the scheme of the HTTPS proxy to http:// instead of https://.",
+      "score": 0.45454545454545453
+    },
+    {
+      "case_id": "EX-010",
+      "doc_id": "index",
+      "gold_statement": "The zstandard optional dependency enables zstd response decoding",
+      "live_statement": "The optional dependency zstandard enables decoding for zstd compressed responses.",
+      "score": 0.6666666666666666
+    },
+    {
+      "case_id": "EX-011",
+      "doc_id": "quickstart",
+      "gold_statement": "HTTPX default timeout for network inactivity is five seconds",
+      "live_statement": "HTTPX's default timeout for network inactivity is five seconds.",
+      "score": 0.875
+    },
+    {
+      "case_id": "EX-013",
+      "doc_id": "quickstart",
+      "gold_statement": "HTTPX stream iteration normalises all line endings to \\n",
+      "live_statement": "HTTPX will use universal line endings, normalising all cases to \\n.",
+      "score": 0.4
+    },
+    {
+      "case_id": "EX-015",
+      "doc_id": "async",
+      "gold_statement": "HTTPX supports asyncio and trio as async environments",
+      "live_statement": "HTTPX supports either asyncio or trio as an async environment.",
+      "score": 0.625
+    },
+    {
+      "case_id": "EX-016",
+      "doc_id": "async",
+      "gold_statement": "An AsyncClient can be closed explicitly with await client.aclose()",
+      "live_statement": "An AsyncClient can be closed explicitly using the await client.aclose() method.",
+      "score": 0.8333333333333334
+    },
+    {
+      "case_id": "EX-017",
+      "doc_id": "compatibility",
+      "gold_statement": "HTTPX does not follow redirects by default, unlike requests",
+      "live_statement": "HTTPX does not follow redirects by default, unlike requests.",
+      "score": 1.0
+    },
+    {
+      "case_id": "EX-018",
+      "doc_id": "compatibility",
+      "gold_statement": "HTTPX encodes str request bodies as utf-8, not latin1 like Requests",
+      "live_statement": "HTTPX uses utf-8 for encoding str request bodies, not latin1.",
+      "score": 0.6
+    },
+    {
+      "case_id": "EX-021",
+      "doc_id": "environment_variables",
+      "gold_statement": "Environment variables are ignored when trust_env is set to False",
+      "live_statement": "To make HTTPX ignore environment variables, set trust_env to False.",
+      "score": 0.6
+    },
+    {
+      "case_id": "EX-022",
+      "doc_id": "troubleshooting",
+      "gold_statement": "HTTPX does not properly support HTTPS proxies at this time",
+      "live_statement": "HTTPX does not properly support HTTPS proxies at this time.",
+      "score": 1.0
+    },
+    {
+      "case_id": "EX-023",
+      "doc_id": "troubleshooting",
+      "gold_statement": "HTTPS proxy handshake timeouts are fixed by changing the proxy scheme from https:// to http://",
+      "live_statement": "The proxy handshake timeout on HTTPS requests is resolved by changing the scheme of the HTTPS proxy to http:// instead of https://.",
+      "score": 0.5
+    },
+    {
+      "case_id": "EX-024",
+      "doc_id": "advanced",
+      "gold_statement": "HTTPX currently has two event hooks: request and response",
+      "live_statement": "HTTPX supports two event hooks: 'request' and 'response'.",
+      "score": 0.6666666666666666
+    },
+    {
+      "case_id": "EX-027",
+      "doc_id": "advanced",
+      "gold_statement": "A custom CA bundle is passed via the verify parameter",
+      "live_statement": "A custom CA bundle can be supplied for SSL verification using the verify parameter with a path to the certificate file.",
+      "score": 0.38461538461538464
+    },
+    {
+      "case_id": "EX-028",
+      "doc_id": "api",
+      "gold_statement": "Response.elapsed measures the time between sending the request and closing the response",
+      "live_statement": "The Response.elapsed property measures the amount of time elapsed between sending the request and calling close() on the corresponding response received for that request.",
+      "score": 0.4666666666666667
+    }
+  ],
+  "output_hash": "50cf6aa84481a5dc973a8d3b746ca42bc6bd923c1a90d93c2c6218051d0ed9c1",
+  "policy": {
+    "min_jaccard": 0.375,
+    "rule_version": "claim-clusters-1"
+  },
+  "recording_model": "deepseek-v4-flash"
+}

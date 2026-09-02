@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from veritas.aggregation.store import ClaimClusterStore
 from veritas.extraction.store import CandidateStore
 from veritas.providers.llm import FixtureLLM, OpenAICompatibleClient, RecordingLLM
 from veritas.runtime.engine import ReplanPolicy, ResearchRuntime, WorkItem
@@ -130,6 +131,11 @@ def main(argv: list[str] | None = None) -> int:
         "--candidates-out", help="optional SQLite path; contract-valid candidates are persisted"
     )
     parser.add_argument(
+        "--cluster-store",
+        help="optional SQLite path; claim identity clustering merges paraphrase "
+        "re-extractions into their cluster's claim (deterministic, guarded)",
+    )
+    parser.add_argument(
         "--provider",
         choices=("live", "replay"),
         default="live",
@@ -183,9 +189,12 @@ def main(argv: list[str] | None = None) -> int:
     store = RuntimeStore(args.runtime_store)
     recorder: RecordingLLM | None = None
     candidates: CandidateStore | None = None
+    clusters: ClaimClusterStore | None = None
     try:
         if args.candidates_out:
             candidates = CandidateStore(args.candidates_out)
+        if args.cluster_store:
+            clusters = ClaimClusterStore(args.cluster_store)
         existing = store.find_session(session_id)
         if existing is not None and existing["status"] == "completed":
             # Rerun-safe: a completed session re-prints its summary instead
@@ -227,6 +236,7 @@ def main(argv: list[str] | None = None) -> int:
             store=store,
             source_namespace=corpus.corpus_id,
             candidate_store=candidates,
+            cluster_store=clusters,
             policy=ReplanPolicy(
                 retry_rejected=args.retry_rejected,
                 degrade_to_fit_budget=args.degrade_to_fit,
@@ -272,6 +282,8 @@ def main(argv: list[str] | None = None) -> int:
         _emit(summary, args.output)
         return 0
     finally:
+        if clusters is not None:
+            clusters.close()
         if candidates is not None:
             candidates.close()
         store.close()

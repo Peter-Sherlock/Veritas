@@ -1,0 +1,95 @@
+{
+  "benchmark_id": "httpx-initial-extraction",
+  "benchmark_version": "3.0.0",
+  "case_buckets": {
+    "a_only": [],
+    "b_only": [],
+    "both_differ": [
+      "EX-004",
+      "EX-005",
+      "EX-006",
+      "EX-007",
+      "EX-008",
+      "EX-009",
+      "EX-011",
+      "EX-012",
+      "EX-013",
+      "EX-014",
+      "EX-017",
+      "EX-018",
+      "EX-019",
+      "EX-020",
+      "EX-021",
+      "EX-022",
+      "EX-023",
+      "EX-024",
+      "EX-025",
+      "EX-026",
+      "EX-027",
+      "EX-030"
+    ],
+    "identical": [
+      "EX-001",
+      "EX-002",
+      "EX-003",
+      "EX-010",
+      "EX-015",
+      "EX-016",
+      "EX-028",
+      "EX-029"
+    ]
+  },
+  "case_level": {
+    "a_only": 0,
+    "b_only": 0,
+    "both_differ": 22,
+    "identical": 8
+  },
+  "contract": {
+    "prompt_version": "httpx-extractor-2",
+    "schema_version": "evidence-assertion-2"
+  },
+  "key_level": {
+    "jaccard": 0.4567901234567901,
+    "only_a": 15,
+    "only_b": 29,
+    "shared_keys": 37
+  },
+  "models": {
+    "run1": "deepseek-v4-flash",
+    "run2": "deepseek-v4-flash"
+  },
+  "output_hash": "bee7a73aa90029ffa3e224e51efc8c25dcad17917d40bd19edb1adfd7960b873",
+  "rejected_cases": {
+    "run1": [
+      "EX-001",
+      "EX-002",
+      "EX-025",
+      "EX-026"
+    ],
+    "run2": [
+      "EX-001",
+      "EX-002",
+      "EX-025"
+    ],
+    "shared_rejections": [
+      "EX-001",
+      "EX-002",
+      "EX-025"
+    ]
+  },
+  "runs": {
+    "run1": {
+      "candidates": 52,
+      "distinct_keys": 52,
+      "rejected_cases": 4
+    },
+    "run2": {
+      "candidates": 66,
+      "distinct_keys": 66,
+      "rejected_cases": 3
+    }
+  },
+  "variance_id": "m2-3-run-variance",
+  "variance_version": "1.0.0"
+}

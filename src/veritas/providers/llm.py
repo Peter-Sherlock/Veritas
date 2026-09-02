@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import os
 import time
@@ -183,6 +184,10 @@ class OpenAICompatibleClient:
                 if not retryable:
                     raise
             except urllib.error.URLError as exc:
+                last_error = exc
+            except http.client.HTTPException as exc:
+                # Transport-level truncation (IncompleteRead, BadStatusLine,
+                # dropped connections): transient, retry the whole request.
                 last_error = exc
             time.sleep(min(2**attempt, 8))
         raise RuntimeError(

@@ -1,0 +1,12 @@
+{
+  "model_id": "deepseek-v4-flash",
+  "responses": {
+    "44c5ff10eb0aa767b65bbc7892dd029fd9e7bfd2f1270504a9f8f7a36121c0a3": "{\"assertions\":[]}",
+    "5419df23ff2df186c0b6bfadbf601d47831ca93cd70e0b3bf21a6580d43a28a6": "{\"assertions\": []}",
+    "7cb3bf95b6291a07b7c999b4de76bb19c4476e6948c4ff788d8a425046afe56c": "{\"assertions\":[]}",
+    "9aae36b1ce464833c7dbfd70c8fb3f801b89bb8222d90bb3ee3d5e73704cd1f5": "{\"assertions\":[]}",
+    "aeb6d0211e9a7fe41ef5caca08f2580085e134c6fcdf9ce0ac51423c4ac3ef0b": "{\"assertions\":[{\"statement\":\"HTTPX requires Python 3.7+\",\"relation\":\"supports\",\"quote\":\"HTTPX requires Python 3.7+\"}]}",
+    "c25f2d76d397d42758fe65d9b38b3448b28c135f3ec8d0c83e5200d5eb248e63": "{\n  \"assertions\": [\n    {\n      \"statement\": \"HTTPX does not follow redirects by default, unlike requests.\",\n      \"relation\": \"supports\",\n      \"quote\": \"Unlike `requests`, HTTPX does **not follow redirects by default**.\"\n    },\n    {\n      \"statement\": \"HTTPX can be configured to follow redirects by setting follow_redirects=True.\",\n      \"relation\": \"supports\",\n      \"quote\": \"You can still enable behaviour to automatically follow redirects, but you need to do so explicitly...\"\n    }\n  ]\n}",
+    "cd87e41135eb936ac75f013e24c21bc1ec1a37f4bf0a9b46478a41347d9f2088": "{\"assertions\":[]}"
+  }
+}
