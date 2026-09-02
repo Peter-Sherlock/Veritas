@@ -1,0 +1,14 @@
+{
+  "model_id": "deepseek-v4-flash",
+  "responses": {
+    "2c6b153d78ab326a7c5152713edaa8f8120b01d1bbb86fb4424ed2549a70b819": "{\n  \"assertions\": [\n    {\n      \"statement\": \"HTTPX does not follow redirects by default for all HTTP methods.\",\n      \"relation\": \"supports\",\n      \"quote\": \"By default, HTTPX will **not** follow redirects for all HTTP methods, although\\nthis can be explicitly enabled.\"\n    }\n  ]\n}",
+    "324522ae7311905248decde59ce361bbed5f226407a45f9cf65c1386c563234a": "{\"assertions\":[]}",
+    "377d9fd89252fa3557c4dcbb96fd8bd7385525adecbd4ab64ed50d8528cfb814": "{\n  \"assertions\": [\n    {\n      \"statement\": \"HTTPX does not follow redirects by default.\",\n      \"relation\": \"supports\",\n      \"quote\": \"By default, HTTPX will **not** follow redirects for all HTTP methods, although\\nthis can be explicitly enabled.\"\n    }\n  ]\n}",
+    "5f0a5ae39c1246ed1e7e890f9fb456863b55c3308ad8c0975bdc67358c1ada92": "{\"assertions\":[{\"statement\":\"HTTPX does not follow redirects by default.\",\"relation\":\"supports\",\"quote\":\"Unlike `requests`, HTTPX does **not follow redirects by default**.\"}]}",
+    "7cb3bf95b6291a07b7c999b4de76bb19c4476e6948c4ff788d8a425046afe56c": "{\"assertions\":[]}",
+    "9aae36b1ce464833c7dbfd70c8fb3f801b89bb8222d90bb3ee3d5e73704cd1f5": "{\"assertions\":[]}",
+    "b60cfb43e02fd18bce7077c20b8953a42a973fb4b45f7595db95f37ca9e32a10": "{\"assertions\":[{\"statement\":\"HTTPX does not follow redirects by default.\",\"relation\":\"supports\",\"quote\":\"Unlike `requests`, HTTPX does **not follow redirects by default**.\"}]}",
+    "cd87e41135eb936ac75f013e24c21bc1ec1a37f4bf0a9b46478a41347d9f2088": "{\"assertions\":[]}",
+    "f4f61fb8cfb6792f3305ecc62ca7658b7feea093c8ebbbb3dd128ebbfbc1450b": "{\"assertions\":[]}"
+  }
+}

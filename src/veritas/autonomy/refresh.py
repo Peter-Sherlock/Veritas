@@ -49,11 +49,22 @@ def refresh_id_for(
     bundle: ExtractionCandidateBundle,
     rule_version: str,
 ) -> str:
-    """Deterministic identity over the complete semantic refresh payload."""
+    """Deterministic identity over the semantic refresh payload.
+
+    The identity covers exactly what the refresh writes into the graph —
+    claims, evidence and edges — plus the session and rule version. The
+    bundle's ``documents`` are deliberately excluded: their token-usage
+    fields are billing metadata of the extraction call, not semantics,
+    and folding them into the identity would make the same semantic
+    refresh unreplayable whenever usage numbers differ between a live
+    call and its replay.
+    """
     identity = {
         "session_id": session_id,
         "rule_version": rule_version,
-        "bundle": bundle.to_dict(),
+        "claims": [claim.to_dict() for claim in bundle.claims],
+        "evidence_spans": [evidence.to_dict() for evidence in bundle.evidence_spans],
+        "edges": [edge.to_dict() for edge in bundle.edges],
     }
     canonical = json.dumps(
         identity, ensure_ascii=False, sort_keys=True, separators=(",", ":")

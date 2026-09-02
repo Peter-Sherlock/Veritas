@@ -1,0 +1,12 @@
+{
+  "session_id": "live-watch-demo-2",
+  "items": [
+    {
+      "item_id": "DEMO-3",
+      "query": "requests migration compatibility redirects",
+      "question": "Does HTTPX follow redirects by default?",
+      "top_k": 3,
+      "as_of": "2023-06-01T00:00:00Z"
+    }
+  ]
+}

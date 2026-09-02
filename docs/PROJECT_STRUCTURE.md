@@ -648,6 +648,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：以 v3 契约（`evidence-assertion-2`/`httpx-extractor-2`）对 30 题基准做第二次 live 运行（DeepSeek `deepseek-v4-flash`，非思考、temperature=0、JSON mode），录制与 summary 以原始证据入库（`artifacts/extraction/httpx-initial-extraction-3.0.0-deepseek-v4-flash-repeat1/`），重放测试钉死。新增 `veritas.evaluation.run_variance` 对照两份冻结录制：run 级（run1 52 候选/4 拒绝 vs run2 66/3）、**key 级重合率 Jaccard 0.457**（共享 37 / 并集 81）、case 级仅 8/30 断言集相同（22 题两轮不同）、拒绝 case 大体稳定（EX-001/002/025 共有）。对照 artifact 冻结（`artifacts/extraction/m2-3-run-variance/summary.json`）+ CI `run-variance` 任务零 diff。
 - 原因：Gate M1 携带项 C3-R 的原始动机是"同一 temperature=0 下措辞逐轮不同，单轮失败分布不能当作模型能力定值"——第二次运行把这句话变成了数字：EX03 4→3、EX04 26→27、key 级 recall 2/32→1/32 都在波动，而 key 级重合率不到一半。这同时解释了 M2 聚合的必要性：结论观测若绑定精确 key，在这种轮次方差下每轮都会翻 churn；簇级身份（19/32 覆盖）正是吸收这一方差的机制。两轮均 critical=0（契约完整性在构造上稳定），质量波动全部集中在改写层面——与 D-031 的职责划分一致。
 
+### D-046：真实模型把 watch 闭环的两个分支都走了一遍，live 证据本身可确定性重放
+
+- 状态：Implemented for M3-C
+- 日期：2026-09-02
+- 决策：(1) `run_t0_init`（`--init-spec`）补上引导缺环：watch 循环前按研究 spec 完成 T0（抽取→聚类→桥装载→初始评估→每 item 一个结论），只触演化库、契约拒绝跳过、重跑安全。(2) 用真实 DeepSeek 调用在真实语料上跑两遍闭环并入库全部证据（spec+录制+报告）：第一遍钉死**事实真变更分支**——旧 Python floor 在 0.28.1 语料中消失，再研究空 bundle 被标记 ignored，结论诚实停在 unknown，agent 不掩饰不假修复；第二遍钉死**幸存事实分支**——redirect 事实经漂移后由聚合重挂回原 claim，结论 pass@1→unknown@2→pass@3。(3) 重放测试以钉住的 observed_at 从 live 录制逐字节复现两份报告。(4) 顺带修复 M3-R 的刷新身份缺陷：身份不再哈希 `documents` 的 token 计费元数据，只覆盖写入图的语义载荷——否则同一语义刷新在 live 与 replay 下 id 不同，live 证据不可重放。
+- 原因：M3 机制此前全部由 fixture 验证；"真实模型驱动的闭环"是 M3 收口前最后一个未知数，而它立即暴露了两件事：真模型的输出会被契约拒绝（citation_not_found——引导必须容忍）、真模型对消失的事实诚实地返回空（这恰恰证明 agent 不该假修复）。修复分支的成功依赖 M2 聚合——同义重申被归回同一 claim。重放测试让"live 跑出来的"和"CI 里可复验的"成为同一份证据，消除"演示是一次性魔法"的可信度缺口。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -686,6 +693,7 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M3 | 自主研究闭环 | M2-2 完成 | watch 模式与自动再研究闭环跑通，可靠性收口后通过 Gate | 进行中（M3-A/M3-B/M3-R 已完成；Gate M3 待评审） |
 | M3-A | 再研究规划器与刷新事务 | M2-2 完成 | 非 PASS 结论 → 确定性 spec；刷新写回 + 结论修复弧线 + 幂等，均有测试 | 已完成：188/188 tests；修复弧线 pass@1→unknown@2→pass@3 钉死 |
 | M3-B | watch 模式与一条命令闭环 | M3-A 完成 | 漂移检测→规划→预算会话→刷新一条命令跑通；第二轮无操作不变式 | 已完成：190/190 tests；CLI replay 端到端（1 请求修复 unknown@2→pass@3）、二轮零操作 |
+| M3-C | 真实模型 live 闭环证据 | M3-R 完成 | T0 引导 + 真实模型两遍闭环（变更/修复双分支）证据入库可重放 | 已完成：206/206 tests；live 报告逐字节可重放；顺带修复刷新身份混入计费元数据 |
 | M3-R | 自主闭环可靠性收口 | M3-B 完成 | 原子 item output、可恢复交付、图事务/身份冲突守卫、双崩溃窗口故障注入 | 已完成：200/200 tests；SQLite reopen 后零额外请求、零重复实体、结论收敛 |
 | Gate M3 | 评审受控自主闭环是否达到阶段出口 | M3-R 完成 | 代码/文档/CI 证据完整，残余边界与下一阶段选择显式登记 | 待评审 |
 
@@ -933,6 +941,15 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] Python 3.14.7 严格 `ResourceWarning` 模式 203/203 tests 通过；
 - [x] README、技术实现文档和项目结构文档同步更新；C3-R 收口。
 
+### 11.23 M3-C 完成记录（2026-09-02）
+
+- [x] `run_t0_init`（`--init-spec`）：watch 循环前完成 T0 引导（抽取→聚类→桥装载→初始评估→每 item 一个结论）；只触演化库、契约拒绝跳过、重跑安全；
+- [x] 真实 live 证据 `artifacts/autonomy/live-watch-demo/`（两遍约 15 请求）：第一遍钉死"事实真变更"分支（3.7 floor 消失 → 再研究空 bundle ignored → 结论诚实 unknown）；第二遍钉死"幸存事实修复"分支（redirect 事实漂移后重挂 → 结论 pass@1→unknown@2→pass@3）；
+- [x] 重放测试：以钉住 `observed_at` 从 live 录制逐字节复现两份报告——live 证据可确定性重验；
+- [x] 顺带修复：刷新身份不再哈希 `documents` 的 token 计费元数据（同一语义刷新在 live/replay 下 id 恒定）；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式 206/206 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -982,6 +999,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-09-02 | M3-C | 真实模型 watch 闭环 live 证据（D-046）：`--init-spec` T0 引导；两遍 live（约 15 请求）钉死双分支——事实真变更诚实停 unknown、幸存事实聚合重挂修复 pass@1→unknown@2→pass@3；报告+录制+spec 入库，重放测试逐字节复现；修复刷新身份混入计费元数据缺陷；206/206 tests |
 | 2026-09-02 | M2-3 | 同契约重复运行对照（D-045）：第二轮 live 30 题（0/30、critical=0、EX03×3/EX04×27）录制入库可重放；`run_variance` 冻结 artifact——run1 52/4 vs run2 66/3 候选、key 级重合率 0.457（37/81）、case 级 8/30 相同；C3-R 收口：单轮分布非能力定值；203/203 tests |
 | 2026-08-31 | M3-R | 可靠性收口（D-044）：runtime schema v3（原子 item+bundle outbox、session contexts、v2 加表迁移）；watch at-least-once + 幂等 refresh；双崩溃窗口 reopen 恢复；完整 refresh identity；GraphBridge 纯构造/全事务；immutable payload conflict；代表 claim 完整身份冻结；200/200 tests |
 | 2026-08-30 | M3-B | watch 模式与一条命令闭环（D-043）：`detect_drift`（活跃源 vs manifest、SAME 内容守卫）+ `run_watch_loop` 四段编排（漂移→规划→预算会话→刷新，漂移事件不带 claims）；CLI `python -m veritas.autonomy`；引擎 `on_item_bundle` 回调、存储 `list_source_versions`；一轮修复 unknown@2→pass@3（1 请求）+ 二轮无操作不变式；190/190 tests |

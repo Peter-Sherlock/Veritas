@@ -72,6 +72,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--rule-version", default="p0-rules-2", help="rule version for assessments"
     )
+    parser.add_argument(
+        "--init-spec",
+        help="optional research spec JSON; bootstrap the evolution store "
+        "(T0 extraction, assessments, one conclusion per item) before the loop",
+    )
     parser.add_argument("--output", help="optional path for the loop report JSON")
     args = parser.parse_args(argv)
 
@@ -85,6 +90,11 @@ def main(argv: list[str] | None = None) -> int:
 
     observed_at = args.observed_at or datetime.now(timezone.utc).isoformat()
     session_id = args.session_id or f"watch-{observed_at}"
+    t0_spec: dict[str, Any] | None = None
+    if args.init_spec:
+        t0_spec = json.loads(Path(args.init_spec).read_text(encoding="utf-8"))
+        if not isinstance(t0_spec, dict) or not t0_spec.get("items"):
+            raise SystemExit("--init-spec must be a JSON object with a non-empty items list")
 
     repository = SQLiteRepository(args.evolution_store)
     runtime_store = RuntimeStore(args.runtime_store)
@@ -132,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
             observed_at=observed_at,
             project_id=args.project_id,
             rule_version=args.rule_version,
+            t0_spec=t0_spec,
             on_item_done=on_item_done,
         )
         if recorder is not None and args.record_out:

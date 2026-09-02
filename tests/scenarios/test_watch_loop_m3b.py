@@ -25,7 +25,12 @@ from pathlib import Path
 
 from veritas.aggregation import ClaimClusterStore
 from veritas.aggregation.resolve import resolve_bundle
-from veritas.autonomy import apply_research_refresh, detect_drift, plan_re_research
+from veritas.autonomy import (
+    apply_research_refresh,
+    detect_drift,
+    plan_re_research,
+    run_t0_init,
+)
 from veritas.autonomy.cli import main as cli_main
 from veritas.autonomy.watch import WatchLoopError, run_watch_loop
 from veritas.domain.enums import ConclusionOutcome
@@ -33,6 +38,8 @@ from veritas.extraction.pipeline import (
     EXTRACTION_SYSTEM_PROMPT,
     ResearchExtractionPipeline,
     build_extraction_prompt,
+    claim_id_for,
+    derive_canonical_key,
 )
 from veritas.integration import GraphBridge
 from veritas.invalidation.repair import ChangePackage, EvolutionEngine
@@ -509,6 +516,91 @@ class WatchLoopM3BTests(unittest.TestCase):
             self.assertEqual(
                 {"retry_fact_supported": "pass"}, report["final_conclusion_outcomes"]
             )
+
+    def test_t0_init_bootstraps_and_is_rerun_safe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            corpus = _build_corpus(root / "corpus")
+            repository = SQLiteRepository(root / "evolution.db")
+            clusters = ClaimClusterStore(root / "clusters.sqlite3")
+            runtime_store = RuntimeStore(root / "runtime.db")
+            try:
+                spec = {
+                    "session_id": "m3b-init",
+                    "items": [
+                        {
+                            "item_id": "EX-A",
+                            "query": "retries",
+                            "question": QUESTION,
+                            "top_k": 3,
+                        }
+                    ],
+                }
+                t0_document = corpus.fetch("retries", "2.0")
+                responses = {
+                    fixture_key(
+                        EXTRACTION_SYSTEM_PROMPT,
+                        build_extraction_prompt(QUESTION, t0_document),
+                    ): json.dumps(
+                        {
+                            "assertions": [
+                                {
+                                    "statement": PARAPHRASE_STATEMENT,
+                                    "relation": "supports",
+                                    "quote": QUOTE,
+                                }
+                            ]
+                        }
+                    )
+                }
+                provider = FixtureLLM(responses, model_id="m3b-model")
+                init = run_t0_init(
+                    repository=repository,
+                    corpus=corpus,
+                    provider=provider,
+                    cluster_store=clusters,
+                    spec=spec,
+                    observed_at=OBSERVED_AT,
+                    rule_version=RULE_VERSION,
+                )
+                self.assertEqual(1, init["assessments"])
+                self.assertEqual(
+                    [{"conclusion_key": "t0_ex_a", "outcome": "pass"}],
+                    init["conclusions"],
+                )
+                claims = init["items"][0]["claims"]
+                self.assertEqual(1, len(claims))
+                # The bootstrap claim is the cluster representative's id.
+                self.assertEqual(
+                    claim_id_for(derive_canonical_key(PARAPHRASE_STATEMENT)),
+                    claims[0],
+                )
+                # The bootstrap conclusion is the stored current view.
+                from veritas.domain.enums import ConclusionOutcome
+
+                self.assertEqual(
+                    ConclusionOutcome.PASS,
+                    repository.get_current_conclusion("t0_ex_a").outcome,
+                )
+                counts = repository.entity_counts()
+                rerun = run_t0_init(
+                    repository=repository,
+                    corpus=corpus,
+                    provider=provider,
+                    cluster_store=clusters,
+                    spec=spec,
+                    observed_at=OBSERVED_AT,
+                    rule_version=RULE_VERSION,
+                )
+                # Rerun-safe: nothing new lands. Already-assessed claims
+                # are skipped (assessments: 0), conclusions unchanged.
+                self.assertEqual(0, rerun["assessments"])
+                self.assertEqual(init["conclusions"], rerun["conclusions"])
+                self.assertEqual(counts, repository.entity_counts())
+            finally:
+                clusters.close()
+                runtime_store.close()
+                repository.close()
 
 
 if __name__ == "__main__":

@@ -22,9 +22,11 @@ semantics of the M1-5B benchmark carry over to live watching.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from veritas.aggregation.resolve import resolve_bundle
 from veritas.autonomy.planner import plan_re_research
 from veritas.autonomy.refresh import apply_research_refresh
 from veritas.invalidation.repair import ChangePackage, EvolutionEngine
@@ -43,6 +45,115 @@ class Drift:
     doc_id: str
     current_version: str
     latest_version: str
+
+
+def run_t0_init(
+    *,
+    repository: SQLiteRepository,
+    corpus: LocalCorpusProvider,
+    provider: Any,
+    cluster_store: Any = None,
+    candidates_store: Any = None,
+    spec: dict[str, Any],
+    observed_at: str,
+    rule_version: str,
+) -> dict[str, Any]:
+    """Bootstrap the evolution store from a research spec (M3-C).
+
+    Runs every spec item through the extraction pipeline (live or replay
+    provider), loads the resolved bundles via the bridge, assesses all
+    claims and creates one ``all_accepted`` conclusion per item watching
+    that item's claims. Bootstrap touches only the evolution store — the
+    watch loop's session/context machinery is untouched. Re-running is
+    safe by construction: graph rows are INSERT OR IGNORE and claims that
+    already carry an assessment are skipped.
+    """
+    from veritas.extraction.pipeline import ResearchExtractionPipeline
+    from veritas.extraction.store import candidates_from_document
+    from veritas.extraction.models import ExtractionContractError
+
+    pipeline = ResearchExtractionPipeline(
+        corpus, provider, source_namespace=corpus.corpus_id
+    )
+    bridge = GraphBridge(repository, corpus)
+    item_results: list[dict[str, Any]] = []
+    for item in spec["items"]:
+        try:
+            bundle = pipeline.run(
+                query=item["query"],
+                question=item["question"],
+                reasoned_at=observed_at,
+                top_k=int(item.get("top_k", 3)),
+                as_of=item.get("as_of"),
+            )
+        except ExtractionContractError as exc:
+            # A rejected bootstrap item contributes nothing; the loop's
+            # honest state (no claims -> no conclusion for it) persists.
+            item_results.append(
+                {
+                    "item_id": item["item_id"],
+                    "question": item["question"],
+                    "claims": [],
+                    "rejected": exc.code,
+                }
+            )
+            continue
+        if cluster_store is not None:
+            bundle = resolve_bundle(bundle, cluster_store, observed_at=observed_at)
+        if candidates_store is not None:
+            records = [
+                record
+                for document in bundle.documents
+                for record in candidates_from_document(
+                    document, source_namespace=corpus.corpus_id
+                )
+            ]
+            candidates_store.persist(
+                records,
+                run_id=f"init:{spec['session_id']}",
+                observed_at=observed_at,
+            )
+        bridge.load_bundle(bundle, observed_at=observed_at)
+        item_results.append(
+            {
+                "item_id": item["item_id"],
+                "question": item["question"],
+                "claims": [claim.claim_id for claim in bundle.claims],
+            }
+        )
+    assessments = bridge.record_initial_assessments(
+        snapshot_id=f"{spec['session_id']}:T0",
+        rule_version=rule_version,
+        reasoned_at=observed_at,
+    )
+    conclusions = []
+    for result in item_results:
+        if not result["claims"]:
+            continue
+        question = result["question"]
+        safe_item_id = re.sub(r"[^a-z0-9]+", "_", result["item_id"].lower()).strip("_")
+        conclusion = bridge.record_initial_conclusion(
+            conclusion_key=f"t0_{safe_item_id}",
+            claim_ids=tuple(result["claims"]),
+            pass_statement=(
+                f"All claims for {question!r} are supported by current sources."
+            ),
+            fail_statement=(
+                f"At least one claim for {question!r} is no longer supported; "
+                "re-research required."
+            ),
+            rule_version=rule_version,
+            reasoned_at=observed_at,
+        )
+        conclusions.append(
+            {"conclusion_key": conclusion.conclusion_key, "outcome": conclusion.outcome.value}
+        )
+    return {
+        "session_id": spec["session_id"],
+        "items": item_results,
+        "assessments": len(assessments),
+        "conclusions": conclusions,
+    }
 
 
 class WatchLoopError(ValueError):
@@ -199,11 +310,12 @@ def run_watch_loop(
     project_id: str,
     rule_version: str,
     candidates_store: Any = None,
+    t0_spec: dict[str, Any] | None = None,
     top_k: int = 3,
     requests_per_item: int = 3,
     on_item_done: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
-    """One autonomous pass: drift -> plan -> research -> refresh."""
+    """One autonomous pass: (bootstrap) -> drift -> plan -> research -> refresh."""
     bridge = GraphBridge(repository, corpus)
     engine = EvolutionEngine(repository)
     requested_context = _watch_context(
@@ -219,12 +331,27 @@ def run_watch_loop(
     report: dict[str, Any] = {
         "session_id": session_id,
         "observed_at": observed_at,
+        "t0": None,
         "drift_applied": [],
         "plan": None,
         "session": None,
         "refreshes": [],
         "ignored_outputs": [],
     }
+
+    if t0_spec is not None:
+        # Bootstrap runs before any session machinery: it only touches the
+        # evolution store, so it cannot collide with session contexts.
+        report["t0"] = run_t0_init(
+            repository=repository,
+            corpus=corpus,
+            provider=provider,
+            cluster_store=cluster_store,
+            candidates_store=candidates_store,
+            spec=t0_spec,
+            observed_at=observed_at,
+            rule_version=rule_version,
+        )
 
     existing_session = runtime_store.find_session(session_id)
     if existing_session is not None:

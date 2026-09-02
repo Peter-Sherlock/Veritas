@@ -1,0 +1,19 @@
+{
+  "session_id": "live-watch-demo",
+  "items": [
+    {
+      "item_id": "DEMO-1",
+      "query": "requires python installation pip",
+      "question": "Which Python version does HTTPX require?",
+      "top_k": 3,
+      "as_of": "2023-06-01T00:00:00Z"
+    },
+    {
+      "item_id": "DEMO-2",
+      "query": "requests migration compatibility redirects",
+      "question": "How does HTTPX redirect behaviour differ from requests?",
+      "top_k": 3,
+      "as_of": "2023-06-01T00:00:00Z"
+    }
+  ]
+}

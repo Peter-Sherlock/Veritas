@@ -1,0 +1,101 @@
+{
+  "drift_applied": [
+    {
+      "change_event_id": "CHG_COMPATIBILITY_0.24.1_TO_0.28.1",
+      "doc_id": "compatibility",
+      "new_version": "0.28.1",
+      "old_version": "0.24.1"
+    },
+    {
+      "change_event_id": "CHG_QUICKSTART_0.24.1_TO_0.28.1",
+      "doc_id": "quickstart",
+      "new_version": "0.28.1",
+      "old_version": "0.24.1"
+    }
+  ],
+  "final_conclusion_outcomes": {
+    "t0_demo_1": "unknown",
+    "t0_demo_3": "pass"
+  },
+  "ignored_outputs": [
+    "RR-001"
+  ],
+  "observed_at": "2026-09-02T15:04:17.196592+00:00",
+  "outbox": {
+    "applied": 1,
+    "ignored": 1,
+    "outputs": 2,
+    "pending": 0
+  },
+  "plan": {
+    "budget_requests": 6,
+    "items": [
+      {
+        "item_id": "RR-001",
+        "query": "httpx requires python 3.7",
+        "question": "HTTPX requires Python 3.7+",
+        "top_k": 3
+      },
+      {
+        "item_id": "RR-002",
+        "query": "httpx not follow redirects default",
+        "question": "HTTPX does not follow redirects by default.",
+        "top_k": 3
+      }
+    ],
+    "session_id": "live-watch-2"
+  },
+  "refreshes": [
+    {
+      "created_conclusions": [
+        "t0_demo_3@3"
+      ],
+      "reassessed_claims": [
+        {
+          "claim_id": "claim:833f91c691d4325e25ed",
+          "new_state": "accepted",
+          "old_state": "unsupported"
+        }
+      ],
+      "rechecked_unchanged": [],
+      "recomputed_conclusions": [
+        "t0_demo_3"
+      ],
+      "refresh_id": "refresh-f364f7490f7a753899025877",
+      "refreshed_at": "2026-09-02T15:04:17.196592+00:00",
+      "rule_version": "p0-rules-2",
+      "semantic_changed_claims": [
+        "claim:833f91c691d4325e25ed"
+      ],
+      "session_id": "live-watch-2"
+    }
+  ],
+  "session": {
+    "budget_requests": 6,
+    "items_completed": 2,
+    "items_pending": 0,
+    "items_rejected": 0,
+    "requests_spent": 6,
+    "status": "completed"
+  },
+  "session_id": "live-watch-2",
+  "t0": {
+    "assessments": 1,
+    "conclusions": [
+      {
+        "conclusion_key": "t0_demo_3",
+        "outcome": "pass"
+      }
+    ],
+    "items": [
+      {
+        "claims": [
+          "claim:833f91c691d4325e25ed"
+        ],
+        "item_id": "DEMO-3",
+        "question": "Does HTTPX follow redirects by default?"
+      }
+    ],
+    "session_id": "live-watch-demo-2"
+  }
+}

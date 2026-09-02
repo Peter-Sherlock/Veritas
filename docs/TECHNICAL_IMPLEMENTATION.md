@@ -1750,7 +1750,26 @@ v3 契约原样重跑 30 题 live 校准（`deepseek-v4-flash`，非思考、tem
 
 结论登记：EX03 4→3、EX04 26→27、recall 2/32→1/32 的波动证实**单轮失败分布不是能力定值**（C3-R 收口）；两轮 critical 均为 0——契约完整性在构造上稳定，波动全部集中在改写层，这正是 M2-1 簇级身份要吸收的方差（19/32 簇级覆盖）。对照 artifact 冻结 + CI `run-variance` 零 diff。
 
-## 39. 当前限制
+## 39. M3-C 真实模型驱动的 watch 闭环（live 证据）
+
+### 39.1 T0 引导（--init-spec）
+
+`run_t0_init`（`autonomy/watch.py`）让 `python -m veritas.autonomy --init-spec` 在 watch 循环前完成引导：逐 item 走抽取管线（live/replay），经 `resolve_bundle`（聚类）后由桥装载、全量初始评估、每 item 一个 `all_accepted` 结论（key 由 item_id 消毒派生）。引导只触演化库，不碰会话/上下文机制；契约拒绝的 item 记录 `rejected` 后跳过（不崩溃）；重跑安全（INSERT OR IGNORE + 已评估跳过）。
+
+### 39.2 真实 live 证据（`artifacts/autonomy/live-watch-demo/`，D-046）
+
+两遍 live 调用（DeepSeek `deepseek-v4-flash`，真实语料、真实漂移、共约 15 请求）：
+
+- **第一遍**（init + watch-1）：DEMO-2 被契约正确拒绝（`citation_not_found`）；三个真实漂移（advanced→0.26.0、async→0.28.1、index→0.28.1）；再研究对旧事实（Python 3.7+）在 0.28.1 语料中**找不到证据**——空 bundle 被标记 ignored，结论诚实停在 unknown。这是"事实真变更"分支：agent 不掩饰、不假修复。
+- **第二遍**（init DEMO-3 + watch-2）：幸存事实（redirect 行为）引导通过后遭遇真实漂移（compatibility/quickstart→0.28.1）；再研究在新版本重申同一事实，刷新把它重挂回原 claim——结论 **pass@1 → unknown@2 → pass@3**（`t0_demo_3@3`）。这是"事实幸存 + 聚合重挂"分支。
+
+两份报告 + 两份录制 + 两份 spec 全部入库；重放测试以钉住的 `observed_at` 从录制逐字节复现两份报告——live 证据本身可确定性重验。
+
+### 39.3 顺带的身份修复（D-046）
+
+演示暴露了一个真问题：M3-R 的刷新身份哈希了整个 bundle（含 `documents` 的 token 计费元数据），导致同一语义刷新在 live 与 replay 下 id 不同。已修复为只对**写入图的语义载荷**（claims/evidence/edges + session/rule）取身份——计费元数据不是语义，不该参与内容寻址。
+
+## 40. 当前限制
 
 - 自主 planner 只处理本地版本化语料上的非 PASS `all_accepted` 结论；没有真实网页发现、抓取、版本轮询或开放式工具规划；
 - M3-R 证明单机 SQLite reopen/replay 和单 writer 事务边界，不证明任意 OS kill 点、多进程争用、网络分区、分布式 exactly-once 或性能上限；
@@ -1763,10 +1782,11 @@ v3 契约原样重跑 30 题 live 校准（`deepseek-v4-flash`，非思考、tem
 
 因此，当前可以确认的是：M3-B 的本地自主闭环已具备可持久恢复的 item 输出、幂等图交付、严格事务/身份冲突守卫和恢复上下文约束；不能据此声称真实 Web Research、通用模型质量或生产级容灾已经完成。
 
-## 40. 变更记录
+## 41. 变更记录
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-09-02 | M3-C | 真实模型 watch 闭环 live 证据（D-046）：`--init-spec` T0 引导；两遍 live（约 15 请求）钉死两条分支——事实真变更诚实停 unknown、幸存事实经聚合重挂修复 pass@1→unknown@2→pass@3；报告+录制+spec 入库，重放测试逐字节复现；顺带修复刷新身份混入计费元数据的缺陷；206/206 tests |
 | 2026-09-02 | M2-3 | 同契约重复运行对照（D-045）：第二轮 live 30 题录制入库可重放（0/30、critical=0）；`run_variance` 冻结 artifact——key 级重合率 0.457（37/81）、case 级 8/30 相同；C3-R 收口：单轮分布非能力定值；203/203 tests |
 | 2026-08-31 | M3-R | 可靠性收口（D-044）：runtime schema v3（原子 item+bundle outbox、session contexts、v2 加表迁移）；watch at-least-once/幂等 refresh 交付与双崩溃窗口恢复；完整 refresh identity；GraphBridge 纯构造 + bundle 事务；immutable payload 冲突显式拒绝；代表 claim 完整身份冻结；live 录制按 item 保存；200/200 tests |
 | 2026-08-30 | M3-B | watch 模式与一条命令闭环（D-043）：`detect_drift` + `run_watch_loop` 四段编排（漂移→规划→预算会话→刷新，漂移事件不带 claims）；CLI `python -m veritas.autonomy`；引擎 `on_item_bundle`、存储 `list_source_versions`；一轮修复 unknown@2→pass@3 + 二轮无操作不变式；190/190 tests |
