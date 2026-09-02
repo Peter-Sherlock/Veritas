@@ -641,6 +641,13 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 - 决策：(1) runtime schema 升为 `research-runtime-3`，新增 `item_outputs`，完整 bundle 与 work item `completed` 同事务提交；交付状态为 pending/applied/ignored，bundle 可从 canonical JSON 重建，v2 加表迁移；(2) watch 改为 at-least-once drain：先提交幂等 `apply_research_refresh`、再确认 outbox，启动和结束各 drain 一次；完整 refresh identity 覆盖 session/rule/bundle/edges；(3) `session_contexts` 钉住 corpus、model、cluster/candidate store、project、rule 和首次时间语义，稳定配置漂移 fail closed；(4) `GraphBridge.revision_event` 纯构造，`load_bundle` 全事务，SQLite immutable rows 对同 ID 不同 payload 显式报错；代表 claim 冻结 statement/key/founder time，EvolutionEngine 只复用同语义 claim；(5) live recording 在每个 item 终态保存。
 - 原因：M3-B 的回调把 bundle 留在进程内存，存在“item 已完成但 callback 丢失”和“图已提交但 delivery ack 丢失”两个确定性窗口；`INSERT OR IGNORE` 还会把身份冲突伪装成幂等。可靠性收口必须让 source of truth 位于 SQLite，并把跨库交付定义成 at-least-once + idempotent sink，而不是声称无法证明的跨库原子提交。故障注入分别切在两个窗口并关闭/重开三个 SQLite store；恢复后不增请求、不增重复实体、结论收敛。边界仍是单机单 writer，不外推分布式 exactly-once。
 
+### D-045：C3-R 收口——同契约重复运行证明单轮分布不是能力定值，key 级重合率仅 45.7%
+
+- 状态：Implemented for M2-3
+- 日期：2026-09-02
+- 决策：以 v3 契约（`evidence-assertion-2`/`httpx-extractor-2`）对 30 题基准做第二次 live 运行（DeepSeek `deepseek-v4-flash`，非思考、temperature=0、JSON mode），录制与 summary 以原始证据入库（`artifacts/extraction/httpx-initial-extraction-3.0.0-deepseek-v4-flash-repeat1/`），重放测试钉死。新增 `veritas.evaluation.run_variance` 对照两份冻结录制：run 级（run1 52 候选/4 拒绝 vs run2 66/3）、**key 级重合率 Jaccard 0.457**（共享 37 / 并集 81）、case 级仅 8/30 断言集相同（22 题两轮不同）、拒绝 case 大体稳定（EX-001/002/025 共有）。对照 artifact 冻结（`artifacts/extraction/m2-3-run-variance/summary.json`）+ CI `run-variance` 任务零 diff。
+- 原因：Gate M1 携带项 C3-R 的原始动机是"同一 temperature=0 下措辞逐轮不同，单轮失败分布不能当作模型能力定值"——第二次运行把这句话变成了数字：EX03 4→3、EX04 26→27、key 级 recall 2/32→1/32 都在波动，而 key 级重合率不到一半。这同时解释了 M2 聚合的必要性：结论观测若绑定精确 key，在这种轮次方差下每轮都会翻 churn；簇级身份（19/32 覆盖）正是吸收这一方差的机制。两轮均 critical=0（契约完整性在构造上稳定），质量波动全部集中在改写层面——与 D-031 的职责划分一致。
+
 ## 10. 阶段与门槛
 
 | 阶段 | 目标 | 进入条件 | 退出条件 | 状态 |
@@ -672,9 +679,10 @@ P0 的图传播、状态评估、版本创建和指标计算全部确定性执�
 | M1-5 | 端到端演化集成 | M1-4 完成 | 真实抽取图上的 evolution benchmark 跑通 | 已完成（M1-5A 集成桥 + M1-5B 规模 benchmark） |
 | Gate M1 | 判断初始研究与搜索是否达到进入 M2 的完成度 | M1-5B 完成 | M1 出口条件逐项核验、遗留差距显式携带进 M2 | 已评审：通过（附携带项 C2/C3-R/C4，D-039） |
 | M1 | 初始研究与搜索 | Gate P0 通过 | 见 Gate M1 出口条件（D-039） | 已完成（M1-1/1R、M1-2 全部、M1-3、M1-4、M1-5） |
-| M2 | 从候选到可信图（语义质量档） | Gate M1 通过 | 簇级身份落地、真实模型簇级基线重测、方差口径钉死 | 进行中（M2-1/M2-2 已完成；M2-3 待做） |
+| M2 | 从候选到可信图（语义质量档） | Gate M1 通过 | 簇级身份落地、真实模型簇级基线重测、方差口径钉死 | 已完成（M2-1/2/3；C2、C3-R 均已兑现） |
 | M2-1 | 候选语义聚合 | Gate M1 通过 | 确定性相似度 + 硬守卫的簇存储、运行时可选接入、真录簇级校准与负向校准 | 已完成：178/178 tests；真录簇级覆盖 19/32 vs 精确 key 3/32，阈值 0.375 冻结 |
 | M2-2 | 簇级结论与冻结校准 | M2-1 完成 | 演化侧改写幸存 vs churn 对照场景、校准 artifact 进 CI 零 diff | 已完成：179/179 tests；开簇零 churn（结论停 v1）/ 关簇 churn（pass→unknown）对照钉死 |
+| M2-3 | 同契约重复运行对照 | M2-2 完成 | 第二轮 live 录制入库可重放、两轮方差 artifact 进 CI 零 diff | 已完成：203/203 tests；key 级重合率 0.457、case 级 8/30 相同，单轮分布非能力定值（C3-R 收口） |
 | M3 | 自主研究闭环 | M2-2 完成 | watch 模式与自动再研究闭环跑通，可靠性收口后通过 Gate | 进行中（M3-A/M3-B/M3-R 已完成；Gate M3 待评审） |
 | M3-A | 再研究规划器与刷新事务 | M2-2 完成 | 非 PASS 结论 → 确定性 spec；刷新写回 + 结论修复弧线 + 幂等，均有测试 | 已完成：188/188 tests；修复弧线 pass@1→unknown@2→pass@3 钉死 |
 | M3-B | watch 模式与一条命令闭环 | M3-A 完成 | 漂移检测→规划→预算会话→刷新一条命令跑通；第二轮无操作不变式 | 已完成：190/190 tests；CLI replay 端到端（1 请求修复 unknown@2→pass@3）、二轮零操作 |
@@ -917,6 +925,14 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 - [x] Python 3.14.7 严格 `ResourceWarning` 模式本地全量 200/200 tests 通过；Python 3.11 和远端 CI 留给 Gate M3 再确认；
 - [x] README、技术实现文档和项目结构文档同步更新，生产级容灾外推限制保留。
 
+### 11.22 M2-3 完成记录（2026-09-02）
+
+- [x] 第二轮 live 校准（v3 契约、`deepseek-v4-flash`、非思考 temperature=0）：0/30、critical=0、EX03×3/EX04×27、citation alignment 0.9、key 级 recall 1/32；录制 + summary 入库 `artifacts/extraction/httpx-initial-extraction-3.0.0-deepseek-v4-flash-repeat1/`，重放测试逐字节钉死；
+- [x] `veritas.evaluation.run_variance` 两轮对照模块 + 冻结 artifact `artifacts/extraction/m2-3-run-variance/summary.json`：run1 52 候选/4 拒绝 vs run2 66/3，key 级重合率 Jaccard 0.457（37/81），case 级 8/30 相同，拒绝 case 大体稳定；
+- [x] CI 新增 `run-variance` 任务（重生成 + 零 diff）；
+- [x] Python 3.14.7 严格 `ResourceWarning` 模式 203/203 tests 通过；
+- [x] README、技术实现文档和项目结构文档同步更新；C3-R 收口。
+
 ## 12. 文档更新检查表
 
 每个阶段结束前检查：
@@ -966,6 +982,7 @@ Gate P0 的正式结果应记录为通过、附条件通过或不通过，并说
 
 | 日期 | 阶段 | 变更 |
 | --- | --- | --- |
+| 2026-09-02 | M2-3 | 同契约重复运行对照（D-045）：第二轮 live 30 题（0/30、critical=0、EX03×3/EX04×27）录制入库可重放；`run_variance` 冻结 artifact——run1 52/4 vs run2 66/3 候选、key 级重合率 0.457（37/81）、case 级 8/30 相同；C3-R 收口：单轮分布非能力定值；203/203 tests |
 | 2026-08-31 | M3-R | 可靠性收口（D-044）：runtime schema v3（原子 item+bundle outbox、session contexts、v2 加表迁移）；watch at-least-once + 幂等 refresh；双崩溃窗口 reopen 恢复；完整 refresh identity；GraphBridge 纯构造/全事务；immutable payload conflict；代表 claim 完整身份冻结；200/200 tests |
 | 2026-08-30 | M3-B | watch 模式与一条命令闭环（D-043）：`detect_drift`（活跃源 vs manifest、SAME 内容守卫）+ `run_watch_loop` 四段编排（漂移→规划→预算会话→刷新，漂移事件不带 claims）；CLI `python -m veritas.autonomy`；引擎 `on_item_bundle` 回调、存储 `list_source_versions`；一轮修复 unknown@2→pass@3（1 请求）+ 二轮无操作不变式；190/190 tests |
 | 2026-08-30 | M3-A | 自主闭环前两块拼图（D-042）：`src/veritas/autonomy/`——`plan_re_research`（非 PASS 结论 → runtime spec 格式确定性研究计划，claim 去重、数字入查询词）+ `apply_research_refresh`（活跃源守卫、引擎同款转换契约、`research_refreshes` 审计表、refresh_id 幂等）；修复弧线 pass@1→unknown@2→pass@3 场景钉死；188/188 tests |

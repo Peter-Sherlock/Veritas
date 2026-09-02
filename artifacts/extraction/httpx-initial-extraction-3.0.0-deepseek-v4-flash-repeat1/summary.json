@@ -1,0 +1,1682 @@
+{
+  "benchmark_id": "httpx-initial-extraction",
+  "benchmark_version": "3.0.0",
+  "case_count": 30,
+  "cases": [
+    {
+      "actual_assertion_count": 0,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-001",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "http2",
+      "failures": [
+        {
+          "actual": "rejected (citation_ambiguous)",
+          "entity_refs": [
+            "EX-001"
+          ],
+          "expected": "provider response passes the extraction contract",
+          "failure_code": "EX03_CITATION_REJECTION",
+          "reason": {
+            "message": "citation_ambiguous: assertions[0].quote occurs 2 times",
+            "pipeline_code": "citation_ambiguous"
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "http2",
+        "index",
+        "advanced"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 0,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-002",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "http2",
+      "failures": [
+        {
+          "actual": "rejected (citation_not_found)",
+          "entity_refs": [
+            "EX-002"
+          ],
+          "expected": "provider response passes the extraction contract",
+          "failure_code": "EX03_CITATION_REJECTION",
+          "reason": {
+            "message": "citation_not_found: assertions[0].quote is not an exact document substring",
+            "pipeline_code": "citation_not_found"
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "http2",
+        "index",
+        "advanced"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-003",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "async",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-003"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "Do not instantiate multiple AsyncClient instances inside a hot loop"
+            ],
+            "unexpected_statements": [
+              "In an async hot loop, you should avoid instantiating multiple client instances, for example by using `async with` inside a \"hot loop\"."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "async",
+        "api",
+        "advanced"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 2,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-004",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "environment_variables",
+      "failures": [
+        {
+          "actual": "1 missing, 2 unexpected",
+          "entity_refs": [
+            "EX-004"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "Set trust_env to False to make HTTPX ignore environment variables"
+            ],
+            "unexpected_statements": [
+              "HTTPX can ignore environment variables by setting trust_env to False on the client via httpx.Client(trust_env=False).",
+              "HTTPX can ignore environment variables by setting trust_env to False using the top-level API, such as httpx.get(\"<url>\", trust_env=False)."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "environment_variables",
+        "contributing"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-005",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "quickstart",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-005"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "Response history lists followed redirect responses in order"
+            ],
+            "unexpected_statements": [
+              "The history property of the response contains a list of any redirect responses that were followed, in the order in which they were made."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "quickstart",
+        "compatibility",
+        "advanced"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-006",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "advanced",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-006"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "WSGITransport uses remote_addr to set the request client address"
+            ],
+            "unexpected_statements": [
+              "The WSGI transport option that sets the request client address is remote_addr."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "advanced",
+        "quickstart",
+        "api"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-007",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "contributing",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-007"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "The scripts/test command runs the HTTPX test suite"
+            ],
+            "unexpected_statements": [
+              "The project script that runs the HTTPX test suite is scripts/test."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "contributing",
+        "advanced",
+        "compatibility"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 2,
+      "assertion_precision": 0.5,
+      "assertion_recall": 1.0,
+      "case_id": "EX-008",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "compatibility",
+      "failures": [
+        {
+          "actual": "0 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-008"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [],
+            "unexpected_statements": [
+              "HTTPX does not follow redirects by default."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 2,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-009",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "troubleshooting",
+      "failures": [
+        {
+          "actual": "1 missing, 2 unexpected",
+          "entity_refs": [
+            "EX-009"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "Use an http URL scheme for the proxy instead of https"
+            ],
+            "unexpected_statements": [
+              "The proxy URL for the https:// key should use the http:// scheme.",
+              "The recommended proxy URL scheme for HTTPS destinations is HTTP, not HTTPS, when the proxy does not support HTTPS connections."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 3,
+      "retrieved_doc_ids": [
+        "advanced",
+        "quickstart",
+        "troubleshooting"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-010",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "index",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-010"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "The zstandard optional dependency enables zstd response decoding"
+            ],
+            "unexpected_statements": [
+              "The optional dependency zstandard enables decoding for zstd compressed responses."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "index",
+        "contributing"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 2,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-011",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "quickstart",
+      "failures": [
+        {
+          "actual": "1 missing, 2 unexpected",
+          "entity_refs": [
+            "EX-011"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "HTTPX default timeout for network inactivity is five seconds"
+            ],
+            "unexpected_statements": [
+              "HTTPX's default behavior is to raise a TimeoutException after 5 seconds of network inactivity.",
+              "HTTPX's default timeout for network inactivity is five seconds."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "quickstart",
+        "compatibility"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 2,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-012",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "quickstart",
+      "failures": [
+        {
+          "actual": "1 missing, 2 unexpected",
+          "entity_refs": [
+            "EX-012"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "Complicated request data structures are sent using JSON encoding instead of form encoding"
+            ],
+            "unexpected_statements": [
+              "Complicated JSON request bodies are sent using the json parameter.",
+              "The json parameter is used to send JSON encoded data in HTTPX requests."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "quickstart",
+        "compatibility"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-013",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "quickstart",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-013"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "HTTPX stream iteration normalises all line endings to \\n"
+            ],
+            "unexpected_statements": [
+              "HTTPX will use universal line endings, normalising all cases to \\n."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "quickstart",
+        "compatibility",
+        "async"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 11,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-014",
+      "exact_match": false,
+      "expected_assertion_count": 2,
+      "expected_doc_id": "quickstart",
+      "failures": [
+        {
+          "actual": "2 missing, 11 unexpected",
+          "entity_refs": [
+            "EX-014"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "Streaming responses are consumed inside a with block without loading the whole body into memory",
+              "response.content and response.text are unavailable inside a streaming block"
+            ],
+            "unexpected_statements": [
+              "HTTPX allows conditional loading of the response body by calling r.read() within a streaming context.",
+              "HTTPX can access raw bytes without automatic content decoding using iter_raw().",
+              "HTTPX can stream text line-by-line using the iter_lines() method.",
+              "HTTPX can stream the binary content of a response using the iter_bytes() method.",
+              "HTTPX can stream the text of a response using the iter_text() method.",
+              "HTTPX normalizes line endings to '\\n' when streaming text.",
+              "HTTPX supports monitoring download progress of large responses using response streaming and the response.num_bytes_downloaded property.",
+              "HTTPX supports monitoring upload progress of large responses using request content generator streaming.",
+              "HTTPX supports streaming responses for large downloads that do not load the entire response body into memory at once.",
+              "The total number of bytes returned by response.content or response.iter_content() will not always correspond with the raw content length of the response if HTTP response compression is being used.",
+              "When using streaming responses, the response.content and response.text attributes are not available and will raise errors if accessed."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "quickstart",
+        "advanced",
+        "async"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 3,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-015",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "async",
+      "failures": [
+        {
+          "actual": "1 missing, 3 unexpected",
+          "entity_refs": [
+            "EX-015"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "HTTPX supports asyncio and trio as async environments"
+            ],
+            "unexpected_statements": [
+              "HTTPX auto-detects which of asyncio or trio to use as the backend for socket operations and concurrency primitives.",
+              "HTTPX supports async environments.",
+              "HTTPX supports either asyncio or trio as an async environment."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "async",
+        "advanced",
+        "index"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-016",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "async",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-016"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "An AsyncClient can be closed explicitly with await client.aclose()"
+            ],
+            "unexpected_statements": [
+              "An AsyncClient can be closed explicitly using the await client.aclose() method."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "async",
+        "compatibility"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 2,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-017",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "compatibility",
+      "failures": [
+        {
+          "actual": "1 missing, 2 unexpected",
+          "entity_refs": [
+            "EX-017"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "HTTPX does not follow redirects by default, unlike requests"
+            ],
+            "unexpected_statements": [
+              "HTTPX does not follow redirects by default for all HTTP methods.",
+              "HTTPX does not follow redirects by default."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-018",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "compatibility",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-018"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "HTTPX encodes str request bodies as utf-8, not latin1 like Requests"
+            ],
+            "unexpected_statements": [
+              "HTTPX does not encode string request bodies as latin1 like Requests; it uses utf-8."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 2,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-019",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "compatibility",
+      "failures": [
+        {
+          "actual": "1 missing, 2 unexpected",
+          "entity_refs": [
+            "EX-019"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "Cookies must be set on the client instance, not passed per request"
+            ],
+            "unexpected_statements": [
+              "Cookies can be passed per request on a Client instance.",
+              "Cookies cannot be passed per request on a Client instance."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-020",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "environment_variables",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-020"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "NO_PROXY disables the proxy for a comma-separated list of hostnames and urls"
+            ],
+            "unexpected_statements": [
+              "The NO_PROXY environment variable disables the proxy for specific urls."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "environment_variables",
+        "troubleshooting"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 3,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-021",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "environment_variables",
+      "failures": [
+        {
+          "actual": "1 missing, 3 unexpected",
+          "entity_refs": [
+            "EX-021"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "Environment variables are ignored when trust_env is set to False"
+            ],
+            "unexpected_statements": [
+              "HTTPX can be configured to ignore environment variables by setting trust_env to False.",
+              "HTTPX can ignore environment variables by setting trust_env=False on the client via httpx.Client(trust_env=False).",
+              "HTTPX can ignore environment variables by setting trust_env=False using the top-level API, such as httpx.get(\"<url>\", trust_env=False)."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "environment_variables",
+        "advanced",
+        "async"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 5,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-022",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "troubleshooting",
+      "failures": [
+        {
+          "actual": "1 missing, 5 unexpected",
+          "entity_refs": [
+            "EX-022"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "HTTPX does not properly support HTTPS proxies at this time"
+            ],
+            "unexpected_statements": [
+              "HTTPX does not properly support HTTPS proxies at this time.",
+              "HTTPX supports HTTPS proxies.",
+              "HTTPX supports HTTPS proxies.",
+              "HTTPX supports HTTPS proxies.",
+              "HTTPX supports setting up HTTP proxies via the proxy parameter."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 3,
+      "retrieved_doc_ids": [
+        "advanced",
+        "quickstart",
+        "troubleshooting"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-023",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "troubleshooting",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-023"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "HTTPS proxy handshake timeouts are fixed by changing the proxy scheme from https:// to http://"
+            ],
+            "unexpected_statements": [
+              "The proxy handshake timeout on HTTPS requests is resolved by changing the scheme of the HTTPS proxy to http:// instead of https://."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "troubleshooting",
+        "environment_variables"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-024",
+      "exact_match": false,
+      "expected_assertion_count": 2,
+      "expected_doc_id": "advanced",
+      "failures": [
+        {
+          "actual": "2 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-024"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "Client event hooks are called every time a particular type of event takes place",
+              "HTTPX currently has two event hooks: request and response"
+            ],
+            "unexpected_statements": [
+              "HTTPX supports two event hooks: 'request' and 'response'."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 0,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-025",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "advanced",
+      "failures": [
+        {
+          "actual": "rejected (citation_not_found)",
+          "entity_refs": [
+            "EX-025"
+          ],
+          "expected": "provider response passes the extraction contract",
+          "failure_code": "EX03_CITATION_REJECTION",
+          "reason": {
+            "message": "citation_not_found: assertions[0].quote is not an exact document substring",
+            "pipeline_code": "citation_not_found"
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "advanced",
+        "async",
+        "api"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 3,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-026",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "advanced",
+      "failures": [
+        {
+          "actual": "1 missing, 3 unexpected",
+          "entity_refs": [
+            "EX-026"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "MockTransport maps requests onto pre-determined responses during testing"
+            ],
+            "unexpected_statements": [
+              "A mock transport can be conditionally used based on an environment variable.",
+              "HTTPX provides the httpx.MockTransport class for mocking transports during testing.",
+              "Mock transports can be used to return pre-determined responses instead of making actual network requests."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "advanced",
+        "compatibility",
+        "quickstart"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 4,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-027",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "advanced",
+      "failures": [
+        {
+          "actual": "1 missing, 4 unexpected",
+          "entity_refs": [
+            "EX-027"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "A custom CA bundle is passed via the verify parameter"
+            ],
+            "unexpected_statements": [
+              "A custom CA bundle can be supplied as a path to a PEM file.",
+              "A custom CA bundle can be supplied as an SSLContext.",
+              "A custom CA bundle can be supplied using the verify parameter.",
+              "A custom CA bundle is supplied for SSL verification by creating an SSL context with the CA bundle file and passing it to the verify parameter of the HTTPX client."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 1,
+      "retrieved_doc_ids": [
+        "advanced",
+        "contributing",
+        "compatibility"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-028",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "api",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-028"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "Response.elapsed measures the time between sending the request and closing the response"
+            ],
+            "unexpected_statements": [
+              "The Response.elapsed property measures the amount of time elapsed between sending the request and calling close() on the corresponding response received for that request."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "api",
+        "quickstart"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 1,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-029",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "index",
+      "failures": [
+        {
+          "actual": "1 missing, 1 unexpected",
+          "entity_refs": [
+            "EX-029"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "HTTPX 0.24.1 requires Python 3.7 or later"
+            ],
+            "unexpected_statements": [
+              "HTTPX requires Python 3.7+."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "index",
+        "async"
+      ],
+      "status": "fail"
+    },
+    {
+      "actual_assertion_count": 13,
+      "assertion_precision": 0.0,
+      "assertion_recall": 0.0,
+      "case_id": "EX-030",
+      "exact_match": false,
+      "expected_assertion_count": 1,
+      "expected_doc_id": "troubleshooting",
+      "failures": [
+        {
+          "actual": "1 missing, 13 unexpected",
+          "entity_refs": [
+            "EX-030"
+          ],
+          "expected": "extracted assertions exactly match gold assertions",
+          "failure_code": "EX04_ASSERTION_MISMATCH",
+          "reason": {
+            "missing_statements": [
+              "Before 0.26, proxies were configured with a proxies dict mapping schemes to proxy urls"
+            ],
+            "unexpected_statements": [
+              "Before the 0.26 transport mounts style, proxies were configured on httpx.Client using a dictionary mapping URL schemes to proxy URLs.",
+              "Before the 0.26 transport mounts style, proxies were configured on httpx.Client using a dictionary with full URL schemes, such as proxies={\"http://\": ..., \"https://\": ...}.",
+              "For more advanced use cases, pass a proxies `dict` to route different schemes to different proxies.",
+              "HTTP proxying can also be configured through environment variables, although with less fine-grained control.",
+              "HTTPX matches requested URLs against proxy keys to decide which proxy should be used, if any.",
+              "HTTPX supports routing proxies based on **scheme**, **domain**, **port**, or a combination of these.",
+              "HTTPX supports setting up HTTP proxies via the `proxies` parameter to be passed on client initialization.",
+              "It is possible to define requests that _shouldn't_ be routed through proxies by passing `None` as the proxy URL.",
+              "Matching is done from most specific proxy keys (e.g. `https://<domain>:<port>`) to least specific ones (e.g. `https://`).",
+              "Proxy credentials can be passed as the `userinfo` section of the proxy URL.",
+              "The `proxies` dictionary maps URL patterns (\"proxy keys\") to proxy URLs.",
+              "The proxy configuration could be simplified to a single string for both HTTP and HTTPS requests.",
+              "To route all traffic to a proxy, pass the proxy URL to the client."
+            ]
+          },
+          "severity": "major"
+        }
+      ],
+      "retrieval_pass": true,
+      "retrieval_rank": 2,
+      "retrieved_doc_ids": [
+        "advanced",
+        "troubleshooting",
+        "compatibility"
+      ],
+      "status": "fail"
+    }
+  ],
+  "content_hash": "a65dab994aeb3d9550175517fad31f6a1d1b8153de22a414156098bea64ce62b",
+  "corpus_id": "httpx-docs",
+  "critical_failure_count": 0,
+  "failure_counts": {
+    "EX01_RETRIEVAL_MISS": 0,
+    "EX02_CONTRACT_REJECTION": 0,
+    "EX03_CITATION_REJECTION": 3,
+    "EX04_ASSERTION_MISMATCH": 27,
+    "EX05_FIXTURE_DRIFT": 0
+  },
+  "failure_taxonomy": "ex-failures-1",
+  "failures": [
+    {
+      "actual": "rejected (citation_ambiguous)",
+      "entity_refs": [
+        "EX-001"
+      ],
+      "expected": "provider response passes the extraction contract",
+      "failure_code": "EX03_CITATION_REJECTION",
+      "reason": {
+        "message": "citation_ambiguous: assertions[0].quote occurs 2 times",
+        "pipeline_code": "citation_ambiguous"
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "rejected (citation_not_found)",
+      "entity_refs": [
+        "EX-002"
+      ],
+      "expected": "provider response passes the extraction contract",
+      "failure_code": "EX03_CITATION_REJECTION",
+      "reason": {
+        "message": "citation_not_found: assertions[0].quote is not an exact document substring",
+        "pipeline_code": "citation_not_found"
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-003"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "Do not instantiate multiple AsyncClient instances inside a hot loop"
+        ],
+        "unexpected_statements": [
+          "In an async hot loop, you should avoid instantiating multiple client instances, for example by using `async with` inside a \"hot loop\"."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 2 unexpected",
+      "entity_refs": [
+        "EX-004"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "Set trust_env to False to make HTTPX ignore environment variables"
+        ],
+        "unexpected_statements": [
+          "HTTPX can ignore environment variables by setting trust_env to False on the client via httpx.Client(trust_env=False).",
+          "HTTPX can ignore environment variables by setting trust_env to False using the top-level API, such as httpx.get(\"<url>\", trust_env=False)."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-005"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "Response history lists followed redirect responses in order"
+        ],
+        "unexpected_statements": [
+          "The history property of the response contains a list of any redirect responses that were followed, in the order in which they were made."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-006"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "WSGITransport uses remote_addr to set the request client address"
+        ],
+        "unexpected_statements": [
+          "The WSGI transport option that sets the request client address is remote_addr."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-007"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "The scripts/test command runs the HTTPX test suite"
+        ],
+        "unexpected_statements": [
+          "The project script that runs the HTTPX test suite is scripts/test."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "0 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-008"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [],
+        "unexpected_statements": [
+          "HTTPX does not follow redirects by default."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 2 unexpected",
+      "entity_refs": [
+        "EX-009"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "Use an http URL scheme for the proxy instead of https"
+        ],
+        "unexpected_statements": [
+          "The proxy URL for the https:// key should use the http:// scheme.",
+          "The recommended proxy URL scheme for HTTPS destinations is HTTP, not HTTPS, when the proxy does not support HTTPS connections."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-010"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "The zstandard optional dependency enables zstd response decoding"
+        ],
+        "unexpected_statements": [
+          "The optional dependency zstandard enables decoding for zstd compressed responses."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 2 unexpected",
+      "entity_refs": [
+        "EX-011"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "HTTPX default timeout for network inactivity is five seconds"
+        ],
+        "unexpected_statements": [
+          "HTTPX's default behavior is to raise a TimeoutException after 5 seconds of network inactivity.",
+          "HTTPX's default timeout for network inactivity is five seconds."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 2 unexpected",
+      "entity_refs": [
+        "EX-012"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "Complicated request data structures are sent using JSON encoding instead of form encoding"
+        ],
+        "unexpected_statements": [
+          "Complicated JSON request bodies are sent using the json parameter.",
+          "The json parameter is used to send JSON encoded data in HTTPX requests."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-013"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "HTTPX stream iteration normalises all line endings to \\n"
+        ],
+        "unexpected_statements": [
+          "HTTPX will use universal line endings, normalising all cases to \\n."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "2 missing, 11 unexpected",
+      "entity_refs": [
+        "EX-014"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "Streaming responses are consumed inside a with block without loading the whole body into memory",
+          "response.content and response.text are unavailable inside a streaming block"
+        ],
+        "unexpected_statements": [
+          "HTTPX allows conditional loading of the response body by calling r.read() within a streaming context.",
+          "HTTPX can access raw bytes without automatic content decoding using iter_raw().",
+          "HTTPX can stream text line-by-line using the iter_lines() method.",
+          "HTTPX can stream the binary content of a response using the iter_bytes() method.",
+          "HTTPX can stream the text of a response using the iter_text() method.",
+          "HTTPX normalizes line endings to '\\n' when streaming text.",
+          "HTTPX supports monitoring download progress of large responses using response streaming and the response.num_bytes_downloaded property.",
+          "HTTPX supports monitoring upload progress of large responses using request content generator streaming.",
+          "HTTPX supports streaming responses for large downloads that do not load the entire response body into memory at once.",
+          "The total number of bytes returned by response.content or response.iter_content() will not always correspond with the raw content length of the response if HTTP response compression is being used.",
+          "When using streaming responses, the response.content and response.text attributes are not available and will raise errors if accessed."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 3 unexpected",
+      "entity_refs": [
+        "EX-015"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "HTTPX supports asyncio and trio as async environments"
+        ],
+        "unexpected_statements": [
+          "HTTPX auto-detects which of asyncio or trio to use as the backend for socket operations and concurrency primitives.",
+          "HTTPX supports async environments.",
+          "HTTPX supports either asyncio or trio as an async environment."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-016"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "An AsyncClient can be closed explicitly with await client.aclose()"
+        ],
+        "unexpected_statements": [
+          "An AsyncClient can be closed explicitly using the await client.aclose() method."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 2 unexpected",
+      "entity_refs": [
+        "EX-017"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "HTTPX does not follow redirects by default, unlike requests"
+        ],
+        "unexpected_statements": [
+          "HTTPX does not follow redirects by default for all HTTP methods.",
+          "HTTPX does not follow redirects by default."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-018"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "HTTPX encodes str request bodies as utf-8, not latin1 like Requests"
+        ],
+        "unexpected_statements": [
+          "HTTPX does not encode string request bodies as latin1 like Requests; it uses utf-8."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 2 unexpected",
+      "entity_refs": [
+        "EX-019"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "Cookies must be set on the client instance, not passed per request"
+        ],
+        "unexpected_statements": [
+          "Cookies can be passed per request on a Client instance.",
+          "Cookies cannot be passed per request on a Client instance."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-020"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "NO_PROXY disables the proxy for a comma-separated list of hostnames and urls"
+        ],
+        "unexpected_statements": [
+          "The NO_PROXY environment variable disables the proxy for specific urls."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 3 unexpected",
+      "entity_refs": [
+        "EX-021"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "Environment variables are ignored when trust_env is set to False"
+        ],
+        "unexpected_statements": [
+          "HTTPX can be configured to ignore environment variables by setting trust_env to False.",
+          "HTTPX can ignore environment variables by setting trust_env=False on the client via httpx.Client(trust_env=False).",
+          "HTTPX can ignore environment variables by setting trust_env=False using the top-level API, such as httpx.get(\"<url>\", trust_env=False)."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 5 unexpected",
+      "entity_refs": [
+        "EX-022"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "HTTPX does not properly support HTTPS proxies at this time"
+        ],
+        "unexpected_statements": [
+          "HTTPX does not properly support HTTPS proxies at this time.",
+          "HTTPX supports HTTPS proxies.",
+          "HTTPX supports HTTPS proxies.",
+          "HTTPX supports HTTPS proxies.",
+          "HTTPX supports setting up HTTP proxies via the proxy parameter."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-023"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "HTTPS proxy handshake timeouts are fixed by changing the proxy scheme from https:// to http://"
+        ],
+        "unexpected_statements": [
+          "The proxy handshake timeout on HTTPS requests is resolved by changing the scheme of the HTTPS proxy to http:// instead of https://."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "2 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-024"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "Client event hooks are called every time a particular type of event takes place",
+          "HTTPX currently has two event hooks: request and response"
+        ],
+        "unexpected_statements": [
+          "HTTPX supports two event hooks: 'request' and 'response'."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "rejected (citation_not_found)",
+      "entity_refs": [
+        "EX-025"
+      ],
+      "expected": "provider response passes the extraction contract",
+      "failure_code": "EX03_CITATION_REJECTION",
+      "reason": {
+        "message": "citation_not_found: assertions[0].quote is not an exact document substring",
+        "pipeline_code": "citation_not_found"
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 3 unexpected",
+      "entity_refs": [
+        "EX-026"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "MockTransport maps requests onto pre-determined responses during testing"
+        ],
+        "unexpected_statements": [
+          "A mock transport can be conditionally used based on an environment variable.",
+          "HTTPX provides the httpx.MockTransport class for mocking transports during testing.",
+          "Mock transports can be used to return pre-determined responses instead of making actual network requests."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 4 unexpected",
+      "entity_refs": [
+        "EX-027"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "A custom CA bundle is passed via the verify parameter"
+        ],
+        "unexpected_statements": [
+          "A custom CA bundle can be supplied as a path to a PEM file.",
+          "A custom CA bundle can be supplied as an SSLContext.",
+          "A custom CA bundle can be supplied using the verify parameter.",
+          "A custom CA bundle is supplied for SSL verification by creating an SSL context with the CA bundle file and passing it to the verify parameter of the HTTPX client."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-028"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "Response.elapsed measures the time between sending the request and closing the response"
+        ],
+        "unexpected_statements": [
+          "The Response.elapsed property measures the amount of time elapsed between sending the request and calling close() on the corresponding response received for that request."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 1 unexpected",
+      "entity_refs": [
+        "EX-029"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "HTTPX 0.24.1 requires Python 3.7 or later"
+        ],
+        "unexpected_statements": [
+          "HTTPX requires Python 3.7+."
+        ]
+      },
+      "severity": "major"
+    },
+    {
+      "actual": "1 missing, 13 unexpected",
+      "entity_refs": [
+        "EX-030"
+      ],
+      "expected": "extracted assertions exactly match gold assertions",
+      "failure_code": "EX04_ASSERTION_MISMATCH",
+      "reason": {
+        "missing_statements": [
+          "Before 0.26, proxies were configured with a proxies dict mapping schemes to proxy urls"
+        ],
+        "unexpected_statements": [
+          "Before the 0.26 transport mounts style, proxies were configured on httpx.Client using a dictionary mapping URL schemes to proxy URLs.",
+          "Before the 0.26 transport mounts style, proxies were configured on httpx.Client using a dictionary with full URL schemes, such as proxies={\"http://\": ..., \"https://\": ...}.",
+          "For more advanced use cases, pass a proxies `dict` to route different schemes to different proxies.",
+          "HTTP proxying can also be configured through environment variables, although with less fine-grained control.",
+          "HTTPX matches requested URLs against proxy keys to decide which proxy should be used, if any.",
+          "HTTPX supports routing proxies based on **scheme**, **domain**, **port**, or a combination of these.",
+          "HTTPX supports setting up HTTP proxies via the `proxies` parameter to be passed on client initialization.",
+          "It is possible to define requests that _shouldn't_ be routed through proxies by passing `None` as the proxy URL.",
+          "Matching is done from most specific proxy keys (e.g. `https://<domain>:<port>`) to least specific ones (e.g. `https://`).",
+          "Proxy credentials can be passed as the `userinfo` section of the proxy URL.",
+          "The `proxies` dictionary maps URL patterns (\"proxy keys\") to proxy URLs.",
+          "The proxy configuration could be simplified to a single string for both HTTP and HTTPS requests.",
+          "To route all traffic to a proxy, pass the proxy URL to the client."
+        ]
+      },
+      "severity": "major"
+    }
+  ],
+  "fixture_id": "live-recording:deepseek-v4-flash",
+  "m1_2a_acceptance_candidate": false,
+  "major_failure_count": 30,
+  "metrics": {
+    "assertion_micro_precision": 0.014492753623188406,
+    "assertion_micro_recall": 0.03125,
+    "citation_exact_alignment": 0.9,
+    "mean_reciprocal_rank": 0.7222222222222221,
+    "retrieval_hit_at_k": 1.0
+  },
+  "model_id": "deepseek-v4-flash",
+  "passed_case_count": 0,
+  "prompt_version": "httpx-extractor-2",
+  "schema_version": "evidence-assertion-2"
+}
